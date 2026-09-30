@@ -8,7 +8,7 @@ import { MercadoLivrePublicAdapter } from '@nestaffiliate/integrations';
 import { campaignFilename, renderPin } from '@nestaffiliate/creative-engine';
 import { FEATURE_FLAGS, KILL_SWITCHES } from '@nestaffiliate/config';
 import { createTranslator, type Locale } from './lib/i18n';
-import { demoCampaigns, initialBoards, products as demoProducts } from './lib/demo';
+import { demoCampaigns, initialBoards } from './lib/demo';
 import { useAuth } from './lib/auth';
 import { db } from './lib/firebase';
 import { listCampaigns, saveCampaign } from './services/campaignRepository';
@@ -343,6 +343,16 @@ function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Camp
   const campaign = campaigns.find((c) => c.id === id)!;
   const [command, setCommand] = useState('');
   const [saved, setSaved] = useState(true);
+  const [affiliateDraft, setAffiliateDraft] = useState('');
+  const [affiliateError, setAffiliateError] = useState('');
+  const [swapOptions, setSwapOptions] = useState<ProductTruth[]>([]);
+  const [swapLoading, setSwapLoading] = useState(false);
+
+  useEffect(() => {
+    setAffiliateDraft(campaign?.currentVersion.product.affiliateUrl?.value ?? '');
+    setAffiliateError('');
+  }, [campaign?.currentVersion.id]);
+
   if (!campaign) return <Navigate to="/campaigns" replace />;
   const v = campaign.currentVersion;
 
@@ -377,9 +387,52 @@ function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Camp
     setSaved(true);
   }
 
-  function swap() {
-    const other = demoProducts.find((p) => p.productId !== v.product.productId) ?? demoProducts[0]!;
-    update(nextCampaignVersion(campaign, { product: { ...other, organizationId: campaign.organizationId } }, 'product swap'));
+  function saveAffiliateLink() {
+    try {
+      const url = new URL(affiliateDraft.trim());
+      if (url.protocol !== 'https:') throw new Error('https');
+      const product: ProductTruth = {
+        ...v.product,
+        affiliateUrl: {
+          value: url.toString(),
+          source: 'user-provided',
+          observedAt: new Date().toISOString(),
+        },
+      };
+      update(nextCampaignVersion(campaign, { product }, 'affiliate link updated'));
+      setAffiliateError('');
+      setSaved(true);
+    } catch {
+      setAffiliateError('Cole um link afiliado HTTPS válido.');
+    }
+  }
+
+  async function loadSwaps() {
+    setSwapLoading(true);
+    setSwapOptions([]);
+    try {
+      const alternatives = await marketplaceAdapter.search({
+        organizationId: campaign.organizationId,
+        query: v.keyword,
+        limit: 8,
+      });
+      setSwapOptions(alternatives.filter((item) => item.externalId !== v.product.externalId));
+    } catch {
+      setAffiliateError('Não foi possível buscar alternativas agora.');
+    } finally {
+      setSwapLoading(false);
+    }
+  }
+
+  function chooseSwap(product: ProductTruth) {
+    const versioned = nextCampaignVersion(
+      campaign,
+      { product: { ...product, organizationId: campaign.organizationId } },
+      'product swap',
+    );
+    update({ ...versioned, marketplace: product.marketplace });
+    setSwapOptions([]);
+    setAffiliateDraft('');
   }
 
   function approve() {
@@ -412,6 +465,23 @@ function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Camp
             <h3>{v.product.title.value}</h3>
             <p className="muted">{campaign.marketplace} · {v.product.sellerName?.value ?? 'Seller não informado'}</p>
             <small>Fonte: {v.product.title.source} · {new Date(v.product.title.observedAt).toLocaleString('pt-BR')}</small>
+            <div className="affiliate-editor">
+              <label>{campaign.marketplace === 'MELI' ? 'Link afiliado obrigatório' : 'Link afiliado / marcação oficial'}</label>
+              <div className="inline-editor">
+                <input
+                  value={affiliateDraft}
+                  onChange={(e) => { setAffiliateDraft(e.target.value); setSaved(false); }}
+                  placeholder="https://..."
+                  inputMode="url"
+                  aria-label="Link afiliado"
+                />
+                <button className="button secondary" onClick={saveAffiliateLink}>Validar link</button>
+              </div>
+              {affiliateError && <p className="field-error">{affiliateError}</p>}
+              {!v.product.affiliateUrl && campaign.marketplace === 'MELI' && (
+                <p className="field-hint">A publicação fica bloqueada até existir um link afiliado válido.</p>
+              )}
+            </div>
           </Disclosure>
           <Disclosure title="Por que escolhemos" defaultOpen>
             <ul>{campaign.score.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
@@ -431,10 +501,22 @@ function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Camp
             <button className="button secondary" onClick={() => document.getElementById('ai-edit')?.focus()}>Editar</button>
           </div>
           <div className="minor-actions">
-            <button onClick={swap}>Trocar produto</button>
+            <button onClick={() => void loadSwaps()}>{swapLoading ? 'Buscando…' : 'Trocar produto'}</button>
             <button onClick={() => applyEdit('Refaz tudo')}>Refazer</button>
             <button onClick={() => update({ ...campaign, status: 'REJECTED' })}>Descartar</button>
           </div>
+          {swapOptions.length > 0 && (
+            <div className="swap-panel">
+              <div className="section-heading"><h3>Melhores alternativas</h3><button className="text-button" onClick={() => setSwapOptions([])}>Fechar</button></div>
+              {swapOptions.slice(0, 4).map((product, index) => (
+                <button className="swap-option" key={product.externalId} onClick={() => chooseSwap(product)}>
+                  <span>{index === 0 ? 'Recomendado' : index === 1 ? 'Mais barato' : 'Alternativa'}</span>
+                  <strong>{product.title.value}</strong>
+                  <em>{product.price ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:product.currency.value}).format(product.price.value) : 'Preço não informado'}</em>
+                </button>
+              ))}
+            </div>
+          )}
         </section>
       </div>
       <div className="ai-bar">
@@ -493,6 +575,18 @@ function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Cam
   ];
 
   async function copy(text: string) { await navigator.clipboard.writeText(text); }
+
+  async function downloadImage() {
+    const canvas = document.createElement('canvas');
+    const dataUrl = await renderPin(canvas, v);
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = pkg.filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
   function markPublished() { update({ ...campaign, status: 'PUBLISHED' }); }
 
   return (
@@ -505,6 +599,7 @@ function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Cam
       <div className="publish-grid">
         <PinPreview campaign={campaign} />
         <section className="package-card">
+          <button className="button primary download-button" onClick={() => void downloadImage()}>Baixar imagem PNG</button>
           <Field label="Arquivo" value={pkg.filename} onCopy={() => copy(pkg.filename)} />
           <Field label="Título" value={pkg.title} onCopy={() => copy(pkg.title)} />
           <Field label="Descrição" value={pkg.description} onCopy={() => copy(`${pkg.description}\n\n${pkg.disclosure}`)} />
