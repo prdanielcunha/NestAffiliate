@@ -83,7 +83,7 @@ export class MercadoLivrePublicAdapter implements ProductAdapter {
       sellerName: item.seller?.nickname ? { value: String(item.seller.nickname), source: 'mercadolibre-public-api', observedAt: now } : undefined,
       availability: { value: 'available', source: 'mercadolibre-public-api', observedAt: now },
       imageUrl: item.thumbnail ? { value: String(item.thumbnail).replace('http://', 'https://'), source: 'mercadolibre-public-api', observedAt: now } : undefined,
-      assetRights: 'PLATFORM_PROVIDED',
+      assetRights: 'UNKNOWN',
     }));
   }
 }
