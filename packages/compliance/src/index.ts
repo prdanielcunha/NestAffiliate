@@ -47,6 +47,31 @@ export function runPublishingGuard(input: GuardInput): GuardResult {
     push('link', 'BLOCK', 'Link de destino inválido.');
   }
 
+  const affiliateUrl = input.product.affiliateUrl?.value;
+  if (input.product.marketplace === 'MELI') {
+    let affiliateValid = false;
+    if (affiliateUrl) {
+      try {
+        affiliateValid = new URL(affiliateUrl).protocol === 'https:';
+      } catch {
+        affiliateValid = false;
+      }
+    }
+    push(
+      'affiliate-link',
+      affiliateValid ? 'PASS' : 'BLOCK',
+      affiliateValid
+        ? 'Link afiliado do Mercado Livre validado.'
+        : 'Adicione um link afiliado válido antes de publicar.',
+    );
+  } else if (input.product.marketplace === 'SHOPEE' && !affiliateUrl) {
+    push(
+      'affiliate-link',
+      'WARN',
+      'Confirme a marcação oficial do produto Shopee no Pinterest antes de publicar.',
+    );
+  }
+
   push(
     'asset-rights',
     ['AUTHORIZED', 'PLATFORM_PROVIDED', 'USER_PROVIDED', 'GENERATED'].includes(input.product.assetRights)
