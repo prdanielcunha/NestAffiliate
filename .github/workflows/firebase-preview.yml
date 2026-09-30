@@ -56,7 +56,7 @@ jobs:
         run: pnpm build
 
       - name: Deploy preview Hosting
-        run: firebase deploy --only hosting --project "$FIREBASE_PROJECT" --non-interactive
+        run: pnpm dlx firebase-tools@15.26.0 deploy --only hosting --project "$FIREBASE_PROJECT" --non-interactive
 
       - name: Smoke
         shell: bash
