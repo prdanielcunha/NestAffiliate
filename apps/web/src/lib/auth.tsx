@@ -33,8 +33,19 @@ async function resolveWorkspace(user: User): Promise<{ organizationId: string; r
     (Array.isArray(profile.organizations) ? profile.organizations[0] : null);
   if (!organizationId || typeof organizationId !== 'string') return null;
 
+  const organizationSnap = await getDoc(doc(db, 'organizations', organizationId));
+  if (!organizationSnap.exists()) return null;
+
   const systemRole = String(profile.systemRole ?? profile.globalRole ?? '').toLowerCase();
   if (globalRoles.has(systemRole)) return { organizationId, role: 'owner' };
+
+  const organization = organizationSnap.data() as Record<string, any>;
+  const nestAffiliateAccess = organization.apps?.nestaffiliate;
+  const entitlementActive =
+    nestAffiliateAccess === true ||
+    ['active', 'trialing'].includes(String(nestAffiliateAccess?.status ?? '').toLowerCase()) ||
+    nestAffiliateAccess?.enabled === true;
+  if (!entitlementActive) return null;
 
   const nested = await getDoc(doc(db, 'organizations', organizationId, 'members', user.uid));
   if (nested.exists()) {
