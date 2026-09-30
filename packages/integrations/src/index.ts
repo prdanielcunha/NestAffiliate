@@ -106,3 +106,86 @@ export function attachManualAffiliateLink(input: ManualAffiliateLinkInput): Prod
     },
   };
 }
+
+
+export interface ManualProductInput {
+  organizationId: string;
+  marketplace: 'SHOPEE' | 'MELI';
+  externalId?: string;
+  title: string;
+  productUrl: string;
+  affiliateUrl?: string;
+  price?: number;
+  currency?: string;
+  imageUrl?: string;
+  assetRights?: ProductTruth['assetRights'];
+}
+
+export function createManualProductTruth(input: ManualProductInput): ProductTruth {
+  const productUrl = new URL(input.productUrl);
+  if (productUrl.protocol !== 'https:') throw new Error('PRODUCT_URL_MUST_BE_HTTPS');
+  let affiliateUrl: ProductTruth['affiliateUrl'];
+  if (input.affiliateUrl?.trim()) {
+    const parsed = new URL(input.affiliateUrl.trim());
+    if (parsed.protocol !== 'https:') throw new Error('AFFILIATE_URL_MUST_BE_HTTPS');
+    affiliateUrl = { value: parsed.toString(), source: 'user-provided', observedAt: new Date().toISOString() };
+  }
+  const now = new Date().toISOString();
+  return {
+    productId: `${input.marketplace.toLowerCase()}:manual:${input.externalId ?? crypto.randomUUID()}`,
+    organizationId: input.organizationId,
+    marketplace: input.marketplace,
+    externalId: input.externalId ?? `manual-${Date.now()}`,
+    title: { value: input.title.trim(), source: 'user-provided', observedAt: now },
+    url: { value: productUrl.toString(), source: 'user-provided', observedAt: now },
+    affiliateUrl,
+    price: typeof input.price === 'number' && Number.isFinite(input.price)
+      ? { value: Math.max(0, input.price), source: 'user-provided', observedAt: now }
+      : undefined,
+    currency: { value: input.currency?.trim() || 'BRL', source: 'user-provided', observedAt: now },
+    availability: { value: 'unknown', source: 'user-provided', observedAt: now },
+    imageUrl: input.imageUrl?.trim()
+      ? { value: input.imageUrl.trim(), source: 'user-provided', observedAt: now }
+      : undefined,
+    assetRights: input.assetRights ?? 'UNKNOWN',
+  };
+}
+
+export type PinterestAccessTier = 'NONE' | 'TRIAL' | 'STANDARD';
+
+export interface PinterestConnectionState {
+  connected: boolean;
+  accessTier: PinterestAccessTier;
+  scopes: string[];
+  expiresAt?: string;
+  accountName?: string;
+}
+
+export function canUsePinterestAnalytics(state: PinterestConnectionState) {
+  return state.connected && ['TRIAL', 'STANDARD'].includes(state.accessTier) &&
+    state.scopes.includes('pins:read');
+}
+
+export function canPublishPublicPinterestPin(state: PinterestConnectionState) {
+  return state.connected && state.accessTier === 'STANDARD' &&
+    state.scopes.includes('pins:write');
+}
+
+export function pinterestOAuthScopes() {
+  return ['boards:read', 'boards:write', 'pins:read', 'pins:write', 'user_accounts:read'];
+}
+
+export interface PinterestBackendBroker {
+  beginOAuth(returnTo: string): Promise<{ authorizationUrl: string }>;
+  listBoards(): Promise<Array<{ id: string; name: string }>>;
+  readPinAnalytics(pinId: string, startDate: string, endDate: string): Promise<Record<string, number>>;
+  publishApprovedPin(input: {
+    approvalEventId: string;
+    boardId: string;
+    title: string;
+    description: string;
+    link: string;
+    altText: string;
+    mediaUrl: string;
+  }): Promise<{ pinId: string; url?: string }>;
+}
