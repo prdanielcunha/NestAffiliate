@@ -1,0 +1,81 @@
+name: NestAffiliate Firebase Preview
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: nestaffiliate-firebase-preview
+  cancel-in-progress: true
+
+env:
+  FIREBASE_PROJECT: millionsnest
+  FIREBASE_SITE: mn-nestaffiliate-555464791734
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-infra-admin@millionsnest.iam.gserviceaccount.com
+
+      - name: Ensure Hosting site
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install -g firebase-tools@15.26.0
+          if firebase hosting:sites:list --project "$FIREBASE_PROJECT" | grep -q "$FIREBASE_SITE"; then
+            echo "SITE_EXISTS=$FIREBASE_SITE"
+          else
+            firebase hosting:sites:create "$FIREBASE_SITE" --project "$FIREBASE_PROJECT"
+            echo "SITE_CREATED=$FIREBASE_SITE"
+          fi
+
+      - name: Install
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Validate
+        run: pnpm ci
+
+      - name: Build production assets
+        env:
+          VITE_FIREBASE_API_KEY: AIzaSyAhXY8TV8qoXz8Pd2u5jFHUTVssZmi3kMs
+          VITE_FIREBASE_AUTH_DOMAIN: millionsnest.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: millionsnest
+          VITE_FIREBASE_STORAGE_BUCKET: millionsnest.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "555464791734"
+          VITE_FIREBASE_APP_ID: "1:555464791734:web:3059e8ac2b8089a1767817"
+          VITE_APP_URL: https://nestaffiliate.millionsnest.com
+          VITE_HUB_URL: https://www.millionsnest.com
+          VITE_DEMO_DATA_ENABLED: "false"
+          VITE_PAID_SERVICES_DISABLED: "true"
+        run: pnpm build
+
+      - name: Deploy preview Hosting
+        run: firebase deploy --only hosting --project "$FIREBASE_PROJECT" --non-interactive
+
+      - name: Smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://$FIREBASE_SITE.web.app"
+          curl --fail --silent --show-error --location --retry 8 --retry-delay 2 "$BASE/" -o /tmp/nestaffiliate.html
+          grep -Eiq '<!doctype html|<html' /tmp/nestaffiliate.html
+          echo "NESTAFFILIATE_PREVIEW_OK=$BASE"
