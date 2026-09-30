@@ -116,6 +116,42 @@ export function canAdmin(role: Role) {
   return role === 'owner' || role === 'admin';
 }
 
+export interface ProductOffer {
+  id: string;
+  organizationId: string;
+  productId: string;
+  marketplace: Marketplace;
+  url: TruthValue<string>;
+  affiliateUrl?: TruthValue<string>;
+  price?: TruthValue<number>;
+  commissionRate?: TruthValue<number>;
+  availability: TruthValue<'available' | 'unavailable' | 'unknown'>;
+}
+
+export interface ApprovalEvent {
+  id: string;
+  organizationId: string;
+  campaignId: string;
+  campaignVersion: number;
+  actorId: string;
+  decision: 'APPROVED' | 'REJECTED' | 'EDITED' | 'SWAPPED' | 'RESTORED';
+  createdAt: string;
+  note?: string;
+}
+
+export interface Publication {
+  id: string;
+  organizationId: string;
+  campaignId: string;
+  campaignVersion: number;
+  channel: 'PINTEREST';
+  status: 'GUIDED_READY' | 'PUBLISHED' | 'FAILED';
+  externalId?: string;
+  externalUrl?: string;
+  publishedAt?: string;
+  source: 'GUIDED' | 'PINTEREST_API';
+}
+
 export function nextCampaignVersion(
   campaign: Campaign,
   patch: Partial<Pick<CampaignVersion, 'product' | 'narrative' | 'boardName' | 'keyword' | 'template'>>,
@@ -130,5 +166,32 @@ export function nextCampaignVersion(
     createdAt: new Date().toISOString(),
     reason,
   };
-  return { ...campaign, currentVersion: next, history: [...campaign.history, next] };
+  const hasPrevious = campaign.history.some((item) => item.id === previous.id);
+  const history = hasPrevious ? campaign.history : [...campaign.history, previous];
+  return { ...campaign, currentVersion: next, history };
+}
+
+export function restoreCampaignVersion(campaign: Campaign, version: number): Campaign {
+  const source =
+    campaign.currentVersion.version === version
+      ? campaign.currentVersion
+      : campaign.history.find((item) => item.version === version);
+  if (!source) throw new Error('CAMPAIGN_VERSION_NOT_FOUND');
+  return nextCampaignVersion(
+    campaign,
+    {
+      product: source.product,
+      narrative: source.narrative,
+      boardName: source.boardName,
+      keyword: source.keyword,
+      template: source.template,
+    },
+    `restore v${version}`,
+  );
+}
+
+export function campaignVersions(campaign: Campaign) {
+  return [...campaign.history, campaign.currentVersion]
+    .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index)
+    .sort((a, b) => b.version - a.version);
 }
