@@ -6,7 +6,7 @@ test('Today → Review → edit → approve → guided publish', async ({ page }
 
   await page.getByRole('link', { name: /Revisar 3 campanhas/i }).click();
   await expect(page.getByText('PIN PREVIEW')).toBeVisible();
-  await expect(page.getByText(/NestScore/)).toBeVisible();
+  await expect(page.locator('.score-badge')).toBeVisible();
 
   const edit = page.getByPlaceholder(/Peça qualquer alteração/i);
   await edit.fill('mais premium');
