@@ -1,0 +1,123 @@
+name: NestAffiliate Production
+
+on:
+  push:
+    branches: [production]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: nestaffiliate-production
+  cancel-in-progress: false
+
+env:
+  FIREBASE_PROJECT: millionsnest
+  FIREBASE_SITE: mn-nestaffiliate-555464791734
+  LIVE_DOMAIN: nestaffiliate.millionsnest.com
+
+jobs:
+  certify-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Authenticate to MillionsNest Firebase
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
+
+      - name: Install
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Lint typecheck unit and build gate
+        run: pnpm run ci
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: E2E gate
+        run: pnpm e2e --project=mobile && pnpm e2e --project=desktop
+
+      - name: Resolve Firebase web configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="$(gcloud auth print-access-token)"
+          APPS="$(curl --fail --silent --show-error             -H "Authorization: Bearer $TOKEN"             "https://firebase.googleapis.com/v1beta1/projects/$FIREBASE_PROJECT/webApps")"
+          APP_NAME="$(jq -r '.apps[] | select(.displayName == "MillionsNest" or .displayName == "millionsnest") | .name' <<<"$APPS" | head -n1)"
+          if [ -z "$APP_NAME" ]; then
+            APP_NAME="$(jq -r '.apps[0].name // empty' <<<"$APPS")"
+          fi
+          test -n "$APP_NAME"
+          CONFIG="$(curl --fail --silent --show-error             -H "Authorization: Bearer $TOKEN"             "https://firebase.googleapis.com/v1beta1/$APP_NAME/config")"
+
+          {
+            echo "VITE_FIREBASE_API_KEY=$(jq -r '.apiKey' <<<"$CONFIG")"
+            echo "VITE_FIREBASE_AUTH_DOMAIN=$(jq -r '.authDomain' <<<"$CONFIG")"
+            echo "VITE_FIREBASE_PROJECT_ID=$FIREBASE_PROJECT"
+            echo "VITE_FIREBASE_STORAGE_BUCKET=$(jq -r '.storageBucket' <<<"$CONFIG")"
+            echo "VITE_FIREBASE_MESSAGING_SENDER_ID=$(jq -r '.messagingSenderId' <<<"$CONFIG")"
+            echo "VITE_FIREBASE_APP_ID=$(jq -r '.appId' <<<"$CONFIG")"
+            echo "VITE_APP_URL=https://$LIVE_DOMAIN"
+            echo "VITE_HUB_URL=https://www.millionsnest.com"
+            echo "VITE_DEMO_DATA_ENABLED=false"
+            echo "VITE_E2E_MOCK_AUTH=false"
+            echo "VITE_PAID_SERVICES_DISABLED=true"
+            echo "VITE_PINTEREST_API_ENABLED=false"
+            echo "VITE_PINTEREST_STANDARD_ACCESS=false"
+            echo "VITE_PINTEREST_AUTO_PUBLISH=false"
+            echo "VITE_PINTEREST_TRENDS_API=false"
+            echo "VITE_MELI_ENABLED=true"
+            echo "VITE_SHOPEE_ENABLED=true"
+            echo "VITE_AMAZON_ENABLED=false"
+            echo "VITE_GEMINI_FREE_ENABLED=false"
+            echo "VITE_OPENAI_API_ENABLED=false"
+            echo "VITE_OPENAI_IMAGE_ENABLED=false"
+            echo "VITE_OPENAI_EDIT_ENABLED=false"
+            echo "VITE_INTERNATIONAL_ENABLED=false"
+          } >> "$GITHUB_ENV"
+
+      - name: Build production assets
+        run: pnpm build
+
+      - name: Deploy Firebase Hosting
+        run: pnpm dlx firebase-tools@15.26.0 deploy --only hosting --project "$FIREBASE_PROJECT" --non-interactive
+
+      - name: Smoke Firebase fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://$FIREBASE_SITE.web.app"
+          ok=false
+          for attempt in $(seq 1 20); do
+            code="$(curl --silent --show-error --location --output /tmp/na-prod.html --write-out '%{http_code}' "$BASE/" || true)"
+            if [ "$code" = "200" ] && grep -Eiq '<!doctype html|<html' /tmp/na-prod.html; then
+              ok=true
+              break
+            fi
+            sleep 3
+          done
+          test "$ok" = "true"
+          echo "NESTAFFILIATE_PRODUCTION_FALLBACK_OK=$BASE"
+
+      - name: Probe official domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          if curl --fail --silent --show-error --location --connect-timeout 8 --max-time 20             "https://$LIVE_DOMAIN/" -o /tmp/na-domain.html 2>/dev/null &&
+            grep -Eiq '<!doctype html|<html' /tmp/na-domain.html; then
+            echo "NESTAFFILIATE_OFFICIAL_DOMAIN_OK=https://$LIVE_DOMAIN"
+          else
+            echo "NESTAFFILIATE_OFFICIAL_DOMAIN_PENDING_CERT_OR_DNS=true"
+          fi
