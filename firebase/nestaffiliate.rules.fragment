@@ -1,0 +1,66 @@
+// NestAffiliate additive fragment for the canonical MillionsNest Firestore ruleset.
+// This file is NOT a complete ruleset and must never be deployed by itself over the shared project.
+//
+// Required helper functions in the canonical ruleset:
+//
+// function nestAffiliateRole(orgId) {
+//   let memberData = getMemberPermissions(orgId);
+//   return isSystemAdmin() ? 'owner' :
+//     (memberData != null ? memberData.get('role', memberData.get('organizationRole', 'viewer')) : 'viewer');
+// }
+//
+// function nestAffiliateCanRead(orgId) {
+//   return isAuthenticated() && checkOrgReadAccess(orgId);
+// }
+//
+// function nestAffiliateCanEdit(orgId) {
+//   return isAuthenticated() && checkOrgAccess(orgId) &&
+//     (isSystemAdmin() || nestAffiliateRole(orgId) in ['owner', 'admin', 'editor']);
+// }
+//
+// function nestAffiliateCanAdmin(orgId) {
+//   return isAuthenticated() && checkOrgAccess(orgId) &&
+//     (isSystemAdmin() || nestAffiliateRole(orgId) in ['owner', 'admin']);
+// }
+//
+// function nestAffiliateTenantCreate(orgId) {
+//   return request.resource.data.get('organizationId', '') == orgId;
+// }
+//
+// function nestAffiliateTenantUnchanged(orgId) {
+//   return resource.data.get('organizationId', '') == orgId &&
+//     request.resource.data.get('organizationId', '') == orgId;
+// }
+//
+// Place inside match /organizations/{orgId}:
+//
+// match /products/nestaffiliate {
+//   allow read: if nestAffiliateCanRead(orgId);
+//   allow create, update, delete: if false;
+//
+//   match /campaigns/{campaignId} {
+//     allow read: if nestAffiliateCanRead(orgId);
+//     allow create: if nestAffiliateCanEdit(orgId) && nestAffiliateTenantCreate(orgId);
+//     allow update: if nestAffiliateCanEdit(orgId) && nestAffiliateTenantUnchanged(orgId);
+//     allow delete: if nestAffiliateCanAdmin(orgId);
+//   }
+//
+//   match /{collectionName}/{documentId} {
+//     allow read: if nestAffiliateCanRead(orgId);
+//     allow create: if nestAffiliateCanEdit(orgId) && nestAffiliateTenantCreate(orgId);
+//     allow update: if nestAffiliateCanEdit(orgId) && nestAffiliateTenantUnchanged(orgId);
+//     allow delete: if nestAffiliateCanAdmin(orgId);
+//   }
+//
+//   match /auditEvents/{eventId} {
+//     allow read: if nestAffiliateCanAdmin(orgId);
+//     allow create: if nestAffiliateCanEdit(orgId) && nestAffiliateTenantCreate(orgId);
+//     allow update, delete: if false;
+//   }
+//
+//   match /providerConnections/{connectionId} {
+//     // Tokens/secrets never live in client-readable Firestore documents.
+//     allow read: if nestAffiliateCanAdmin(orgId);
+//     allow create, update, delete: if false;
+//   }
+// }
