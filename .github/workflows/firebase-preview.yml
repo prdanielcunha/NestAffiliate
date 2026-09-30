@@ -63,6 +63,15 @@ jobs:
         run: |
           set -euo pipefail
           BASE="https://$FIREBASE_SITE.web.app"
-          curl --fail --silent --show-error --location --retry 8 --retry-delay 2 "$BASE/" -o /tmp/nestaffiliate.html
-          grep -Eiq '<!doctype html|<html' /tmp/nestaffiliate.html
+          ok=false
+          for attempt in $(seq 1 15); do
+            status="$(curl --silent --show-error --location --output /tmp/nestaffiliate.html --write-out '%{http_code}' "$BASE/" || true)"
+            if [ "$status" = "200" ] && grep -Eiq '<!doctype html|<html' /tmp/nestaffiliate.html; then
+              ok=true
+              break
+            fi
+            echo "SMOKE_WAIT attempt=$attempt status=$status"
+            sleep 3
+          done
+          test "$ok" = "true"
           echo "NESTAFFILIATE_PREVIEW_OK=$BASE"
