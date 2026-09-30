@@ -10,6 +10,8 @@ import { FEATURE_FLAGS, KILL_SWITCHES } from '@nestaffiliate/config';
 import { createTranslator, type Locale } from './lib/i18n';
 import { demoCampaigns, initialBoards, products as demoProducts } from './lib/demo';
 import { useAuth } from './lib/auth';
+import { db } from './lib/firebase';
+import { listCampaigns, saveCampaign } from './services/campaignRepository';
 
 const marketplaceAdapter = new MercadoLivrePublicAdapter();
 const STORAGE_KEY = 'nestaffiliate_campaigns_v1';
@@ -563,7 +565,7 @@ function ProgressSteps() { return <div className="progress-steps"><span>Comparan
 
 export function App() {
   const auth = useAuth();
-  const store = useCampaignStore();
+  const store = useCampaignStore(auth.organizationId);
   const [locale,setLocale] = useState<Locale>(() => (localStorage.getItem('na_locale') as Locale) || 'pt-BR');
   useEffect(() => localStorage.setItem('na_locale', locale), [locale]);
 
