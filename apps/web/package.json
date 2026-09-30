@@ -19,6 +19,9 @@
     "firebase": "^12.3.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.9.1"
+    "react-router-dom": "^7.9.1",
+    "@nestaffiliate/radar": "workspace:*",
+    "@nestaffiliate/analytics": "workspace:*",
+    "@nestaffiliate/learning": "workspace:*"
   }
 }
