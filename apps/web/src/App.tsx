@@ -135,10 +135,10 @@ function Shell({ children, locale, setLocale }: { children: React.ReactNode; loc
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const primary = [
+  const primary: Array<[string, string]> = [
     ['/', t('today')], ['/radar', t('radar')], ['/campaigns', t('campaigns')], ['/results', t('results')],
   ];
-  const secondary = [
+  const secondary: Array<[string, string]> = [
     ['/library', t('library')], ['/boards', t('boards')], ['/connections', t('connections')],
     ['/ai-cost', t('cost')], ['/workspace', t('workspace')], ['/help', t('help')],
   ];
@@ -180,7 +180,7 @@ function Shell({ children, locale, setLocale }: { children: React.ReactNode; loc
 
 function CommandPalette({ close }: { close: () => void }) {
   const navigate = useNavigate();
-  const commands = [
+  const commands: Array<[string, string]> = [
     ['Hoje', '/'], ['Mostrar oportunidades', '/radar'], ['Revisar campanhas', '/campaigns'],
     ['Ver resultados', '/results'], ['Conectar Pinterest', '/connections'], ['Custos de IA', '/ai-cost'],
   ];
@@ -340,7 +340,7 @@ function Radar({ addCampaign, organizationId }: { addCampaign: (c: Campaign) => 
 function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Campaign) => void }) {
   const { id } = useParams();
   const navigate = useNavigate();
-  const campaign = campaigns.find((c) => c.id === id);
+  const campaign = campaigns.find((c) => c.id === id)!;
   const [command, setCommand] = useState('');
   const [saved, setSaved] = useState(true);
   if (!campaign) return <Navigate to="/campaigns" replace />;
@@ -391,7 +391,10 @@ function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Camp
       headline: v.narrative.headline,
       description: v.narrative.description,
     });
-    const next = { ...campaign, status: guard.outcome === 'BLOCK' ? 'BLOCKED' : 'PUBLICATION_READY' as const };
+    const next: Campaign = {
+      ...campaign,
+      status: guard.outcome === 'BLOCK' ? 'BLOCKED' : 'PUBLICATION_READY',
+    };
     update(next);
     if (guard.outcome !== 'BLOCK') navigate(`/publish/${campaign.id}`);
   }
@@ -462,7 +465,7 @@ function Disclosure({ title, children, defaultOpen = false }: { title: string; c
 
 function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Campaign) => void }) {
   const { id } = useParams();
-  const campaign = campaigns.find((c) => c.id === id);
+  const campaign = campaigns.find((c) => c.id === id)!;
   const [step, setStep] = useState(0);
   if (!campaign) return <Navigate to="/campaigns" replace />;
   const v = campaign.currentVersion;
