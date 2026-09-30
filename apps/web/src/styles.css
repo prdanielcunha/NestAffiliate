@@ -53,3 +53,20 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
   .campaign-grid,.opportunity-grid,.metric-grid{grid-template-columns:1fr}.search-box{grid-template-columns:1fr}.search-box .button{width:100%}.hero h1{font-size:38px}.stat-row{margin:26px 0}.review-header h1{font-size:27px}.score-badge span{display:none}.primary-actions{grid-template-columns:1.35fr .65fr}.minor-actions{justify-content:space-between;gap:5px}.ai-bar{grid-template-columns:auto 1fr auto}.ai-bar input{min-width:0}.ai-bar button{padding:0 12px}.guided{display:grid}.guided-actions{display:grid;grid-template-columns:1fr 1fr}.login-brand h1{font-size:45px}
 }
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+.affiliate-editor{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.affiliate-editor label{display:block;margin-bottom:8px}
+.inline-editor{display:grid;grid-template-columns:1fr auto;gap:8px}
+.inline-editor input{min-width:0;height:44px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);color:var(--text);padding:0 12px}
+.field-error{color:var(--danger)!important;font-size:12px;margin:7px 0 0!important}
+.field-hint{font-size:12px;margin:7px 0 0!important;color:var(--warning)!important}
+.swap-panel{margin-top:18px;padding:16px;border:1px solid var(--border);border-radius:18px;background:var(--surface2);display:grid;gap:8px}
+.swap-panel .section-heading{margin-bottom:5px}
+.swap-panel .section-heading h3{font-size:14px;margin:0}
+.swap-option{display:grid;grid-template-columns:95px 1fr auto;gap:10px;align-items:center;text-align:left;border:1px solid var(--border);border-radius:13px;background:var(--surface);color:var(--text);padding:12px}
+.swap-option:hover{border-color:var(--border-strong)}
+.swap-option span{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent)}
+.swap-option strong{font-size:12px;line-height:1.35}
+.swap-option em{font-style:normal;font-size:12px;color:var(--muted)}
+.download-button{margin:12px 0 6px;width:100%}
+@media(max-width:520px){.inline-editor{grid-template-columns:1fr}.swap-option{grid-template-columns:1fr}.swap-option em{justify-self:start}}
