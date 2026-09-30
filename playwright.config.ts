@@ -6,7 +6,7 @@ export default defineConfig({
   retries: 1,
   use: { baseURL: 'http://127.0.0.1:4173', trace: 'retain-on-failure' },
   projects: [
-    { name: 'mobile', use: { ...devices['iPhone 13'] } },
+    { name: 'mobile', use: { ...devices['Pixel 7'] } },
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } }
   ],
   webServer: {
