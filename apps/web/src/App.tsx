@@ -351,7 +351,7 @@ function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Camp
   useEffect(() => {
     setAffiliateDraft(campaign?.currentVersion.product.affiliateUrl?.value ?? '');
     setAffiliateError('');
-  }, [campaign?.currentVersion.id]);
+  }, [campaign?.currentVersion.id, campaign?.currentVersion.product.affiliateUrl?.value]);
 
   if (!campaign) return <Navigate to="/campaigns" replace />;
   const v = campaign.currentVersion;
