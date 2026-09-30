@@ -12,7 +12,10 @@ export default defineConfig({
       '@nestaffiliate/ai-router': path.resolve(__dirname, '../../packages/ai-router/src/index.ts'),
       '@nestaffiliate/integrations': path.resolve(__dirname, '../../packages/integrations/src/index.ts'),
       '@nestaffiliate/compliance': path.resolve(__dirname, '../../packages/compliance/src/index.ts'),
-      '@nestaffiliate/creative-engine': path.resolve(__dirname, '../../packages/creative-engine/src/index.ts')
+      '@nestaffiliate/creative-engine': path.resolve(__dirname, '../../packages/creative-engine/src/index.ts'),
+      '@nestaffiliate/radar': path.resolve(__dirname, '../../packages/radar/src/index.ts'),
+      '@nestaffiliate/analytics': path.resolve(__dirname, '../../packages/analytics/src/index.ts'),
+      '@nestaffiliate/learning': path.resolve(__dirname, '../../packages/learning/src/index.ts')
     }
   },
   build: {
