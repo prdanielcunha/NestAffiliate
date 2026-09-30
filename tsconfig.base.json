@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "strict": true,
@@ -10,14 +14,39 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@nestaffiliate/core": ["packages/core/src/index.ts"],
-      "@nestaffiliate/scoring": ["packages/scoring/src/index.ts"],
-      "@nestaffiliate/config": ["packages/config/src/index.ts"],
-      "@nestaffiliate/ai-router": ["packages/ai-router/src/index.ts"],
-      "@nestaffiliate/integrations": ["packages/integrations/src/index.ts"],
-      "@nestaffiliate/compliance": ["packages/compliance/src/index.ts"],
-      "@nestaffiliate/creative-engine": ["packages/creative-engine/src/index.ts"],
-      "@nestaffiliate/ui": ["packages/ui/src/index.tsx"]
+      "@nestaffiliate/core": [
+        "packages/core/src/index.ts"
+      ],
+      "@nestaffiliate/scoring": [
+        "packages/scoring/src/index.ts"
+      ],
+      "@nestaffiliate/config": [
+        "packages/config/src/index.ts"
+      ],
+      "@nestaffiliate/ai-router": [
+        "packages/ai-router/src/index.ts"
+      ],
+      "@nestaffiliate/integrations": [
+        "packages/integrations/src/index.ts"
+      ],
+      "@nestaffiliate/compliance": [
+        "packages/compliance/src/index.ts"
+      ],
+      "@nestaffiliate/creative-engine": [
+        "packages/creative-engine/src/index.ts"
+      ],
+      "@nestaffiliate/ui": [
+        "packages/ui/src/index.tsx"
+      ],
+      "@nestaffiliate/radar": [
+        "packages/radar/src/index.ts"
+      ],
+      "@nestaffiliate/analytics": [
+        "packages/analytics/src/index.ts"
+      ],
+      "@nestaffiliate/learning": [
+        "packages/learning/src/index.ts"
+      ]
     },
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true
