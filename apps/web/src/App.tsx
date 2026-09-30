@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import type { Campaign, ProductTruth, PublicationPackage } from '@nestaffiliate/core';
 import { nextCampaignVersion } from '@nestaffiliate/core';
