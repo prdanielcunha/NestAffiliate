@@ -28,7 +28,7 @@ describe('Publishing Guard', () => {
   });
 
   it('blocks Mercado Livre publication without an affiliate link', () => {
-    const { affiliateUrl: _affiliateUrl, ...withoutAffiliate } = product;
+    const withoutAffiliate: ProductTruth = { ...product, affiliateUrl: undefined };
     const result = runPublishingGuard({
       product: withoutAffiliate,
       disclosure: 'Conteúdo com link de afiliado. Posso receber comissão.',
