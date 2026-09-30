@@ -14,28 +14,67 @@ import { db } from './lib/firebase';
 import { listCampaigns, saveCampaign } from './services/campaignRepository';
 
 const marketplaceAdapter = new MercadoLivrePublicAdapter();
-const STORAGE_KEY = 'nestaffiliate_campaigns_v1';
+const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
 
-function useCampaignStore() {
+function useCampaignStore(organizationId: string | null) {
   const demoEnabled =
     import.meta.env.VITE_DEMO_DATA_ENABLED === 'true' ||
     import.meta.env.VITE_E2E_MOCK_AUTH === 'true';
-  const [campaigns, setCampaigns] = useState<Campaign[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) return JSON.parse(stored) as Campaign[];
-    } catch {}
-    return demoEnabled ? demoCampaigns : [];
-  });
+  const storageKey = `${STORAGE_PREFIX}:${organizationId ?? 'pending'}`;
+  const [campaigns, setCampaigns] = useState<Campaign[]>(demoEnabled ? demoCampaigns : []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(campaigns));
-  }, [campaigns]);
+    if (!organizationId) return;
+    let active = true;
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        setCampaigns(JSON.parse(stored) as Campaign[]);
+      } else {
+        setCampaigns(
+          demoEnabled
+            ? demoCampaigns.map((campaign) => ({ ...campaign, organizationId }))
+            : [],
+        );
+      }
+    } catch {
+      localStorage.removeItem(storageKey);
+    }
 
-  const update = (campaign: Campaign) =>
-    setCampaigns((items) => items.map((item) => (item.id === campaign.id ? campaign : item)));
+    if (db && !demoEnabled) {
+      void listCampaigns(db, organizationId)
+        .then((remote) => {
+          if (active && remote.length) setCampaigns(remote);
+        })
+        .catch(() => undefined);
+    }
+    return () => {
+      active = false;
+    };
+  }, [organizationId, storageKey, demoEnabled]);
 
-  const add = (campaign: Campaign) => setCampaigns((items) => [campaign, ...items]);
+  useEffect(() => {
+    if (!organizationId) return;
+    localStorage.setItem(storageKey, JSON.stringify(campaigns));
+  }, [campaigns, organizationId, storageKey]);
+
+  const persist = (campaign: Campaign) => {
+    if (db && organizationId && !demoEnabled) {
+      void saveCampaign(db, organizationId, campaign).catch(() => undefined);
+    }
+  };
+
+  const update = (campaign: Campaign) => {
+    setCampaigns((items) =>
+      items.map((item) => (item.id === campaign.id ? campaign : item)),
+    );
+    persist(campaign);
+  };
+
+  const add = (campaign: Campaign) => {
+    setCampaigns((items) => [campaign, ...items]);
+    persist(campaign);
+  };
 
   return { campaigns, update, add };
 }
