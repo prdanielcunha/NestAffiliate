@@ -8,6 +8,12 @@ export interface GuardInput {
   description: string;
   duplicateSimilarity?: number;
   priceMaxAgeMinutes?: number;
+  frequencyPolicy?: {
+    maxPublications24h?: number;
+    publications24h?: number;
+    minGapMinutes?: number;
+    minutesSinceLastPublication?: number;
+  };
   now?: Date;
 }
 
@@ -102,6 +108,33 @@ export function runPublishingGuard(input: GuardInput): GuardResult {
     similarity >= 0.8 ? 'Campanha semelhante a conteúdo recente.' : 'Sem duplicação crítica.',
   );
 
+  if (input.frequencyPolicy) {
+    const {
+      maxPublications24h,
+      publications24h = 0,
+      minGapMinutes,
+      minutesSinceLastPublication,
+    } = input.frequencyPolicy;
+    if (typeof maxPublications24h === 'number') {
+      push(
+        'frequency-daily',
+        publications24h >= maxPublications24h ? 'BLOCK' : 'PASS',
+        publications24h >= maxPublications24h
+          ? 'Limite editorial configurado para 24h foi atingido.'
+          : 'Frequência diária dentro da política configurada.',
+      );
+    }
+    if (typeof minGapMinutes === 'number' && typeof minutesSinceLastPublication === 'number') {
+      push(
+        'frequency-gap',
+        minutesSinceLastPublication < minGapMinutes ? 'WARN' : 'PASS',
+        minutesSinceLastPublication < minGapMinutes
+          ? 'Intervalo curto em relação à política editorial configurada.'
+          : 'Intervalo entre publicações adequado.',
+      );
+    }
+  }
+
   if (input.product.price) {
     const now = (input.now ?? new Date()).getTime();
     const observed = new Date(input.product.price.observedAt).getTime();
@@ -114,4 +147,27 @@ export function runPublishingGuard(input: GuardInput): GuardResult {
   }
 
   return { outcome: worst(checks.map((check) => check.outcome)), checks };
+}
+
+
+export interface PolicySnapshot {
+  id:string;
+  organizationId:string;
+  provider:'PINTEREST'|'MELI'|'SHOPEE'|'CONAR'|'INTERNAL';
+  title:string;
+  sourceUrl?:string;
+  checkedAt:string;
+  reviewAfter:string;
+  notes:string[];
+}
+
+export function isPolicySnapshotStale(snapshot:PolicySnapshot, now=new Date()){
+  const reviewAt=new Date(snapshot.reviewAfter).getTime();
+  return !Number.isFinite(reviewAt) || reviewAt <= now.getTime();
+}
+
+export function nextPolicyReviewDate(checkedAt=new Date(), days=30){
+  const next=new Date(checkedAt);
+  next.setUTCDate(next.getUTCDate()+Math.max(1,days));
+  return next.toISOString();
 }
