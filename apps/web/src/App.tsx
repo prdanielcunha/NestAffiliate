@@ -6,6 +6,7 @@ import { runPublishingGuard } from '@nestaffiliate/compliance';
 import { MercadoLivrePublicAdapter } from '@nestaffiliate/integrations';
 import { buildOpportunity, shortlist } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
+import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
 import { FEATURE_FLAGS, KILL_SWITCHES } from '@nestaffiliate/config';
 import { type Locale } from './lib/i18n';
@@ -18,6 +19,7 @@ import { listPerformance, savePerformance } from './services/performanceReposito
 import { appendAudit } from './services/auditRepository';
 import { persistCampaignIntelligence } from './services/intelligenceRepository';
 import { appendApprovalEvent, markPublication, savePublicationPackage } from './services/lifecycleRepository';
+import { saveLearningInsights } from './services/learningRepository';
 import { ManualProductImport } from './features/ManualProductImport';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
@@ -822,6 +824,15 @@ function Results({
   onSave:(row:PerformanceDaily)=>void;
 }) {
   const { t } = useI18n();
+  const identity=useAuth();
+  const insights=useMemo(()=>deriveLearning(campaigns,rows),[campaigns,rows]);
+
+  useEffect(()=>{
+    if(!db || !identity.user?.uid || !organizationId) return;
+    const currentDb=db;
+    void saveLearningInsights(currentDb,organizationId,insights).catch(()=>undefined);
+  },[identity.user?.uid,organizationId,insights]);
+
   return (
     <div className="page">
       <PageTitle eyebrow={t('results').toUpperCase()} title={t('resultsTitle')} subtitle={t('resultsSub')} />
