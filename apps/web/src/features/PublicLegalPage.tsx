@@ -2,13 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 
 type Locale='pt-BR'|'en'|'es';
 type LegalKind='privacy'|'terms'|'data-deletion';
+type LegalSection=[title:string,paragraphs:string[]];
+type LegalContent={title:string;intro:string;sections:LegalSection[]};
+type LegalLocaleCopy=Record<LegalKind,LegalContent>;
 
 const CONTACT='nestaffiliate@millionsnest.com';
 const SITE='https://nestaffiliate.millionsnest.com';
 const UPDATED='1 de outubro de 2026';
 
 function legalCopy(locale:Locale,kind:LegalKind){
-  const pt={
+  const pt:LegalLocaleCopy={
     privacy:{
       title:'Política de Privacidade',
       intro:'Esta Política explica como o NestAffiliate, produto do ecossistema MillionsNest, trata dados ao oferecer recursos de inteligência de afiliados, criação de campanhas, publicação assistida e análise de desempenho.',
@@ -123,7 +126,7 @@ function legalCopy(locale:Locale,kind:LegalKind){
     }
   };
 
-  const en={
+  const en:LegalLocaleCopy={
     privacy:{title:'Privacy Policy',intro:'This Policy explains how NestAffiliate, a MillionsNest ecosystem product, handles data while providing affiliate intelligence, campaign creation, assisted publishing and performance analysis.',sections:[
       ['1. Data we process',['Account and identity data required for authentication, such as name, email, Firebase/Google identifiers and active organization.','Workspace operational data such as campaigns, selected products, affiliate links, approvals, preferences, publications, metrics and audit records.','External integration data only when you connect or authorize a platform, including account identifiers, granted scopes and tokens required by the integration. Secrets and tokens must not be exposed in the browser or public documents.','Essential technical data used for security and operation, such as errors, app version, local preferences and infrastructure access records when available.']],
       ['2. How we use data',['Authenticate users and enforce organization/role permissions.','Create, review, version, approve and measure affiliate campaigns.','Validate Product Truth, compliance, availability, links and duplicate/spam prevention.','Generate analytics and learning from use and recorded results without allowing AI to overwrite commercial facts.','Maintain security, auditability, stability and support.']],
@@ -155,7 +158,7 @@ function legalCopy(locale:Locale,kind:LegalKind){
     ]}
   };
 
-  const es={
+  const es:LegalLocaleCopy={
     privacy:{title:'Política de Privacidad',intro:'Esta Política explica cómo NestAffiliate, producto del ecosistema MillionsNest, trata datos al ofrecer inteligencia de afiliados, creación de campañas, publicación asistida y análisis de rendimiento.',sections:[
       ['1. Datos tratados',['Datos de cuenta e identidad necesarios para autenticación, como nombre, correo, identificadores Firebase/Google y organización activa.','Datos operativos del workspace: campañas, productos, links de afiliado, aprobaciones, preferencias, publicaciones, métricas y auditoría.','Datos de integraciones externas solo cuando conectas o autorizas una plataforma, incluidos identificadores, permisos y tokens necesarios. Secretos y tokens no deben exponerse en el navegador ni en documentos públicos.','Datos técnicos esenciales de seguridad y funcionamiento.']],
       ['2. Uso de los datos',['Autenticar usuarios y aplicar permisos.','Crear, revisar, versionar, aprobar y medir campañas.','Validar Product Truth, compliance, disponibilidad, links y prevención de duplicación/spam.','Generar análisis y aprendizaje sin permitir que IA reemplace hechos comerciales.','Mantener seguridad, auditoría, estabilidad y soporte.']],
