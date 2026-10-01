@@ -1087,6 +1087,18 @@ function Publish({
   const [manualFreshConfirmed,setManualFreshConfirmed]=useState(false);
   const [scheduledFor,setScheduledFor]=useState('');
   const [scheduleMessage,setScheduleMessage]=useState('');
+  const [online,setOnline]=useState(()=>typeof navigator==='undefined' ? true : navigator.onLine);
+
+  useEffect(()=>{
+    const onOnline=()=>setOnline(true);
+    const onOffline=()=>setOnline(false);
+    window.addEventListener('online',onOnline);
+    window.addEventListener('offline',onOffline);
+    return ()=>{
+      window.removeEventListener('online',onOnline);
+      window.removeEventListener('offline',onOffline);
+    };
+  },[]);
 
   useEffect(()=>{
     if(!campaign || !db || !identity.organizationId) {
@@ -1241,7 +1253,7 @@ function Publish({
   }
 
   function markPublished() {
-    if(publisherBlocked) return;
+    if(publisherBlocked || !online) return;
     const published: Campaign = { ...activeCampaign, status: 'PUBLISHED' };
     update(published);
     completeSchedule(activeCampaign.id,v.version);
@@ -1261,6 +1273,7 @@ function Publish({
         {guard.checks.map((check) => <span key={check.key} className={`check ${check.outcome.toLowerCase()}`}>{check.outcome === 'PASS' ? '✓' : check.outcome === 'WARN' ? '!' : '×'} {check.key}</span>)}
       </div>
       {guard.outcome === 'BLOCK' && <div className="notice danger">{t('publishBlocked')}</div>}
+      {!online && <div className="notice">{t('offlinePublishBlocked')}</div>}
       <section className={`fresh-validation ${freshState}`}>
         <div>
           <p className="eyebrow">{t('freshValidation')}</p>
@@ -1318,7 +1331,7 @@ function Publish({
           {step < steps.length - 1 ? (
             <button className="button primary" disabled={publisherBlocked} onClick={() => { persistPackage(); setStep(step + 1); }}>{t('next')}</button>
           ) : (
-            <button className="button primary" disabled={publisherBlocked} onClick={markPublished}>{t('markPublished')}</button>
+            <button className="button primary" disabled={publisherBlocked || !online} onClick={markPublished}>{t('markPublished')}</button>
           )}
         </div>
       </section>
