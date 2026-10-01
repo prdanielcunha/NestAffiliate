@@ -163,3 +163,23 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 }
 .global-sync-error .text-button{white-space:nowrap}
 @media(max-width:620px){.global-sync-error{align-items:flex-start;flex-direction:column}}
+
+.legal-shell{min-height:100vh;background:var(--bg);color:var(--text)}
+.legal-topbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:18px clamp(20px,5vw,72px);border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(20px)}
+.legal-brand{text-decoration:none;color:var(--text);display:flex;align-items:center;gap:10px;font-weight:700}
+.legal-languages{display:flex;gap:6px}
+.legal-languages button{min-width:42px;height:36px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--muted);font:inherit;font-size:11px;cursor:pointer}
+.legal-languages button.active{color:var(--text);border-color:var(--accent);background:var(--accent-soft)}
+.legal-document{width:min(860px,calc(100% - 40px));margin:0 auto;padding:72px 0 80px}
+.legal-document>h1{margin:8px 0 10px;font-size:clamp(36px,6vw,64px);line-height:1;letter-spacing:-.045em}
+.legal-updated{margin:0 0 28px;color:var(--muted);font-size:12px}
+.legal-intro{font-size:18px;line-height:1.7;color:var(--text);margin:0 0 44px;max-width:760px}
+.legal-document section{padding:26px 0;border-top:1px solid var(--border)}
+.legal-document section h2{margin:0 0 14px;font-size:18px}
+.legal-document section p{margin:10px 0;color:var(--muted);font-size:14px;line-height:1.75}
+.legal-footer{margin-top:44px;padding-top:24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:24px;align-items:flex-start}
+.legal-footer>div{display:grid;gap:4px}.legal-footer span{color:var(--muted);font-size:11px}
+.legal-footer nav{display:flex;gap:12px 18px;justify-content:flex-end;flex-wrap:wrap}
+.legal-footer a{color:var(--muted);font-size:11px;text-decoration:none}.legal-footer a:hover{color:var(--text)}
+@media(max-width:620px){.legal-topbar{padding:14px 16px}.legal-document{width:min(100% - 28px,860px);padding:44px 0 60px}.legal-intro{font-size:16px}.legal-footer{display:grid}.legal-footer nav{justify-content:flex-start}}
+@media(prefers-reduced-motion:reduce){.legal-languages button{transition:none}}
