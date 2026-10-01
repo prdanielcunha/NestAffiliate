@@ -68,11 +68,12 @@ function useCampaignStore(organizationId: string | null, actorId: string | null,
 
   const persist = (campaign: Campaign, action: string) => {
     if (db && organizationId && actorId && !demoEnabled) {
+      const currentDb = db;
       void Promise.all([
-        saveCampaign(db, organizationId, campaign),
-        persistCampaignIntelligence(db, organizationId, campaign),
+        saveCampaign(currentDb, organizationId, campaign),
+        persistCampaignIntelligence(currentDb, organizationId, campaign),
       ])
-        .then(() => appendAudit(db, {
+        .then(() => appendAudit(currentDb, {
           organizationId,
           actorId,
           action,
@@ -141,8 +142,9 @@ function usePerformanceStore(organizationId: string | null, actorId: string | nu
     if (!role || !canWrite(role)) return;
     setRows((current) => [row, ...current.filter((item) => item.id !== row.id)]);
     if (db && organizationId && actorId && !demoEnabled) {
-      void savePerformance(db, organizationId, row)
-        .then(() => appendAudit(db, {
+      const currentDb = db;
+      void savePerformance(currentDb, organizationId, row)
+        .then(() => appendAudit(currentDb, {
           organizationId,
           actorId,
           action: 'performance.recorded',
