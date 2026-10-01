@@ -20,6 +20,7 @@ import { appendAudit } from './services/auditRepository';
 import { persistCampaignIntelligence } from './services/intelligenceRepository';
 import { appendApprovalEvent, markPublication, markPublicationScheduled, saveFreshComplianceCheck, savePublicationPackage } from './services/lifecycleRepository';
 import { saveLearningInsights } from './services/learningRepository';
+import { listApprovalEvents } from './services/approvalRepository';
 import { ManualProductImport } from './features/ManualProductImport';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
@@ -1331,7 +1332,21 @@ function Results({
 }) {
   const { t } = useI18n();
   const identity=useAuth();
-  const insights=useMemo(()=>deriveLearning(campaigns,rows),[campaigns,rows]);
+  const [approvalEvents,setApprovalEvents]=useState<ApprovalEvent[]>([]);
+  const insights=useMemo(()=>deriveLearning(campaigns,rows,approvalEvents),[campaigns,rows,approvalEvents]);
+
+  useEffect(()=>{
+    if(!db || !organizationId){
+      setApprovalEvents([]);
+      return;
+    }
+    let active=true;
+    const currentDb=db;
+    void listApprovalEvents(currentDb,organizationId)
+      .then((events)=>{if(active)setApprovalEvents(events);})
+      .catch(()=>undefined);
+    return ()=>{active=false;};
+  },[organizationId]);
 
   useEffect(()=>{
     if(!db || !identity.user?.uid || !organizationId) return;
@@ -1342,7 +1357,7 @@ function Results({
   return (
     <div className="page">
       <PageTitle eyebrow={t('results').toUpperCase()} title={t('resultsTitle')} subtitle={t('resultsSub')} />
-      <PerformancePanel organizationId={organizationId} campaigns={campaigns} rows={rows} onSave={onSave} />
+      <PerformancePanel organizationId={organizationId} campaigns={campaigns} rows={rows} approvalEvents={approvalEvents} onSave={onSave} />
     </div>
   );
 }
