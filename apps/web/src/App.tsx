@@ -829,6 +829,7 @@ function Results({
 }
 
 function Connections() {
+  const { t } = useI18n();
   const rows = [
     ['Pinterest', FEATURE_FLAGS.PINTEREST_API_ENABLED ? 'API ativa' : 'Modo guiado', 'Standard Access continua bloqueado até aprovação externa.'],
     ['Mercado Livre', FEATURE_FLAGS.MELI_ENABLED ? 'Catálogo público ativo' : 'Desativado', 'Dados de afiliado continuam separados do catálogo.'],
@@ -837,28 +838,29 @@ function Connections() {
     ['ChatGPT Manual', 'Disponível', 'Sem API e sem custo adicional obrigatório.'],
     ['OpenAI Future', FEATURE_FLAGS.OPENAI_API_ENABLED ? 'Ativo' : 'Off', 'Bloqueado por padrão.'],
   ];
-  return <SimpleList eyebrow="CONEXÕES" title="Connection Center" subtitle="Providers substituíveis. Nenhuma credencial exibida." rows={rows} />;
+  return <SimpleList eyebrow={t('connections').toUpperCase()} title={t('connectionsTitle')} subtitle={t('connectionsSub')} rows={rows} />;
 }
 
 function AiCost() {
+  const { t } = useI18n();
   return (
     <div className="page">
-      <PageTitle eyebrow="CUSTOS" title="Zero Cost é uma política." subtitle="O app não muda para um serviço pago sozinho." />
-      <div className="cost-hero"><span className="live-dot" /><div><h2>Modo Zero Cost: ATIVO</h2><p>Paid AI: BLOQUEADA · OpenAI: OFF · fallback local: ATIVO</p></div></div>
+      <PageTitle eyebrow={t('cost').toUpperCase()} title={t('zeroCostTitle')} subtitle={t('zeroCostSub')} />
+      <div className="cost-hero"><span className="live-dot" /><div><h2>{t('zeroCostActive')}</h2><p>{t('paidAiBlocked')}</p></div></div>
       <div className="metric-grid">
-        <Metric label="Custo de IA hoje" value="R$ 0,00" />
+        <Metric label={t('aiCostToday')} value="R$ 0,00" />
         <Metric label="OpenAI API" value={FEATURE_FLAGS.OPENAI_API_ENABLED ? 'ON' : 'OFF'} />
-        <Metric label="Paid services" value={KILL_SWITCHES.PAID_SERVICES_DISABLED ? 'BLOQUEADO' : 'LIBERADO'} />
+        <Metric label={t('paidServices')} value={KILL_SWITCHES.PAID_SERVICES_DISABLED ? 'BLOQUEADO' : 'LIBERADO'} />
         <Metric label="Gemini Free" value={FEATURE_FLAGS.GEMINI_FREE_ENABLED ? 'DISPONÍVEL' : 'OFF'} />
       </div>
     </div>
   );
 }
 
-function Boards() { return <SimpleList eyebrow="BOARDS" title="Estrutura editorial" subtitle="O sistema recomenda o board. Você só interfere quando quiser." rows={initialBoards.map((b,i) => [b, i < 2 ? 'Prioritário' : 'Pronto', 'Casa & organização'])} />; }
-function Library() { return <SimpleList eyebrow="BIBLIOTECA" title="Produtos, criativos e templates" subtitle="Histórico visual e fatos comerciais sem virar um ERP." rows={[['Produtos','Product Truth','Dados com fonte e timestamp'],['Criativos','Creative Engine','Versões determinísticas e exportáveis'],['Templates','10 bases planejadas','Editorial, Problem → Solution, Minimal e outras']]} />; }
-function Workspace() { const { organizationId, role }=useAuth(); return <SimpleList eyebrow="WORKSPACE" title="Workspace" subtitle="Organização e autorização continuam sob a autoridade MillionsNest." rows={[[organizationId ?? '—','organizationId','Tenant ativo'],[role ?? 'viewer','Role','Permissão efetiva'],['Audit','Append-only','Eventos críticos serão registrados']]} />; }
-function Help() { return <SimpleList eyebrow="AJUDA" title="Sem becos sem saída." subtitle="Cada fluxo explica o próximo passo sem exigir conhecimento de afiliados ou API." rows={[[ 'Publicar um Pin','Modo Guiado','Review → Aprovar → Package → Passo a passo'],['IA sem custo','Prompt Studio','Use ChatGPT/Gemini manualmente quando precisar'],['Produto indisponível','Replacement flow','Troca preserva campanha e revalida compliance']]} />; }
+function Boards() { const { t }=useI18n(); return <SimpleList eyebrow={t('boards').toUpperCase()} title={t('boardsTitle')} subtitle={t('boardsSub')} rows={initialBoards.map((b,i) => [b, i < 2 ? t('priority') : t('readyStatus'), 'Casa & organização'])} />; }
+function Library() { const { t }=useI18n(); return <SimpleList eyebrow={t('library').toUpperCase()} title={t('libraryTitle')} subtitle={t('librarySub')} rows={[[t('product'),'Product Truth',t('truthPreserved')],['Creatives','Creative Engine','Deterministic and exportable versions'],['Templates','10','Editorial · Problem → Solution · Minimal · Hero · Checklist · Before/After · Small Space · Routine · Collection · Seasonal']]} />; }
+function Workspace() { const { t }=useI18n(); const { organizationId, role }=useAuth(); return <SimpleList eyebrow="WORKSPACE" title={t('workspace')} subtitle={t('workspaceSub')} rows={[[organizationId ?? '—','organizationId',t('tenantActive')],[role ?? 'viewer',t('role'),t('effectivePermission')],['Audit','Append-only','Critical events are append-only']]} />; }
+function Help() { const { t }=useI18n(); return <SimpleList eyebrow={t('help').toUpperCase()} title={t('helpTitle')} subtitle={t('helpSub')} rows={[[t('publishPin'),t('stepByStep'),t('noDeadEndPublish')],[t('aiNoCost'),'Prompt Studio',t('noDeadEndAi')],[t('productUnavailable'),t('replacementFlow'),t('noDeadEndProduct')]]} />; }
 
 function SimpleList({ eyebrow,title,subtitle,rows }: { eyebrow:string; title:string; subtitle:string; rows:string[][] }) {
   return <div className="page"><PageTitle eyebrow={eyebrow} title={title} subtitle={subtitle} /><div className="list-surface">{rows.map((r) => <div className="list-row" key={r[0]}><div><h3>{r[0]}</h3><p>{r[2]}</p></div><span>{r[1]}</span></div>)}</div></div>;
@@ -876,11 +878,14 @@ export function App() {
   const [locale,setLocale] = useState<Locale>(() => (localStorage.getItem('na_locale') as Locale) || 'pt-BR');
   useEffect(() => localStorage.setItem('na_locale', locale), [locale]);
 
-  if (auth.state !== 'ready') return <Login />;
+  if (auth.state !== 'ready') {
+    return <I18nProvider locale={locale}><Login /></I18nProvider>;
+  }
   const org = auth.organizationId ?? 'demo-org';
   const editable = auth.role ? canWrite(auth.role) : false;
 
   return (
+    <I18nProvider locale={locale}>
     <Shell locale={locale} setLocale={setLocale}>
       <Routes>
         <Route path="/" element={<Today campaigns={store.campaigns} />} />
@@ -899,5 +904,6 @@ export function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>
+    </I18nProvider>
   );
 }
