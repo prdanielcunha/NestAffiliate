@@ -25,6 +25,7 @@ export interface ProductAdapter {
   marketplace: Marketplace;
   capabilities: ProviderCapabilities;
   search(input: ProductSearchInput): Promise<ProductTruth[]>;
+  read?(organizationId:string,externalId:string):Promise<ProductTruth>;
 }
 
 export const PINTEREST_CAPABILITIES_TRIAL: ProviderCapabilities = {
@@ -85,6 +86,44 @@ export class MercadoLivrePublicAdapter implements ProductAdapter {
       imageUrl: item.thumbnail ? { value: String(item.thumbnail).replace('http://', 'https://'), source: 'mercadolibre-public-api', observedAt: now } : undefined,
       assetRights: 'UNKNOWN',
     }));
+  }
+
+  async read(organizationId:string,externalId:string):Promise<ProductTruth>{
+    const fields=[
+      'body.id','body.title','body.permalink','body.price','body.currency_id',
+      'body.available_quantity','body.thumbnail',
+    ].join(',');
+    const response=await fetch(
+      `https://api.mercadolibre.com/items/bulk?ids=${encodeURIComponent(externalId)}&attributes=${encodeURIComponent(fields)}`,
+    );
+    if(!response.ok) throw new Error(`MELI_ITEM_${response.status}`);
+    const payload=await response.json() as Array<{id?:string;status_code?:number;body?:Record<string,any>}>;
+    const row=payload.find((item)=>item.id===externalId) ?? payload[0];
+    if(!row || row.status_code!==200 || !row.body) throw new Error('MELI_ITEM_NOT_FOUND');
+    const item=row.body;
+    const now=new Date().toISOString();
+    const quantity=typeof item.available_quantity==='number' ? item.available_quantity : undefined;
+    return {
+      productId:`meli:${String(item.id ?? externalId)}`,
+      organizationId,
+      marketplace:'MELI',
+      externalId:String(item.id ?? externalId),
+      title:{value:String(item.title ?? ''),source:'mercadolibre-items-bulk',observedAt:now},
+      url:{value:String(item.permalink ?? ''),source:'mercadolibre-items-bulk',observedAt:now},
+      price:typeof item.price==='number'
+        ? {value:item.price,source:'mercadolibre-items-bulk',observedAt:now}
+        : undefined,
+      currency:{value:String(item.currency_id ?? 'BRL'),source:'mercadolibre-items-bulk',observedAt:now},
+      availability:{
+        value:quantity===0 ? 'unavailable' : typeof quantity==='number' ? 'available' : 'unknown',
+        source:'mercadolivre-items-bulk',
+        observedAt:now,
+      },
+      imageUrl:item.thumbnail
+        ? {value:String(item.thumbnail).replace('http://','https://'),source:'mercadolivre-items-bulk',observedAt:now}
+        : undefined,
+      assetRights:'UNKNOWN',
+    };
   }
 }
 
