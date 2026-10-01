@@ -1237,6 +1237,7 @@ export function App() {
   const auth = useAuth();
   const store = useCampaignStore(auth.organizationId, auth.user?.uid ?? null, auth.role);
   const performance = usePerformanceStore(auth.organizationId, auth.user?.uid ?? null, auth.role);
+  const scheduleStore = usePublicationScheduleStore(auth.organizationId, auth.user?.uid ?? null, auth.role);
   const [locale,setLocale] = useState<Locale>(() => (localStorage.getItem('na_locale') as Locale) || 'pt-BR');
   const preferenceStore=usePreferencesStore(auth.organizationId,auth.user?.uid ?? null,auth.role,locale);
   useEffect(() => localStorage.setItem('na_locale', locale), [locale]);
@@ -1264,11 +1265,11 @@ export function App() {
     <I18nProvider locale={locale}>
     <Shell locale={locale} setLocale={setLocale}>
       <Routes>
-        <Route path="/" element={<Today campaigns={store.campaigns} />} />
+        <Route path="/" element={<Today campaigns={store.campaigns} schedules={scheduleStore.schedules} />} />
         <Route path="/radar" element={<Radar addCampaign={store.add} organizationId={org} editable={editable} />} />
         <Route path="/campaigns" element={<Campaigns campaigns={store.campaigns} />} />
         <Route path="/review/:id" element={<Review campaigns={store.campaigns} update={store.update} editable={editable} />} />
-        <Route path="/publish/:id" element={<Publish campaigns={store.campaigns} update={store.update} preferences={preferenceStore.preferences} />} />
+        <Route path="/publish/:id" element={<Publish campaigns={store.campaigns} update={store.update} preferences={preferenceStore.preferences} onSchedule={scheduleStore.add} completeSchedule={scheduleStore.complete} />} />
         <Route path="/results" element={<Results campaigns={store.campaigns} organizationId={org} rows={performance.rows} onSave={performance.save} />} />
         <Route path="/connections" element={<Connections />} />
         <Route path="/prompt-studio" element={<PromptStudio campaigns={store.campaigns} editable={editable} onUpdate={store.update} />} />
