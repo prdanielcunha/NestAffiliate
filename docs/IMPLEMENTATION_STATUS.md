@@ -204,6 +204,16 @@ The data model is multi-tenant from day one, but external billing/plans/onboardi
 - Shopee uses official/manual input without private scraping.
 - Pinterest Guided Publisher requires no paid API.
 
+## Public legal/compliance pages
+
+- Public Privacy Policy at /privacy, no authentication required.
+- Public Terms of Use at /terms.
+- Public data-deletion/unlinking instructions at /data-deletion.
+- PT-BR / EN / ES versions.
+- Legal links exposed from the login surface.
+- Pinterest Developer Trial/Standard submission pack versioned at docs/PINTEREST_DEVELOPER_SUBMISSION.md.
+- Public legal pages are covered by E2E + axe/WCAG checks.
+
 ## External blockers only
 
 1. Pinterest app credentials / access tier for OAuth and live analytics.
