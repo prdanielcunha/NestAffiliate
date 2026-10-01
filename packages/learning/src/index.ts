@@ -2,20 +2,94 @@ import type { Campaign } from '@nestaffiliate/core';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { summarizePerformance } from '@nestaffiliate/analytics';
 
+export type LearningConfidence = 'insufficient' | 'emerging' | 'established';
+
 export interface LearningInsight {
   id:string;
-  type:'CREATIVE_DNA'|'PRODUCT_DNA'|'PREFERENCE';
-  confidence:'insufficient'|'emerging'|'established';
+  type:'CREATIVE_DNA'|'PRODUCT_DNA'|'AUDIENCE_DNA'|'PREFERENCE';
+  confidence:LearningConfidence;
   title:string;
   explanation:string;
   evidenceCount:number;
   recommendation?:string;
+  scoreAdjustment?:number;
+  dimensions?:Record<string,string|number|boolean|null>;
 }
 
-function confidence(count:number): LearningInsight['confidence'] {
+function confidence(count:number): LearningConfidence {
   if (count < 5) return 'insufficient';
   if (count < 12) return 'emerging';
   return 'established';
+}
+
+function normalize(value:string){
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function productTheme(campaign:Campaign){
+  const text=normalize(`${campaign.currentVersion.keyword} ${campaign.currentVersion.product.title.value}`);
+  const rules:Array<[string,RegExp]> = [
+    ['cozinha',/cozinha|panela|pote|talher|dispens|organizador|tempero/],
+    ['banheiro',/banheiro|toalha|sabon|escova|chuveiro/],
+    ['quarto',/quarto|cama|travesseiro|roupa|cabide|sapateira/],
+    ['lavanderia',/lavanderia|roupa|cesto|varal|lavar/],
+    ['decoracao',/decor|luminaria|tapete|quadro|vaso/],
+    ['organizacao',/organiz|prateleira|caixa|cesto|suporte|gaveta/],
+  ];
+  return rules.find(([,pattern])=>pattern.test(text))?.[0] ?? 'outros';
+}
+
+function performanceForCampaign(campaignId:string, metrics:PerformanceDaily[]){
+  return summarizePerformance(metrics.filter((row)=>row.campaignId===campaignId));
+}
+
+function weightedSignal(rows:PerformanceDaily[]){
+  const summary=summarizePerformance(rows);
+  const clickSignal=Math.min(1, summary.ctr / 0.03);
+  const saveSignal=Math.min(1, summary.saveRate / 0.02);
+  const conversionSignal=Math.min(1, summary.conversionRate / 0.08);
+  const revenueSignal=summary.epm === null ? 0 : Math.min(1, summary.epm / 80);
+  return (clickSignal*0.30)+(saveSignal*0.20)+(conversionSignal*0.25)+(revenueSignal*0.25);
+}
+
+export function historicalScoreAdjustment(
+  campaigns:Campaign[],
+  metrics:PerformanceDaily[],
+  candidate:{template?:string;boardName?:string;productTheme?:string},
+){
+  const relevant=campaigns.filter((campaign)=>{
+    if(campaign.status!=='PUBLISHED') return false;
+    const templateMatch=!candidate.template || campaign.currentVersion.template===candidate.template;
+    const boardMatch=!candidate.boardName || campaign.currentVersion.boardName===candidate.boardName;
+    const themeMatch=!candidate.productTheme || productTheme(campaign)===candidate.productTheme;
+    return templateMatch && boardMatch && themeMatch;
+  });
+  if(relevant.length<12) {
+    return {
+      confidence:confidence(relevant.length),
+      evidenceCount:relevant.length,
+      adjustment:0,
+      reason:'Amostra insuficiente para alterar o NestScore.',
+    };
+  }
+  const ids=new Set(relevant.map((campaign)=>campaign.id));
+  const rows=metrics.filter((row)=>ids.has(row.campaignId));
+  const signal=weightedSignal(rows);
+  const adjustment=Math.max(-6,Math.min(6,Math.round((signal-0.5)*12)));
+  return {
+    confidence:'established' as const,
+    evidenceCount:relevant.length,
+    adjustment,
+    reason:adjustment===0
+      ? 'Histórico consistente, sem evidência forte para alterar o score.'
+      : `Ajuste histórico de ${adjustment>0?'+':''}${adjustment} pontos baseado em performance repetida.`,
+  };
 }
 
 export function deriveLearning(campaigns: Campaign[], metrics: PerformanceDaily[]): LearningInsight[] {
@@ -23,18 +97,36 @@ export function deriveLearning(campaigns: Campaign[], metrics: PerformanceDaily[
   const insights:LearningInsight[]=[];
 
   const byTemplate=new Map<string,{campaignIds:Set<string>;rows:PerformanceDaily[]}>();
+  const byTheme=new Map<string,{campaignIds:Set<string>;rows:PerformanceDaily[]}>();
+  const byBoard=new Map<string,{campaignIds:Set<string>;rows:PerformanceDaily[]}>();
+
   for (const campaign of published) {
-    const key=campaign.currentVersion.template;
-    const bucket=byTemplate.get(key) ?? {campaignIds:new Set(),rows:[]};
-    bucket.campaignIds.add(campaign.id);
-    bucket.rows.push(...metrics.filter((row)=>row.campaignId===campaign.id));
-    byTemplate.set(key,bucket);
+    const campaignRows=metrics.filter((row)=>row.campaignId===campaign.id);
+
+    const templateKey=campaign.currentVersion.template;
+    const templateBucket=byTemplate.get(templateKey) ?? {campaignIds:new Set(),rows:[]};
+    templateBucket.campaignIds.add(campaign.id);
+    templateBucket.rows.push(...campaignRows);
+    byTemplate.set(templateKey,templateBucket);
+
+    const themeKey=productTheme(campaign);
+    const themeBucket=byTheme.get(themeKey) ?? {campaignIds:new Set(),rows:[]};
+    themeBucket.campaignIds.add(campaign.id);
+    themeBucket.rows.push(...campaignRows);
+    byTheme.set(themeKey,themeBucket);
+
+    const boardKey=campaign.currentVersion.boardName;
+    const boardBucket=byBoard.get(boardKey) ?? {campaignIds:new Set(),rows:[]};
+    boardBucket.campaignIds.add(campaign.id);
+    boardBucket.rows.push(...campaignRows);
+    byBoard.set(boardKey,boardBucket);
   }
 
   for (const [template,bucket] of byTemplate) {
     const count=bucket.campaignIds.size;
     const summary=summarizePerformance(bucket.rows);
     const level=confidence(count);
+    const adjustment=historicalScoreAdjustment(campaigns,metrics,{template});
     insights.push({
       id:`creative:${template}`,
       type:'CREATIVE_DNA',
@@ -45,6 +137,50 @@ export function deriveLearning(campaigns: Campaign[], metrics: PerformanceDaily[
         : `Com ${count} campanhas, o template registra CTR de ${(summary.ctr*100).toFixed(2)}% e save rate de ${(summary.saveRate*100).toFixed(2)}%.`,
       evidenceCount:count,
       recommendation:level === 'established' && summary.ctr > 0.02 ? 'Manter como template forte para testes controlados.' : undefined,
+      scoreAdjustment:adjustment.adjustment,
+      dimensions:{template,ctr:summary.ctr,saveRate:summary.saveRate},
+    });
+  }
+
+  for(const [theme,bucket] of byTheme){
+    const count=bucket.campaignIds.size;
+    const level=confidence(count);
+    const summary=summarizePerformance(bucket.rows);
+    const adjustment=historicalScoreAdjustment(campaigns,metrics,{productTheme:theme});
+    insights.push({
+      id:`product:${theme}`,
+      type:'PRODUCT_DNA',
+      confidence:level,
+      title:`Tema de produto: ${theme}`,
+      explanation:level==='insufficient'
+        ? `Há ${count} campanhas publicadas neste tema. Ainda não há base para priorizar ou rebaixar oportunidades.`
+        : `O tema acumula ${count} campanhas, CTR de ${(summary.ctr*100).toFixed(2)}% e conversão de ${(summary.conversionRate*100).toFixed(2)}%.`,
+      evidenceCount:count,
+      recommendation:level==='established' && adjustment.adjustment>0
+        ? 'Usar como sinal histórico positivo, sem substituir Product Truth nem regras de qualidade.'
+        : undefined,
+      scoreAdjustment:adjustment.adjustment,
+      dimensions:{theme,ctr:summary.ctr,conversionRate:summary.conversionRate,epm:summary.epm},
+    });
+  }
+
+  for(const [board,bucket] of byBoard){
+    const count=bucket.campaignIds.size;
+    const level=confidence(count);
+    const summary=summarizePerformance(bucket.rows);
+    insights.push({
+      id:`audience:${board}`,
+      type:'AUDIENCE_DNA',
+      confidence:level,
+      title:`Audiência do board: ${board}`,
+      explanation:level==='insufficient'
+        ? `Só há ${count} campanhas publicadas neste board. O NestAffiliate ainda não presume preferência da audiência.`
+        : `O board reúne ${count} campanhas, save rate de ${(summary.saveRate*100).toFixed(2)}% e EPM de ${summary.epm===null?'—':summary.epm.toFixed(2)}.`,
+      evidenceCount:count,
+      recommendation:level==='established' && summary.saveRate>0.02
+        ? 'Continuar testando temas próximos neste board com variação controlada.'
+        : undefined,
+      dimensions:{board,saveRate:summary.saveRate,epm:summary.epm},
     });
   }
 
@@ -60,7 +196,12 @@ export function deriveLearning(campaigns: Campaign[], metrics: PerformanceDaily[
       ? 'Ainda há poucas decisões humanas; o NestAffiliate não vai inferir sua preferência cedo demais.'
       : `Foram observadas ${decisionCount} decisões humanas, com ${approvals} aprovações e ${rejections} rejeições.`,
     evidenceCount:decisionCount,
+    dimensions:{approvals,rejections,approvalRate:decisionCount?approvals/decisionCount:0},
   });
 
   return insights;
+}
+
+export function campaignPerformanceSummary(campaign:Campaign, metrics:PerformanceDaily[]){
+  return performanceForCampaign(campaign.id,metrics);
 }
