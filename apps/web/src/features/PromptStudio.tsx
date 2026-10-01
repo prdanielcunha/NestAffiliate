@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import type { Campaign } from '@nestaffiliate/core';
 import { buildPromptPackage, routeAI } from '@nestaffiliate/ai-router';
+import { useI18n } from '../lib/i18n-context';
 
 export function PromptStudio({campaigns}:{campaigns:Campaign[]}){
+  const { t } = useI18n();
   const [campaignId,setCampaignId]=useState(campaigns[0]?.id ?? '');
   const [instruction,setInstruction]=useState('Crie três ângulos de campanha Pinterest, mantendo linguagem premium e prática.');
   const [copied,setCopied]=useState(false);
@@ -36,17 +38,17 @@ export function PromptStudio({campaigns}:{campaigns:Campaign[]}){
   }
 
   return <div className="page">
-    <header className="page-title"><p className="eyebrow">PROMPT STUDIO</p><h1>IA sem prender o produto a uma API.</h1><p>Use o pacote no ChatGPT/Gemini manualmente. Fatos comerciais continuam bloqueados e separados da narrativa.</p></header>
+    <header className="page-title"><p className="eyebrow">PROMPT STUDIO</p><h1>{t('promptTitle')}</h1><p>{t('promptSub')}</p></header>
     <section className="surface">
       <div className="form-grid">
-        <label className="span-2">Campanha<select value={campaignId} onChange={(e)=>setCampaignId(e.target.value)}>{campaigns.map((c)=><option value={c.id} key={c.id}>{c.currentVersion.keyword} · v{c.currentVersion.version}</option>)}</select></label>
-        <label className="span-2">O que você quer mudar<textarea value={instruction} onChange={(e)=>setInstruction(e.target.value)} rows={4}/></label>
+        <label className="span-2">{t('campaign')}<select value={campaignId} onChange={(e)=>setCampaignId(e.target.value)}>{campaigns.map((c)=><option value={c.id} key={c.id}>{c.currentVersion.keyword} · v{c.currentVersion.version}</option>)}</select></label>
+        <label className="span-2">{t('whatChange')}<textarea value={instruction} onChange={(e)=>setInstruction(e.target.value)} rows={4}/></label>
       </div>
-      {!campaign && <p className="muted">Crie uma campanha no Radar para gerar um Prompt Package.</p>}
+      {!campaign && <p className="muted">{t('promptEmpty')}</p>}
       {pkg && <>
-        <div className="prompt-meta"><span>Provider sugerido: {pkg.provider}</span><span>Redações de privacidade: {pkg.privacyRedactions.length}</span><span>Custo obrigatório: R$ 0</span></div>
+        <div className="prompt-meta"><span>{t('providerSuggested')}: {pkg.provider}</span><span>{t('privacyRedactions')}: {pkg.privacyRedactions.length}</span><span>{t('requiredCost')}: R$ 0</span></div>
         <pre className="prompt-box">{pkg.system}{'\n\n'}{pkg.prompt}</pre>
-        <button className="button primary" onClick={()=>void copy()}>{copied?'Copiado':'Copiar pacote'}</button>
+        <button className="button primary" onClick={()=>void copy()}>{copied?t('copied'):t('copyPackage')}</button>
       </>}
     </section>
   </div>;
