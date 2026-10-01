@@ -70,7 +70,7 @@ export function calculateDuplicateSimilarity(
   candidate:PublicationFingerprint,
   existing:PublicationFingerprint,
 ){
-  const same=(a?:string,b?:string)=>Boolean(a && b && a===b) ? 1 : 0;
+  const same=(a?:string,b?:string)=>(a && b && a===b) ? 1 : 0;
   const product=same(candidate.productId,existing.productId);
   const image=same(candidate.imageUrl,existing.imageUrl);
   const headline=tokenSimilarity(candidate.headline,existing.headline);
