@@ -25,7 +25,19 @@ export async function freshValidateProduct(
     };
   }
 
-  const fresh=await meli.read(organizationId,approved.externalId);
+  let fresh:ProductTruth;
+  try{
+    fresh=await meli.read(organizationId,approved.externalId);
+  }catch{
+    const candidates=await meli.search({
+      organizationId,
+      query:approved.title.value,
+      limit:25,
+    });
+    const exact=candidates.find((item)=>item.externalId===approved.externalId);
+    if(!exact) throw new Error('MELI_FRESH_ITEM_NOT_FOUND');
+    fresh=exact;
+  }
   const current:ProductTruth={
     ...fresh,
     affiliateUrl:approved.affiliateUrl,
