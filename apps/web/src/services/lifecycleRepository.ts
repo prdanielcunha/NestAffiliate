@@ -1,8 +1,8 @@
 import { collection, doc, serverTimestamp, setDoc, type Firestore } from 'firebase/firestore';
-import type { Campaign, PublicationPackage } from '@nestaffiliate/core';
+import type { ApprovalEvent, Campaign, PublicationPackage } from '@nestaffiliate/core';
 
 export async function appendApprovalEvent(db:Firestore,input:{
-  organizationId:string;campaign:Campaign;actorId:string;decision:'APPROVED'|'REJECTED'|'EDITED'|'SWAPPED'|'RESTORED';note?:string;
+  organizationId:string;campaign:Campaign;actorId:string;decision:ApprovalEvent['decision'];note?:string;
 }){
   const id=`${input.campaign.id}-v${input.campaign.currentVersion.version}-${Date.now()}`;
   await setDoc(doc(collection(db,'organizations',input.organizationId,'products','nestaffiliate','approvalEvents'),id),{
