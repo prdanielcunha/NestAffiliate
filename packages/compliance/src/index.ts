@@ -1,5 +1,16 @@
 import type { ComplianceOutcome, ProductTruth } from '@nestaffiliate/core';
 
+export interface PublicationFingerprint {
+  productId:string;
+  imageUrl?:string;
+  headline:string;
+  description:string;
+  template:string;
+  board:string;
+  keyword:string;
+  publishedAt?:string;
+}
+
 export interface GuardInput {
   product: ProductTruth;
   disclosure: string;
@@ -35,6 +46,95 @@ function worst(outcomes: ComplianceOutcome[]): ComplianceOutcome {
   return 'PASS';
 }
 
+function normalizeSimilarityText(value:string){
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function tokenSimilarity(a:string,b:string){
+  const aa=new Set(normalizeSimilarityText(a).split(' ').filter((token)=>token.length>2));
+  const bb=new Set(normalizeSimilarityText(b).split(' ').filter((token)=>token.length>2));
+  if(!aa.size && !bb.size) return 1;
+  const union=new Set([...aa,...bb]);
+  let intersection=0;
+  for(const token of aa) if(bb.has(token)) intersection+=1;
+  return union.size ? intersection/union.size : 0;
+}
+
+export function calculateDuplicateSimilarity(
+  candidate:PublicationFingerprint,
+  existing:PublicationFingerprint,
+){
+  const same=(a?:string,b?:string)=>Boolean(a && b && a===b) ? 1 : 0;
+  const product=same(candidate.productId,existing.productId);
+  const image=same(candidate.imageUrl,existing.imageUrl);
+  const headline=tokenSimilarity(candidate.headline,existing.headline);
+  const description=tokenSimilarity(candidate.description,existing.description);
+  const template=same(candidate.template,existing.template);
+  const board=same(candidate.board,existing.board);
+  const keyword=tokenSimilarity(candidate.keyword,existing.keyword);
+
+  const score=
+    product*0.28+
+    image*0.16+
+    headline*0.20+
+    description*0.10+
+    template*0.08+
+    board*0.10+
+    keyword*0.08;
+
+  return Math.max(0,Math.min(1,Number(score.toFixed(4))));
+}
+
+export function maxDuplicateSimilarity(
+  candidate:PublicationFingerprint,
+  recent:PublicationFingerprint[],
+  now=new Date(),
+  lookbackDays=30,
+){
+  const cutoff=now.getTime()-Math.max(1,lookbackDays)*86_400_000;
+  let max=0;
+  for(const item of recent){
+    if(item.publishedAt){
+      const publishedAt=new Date(item.publishedAt).getTime();
+      if(Number.isFinite(publishedAt) && publishedAt<cutoff) continue;
+    }
+    max=Math.max(max,calculateDuplicateSimilarity(candidate,item));
+  }
+  return Number(max.toFixed(4));
+}
+
+export function isSafeExternalUrl(value:string){
+  try{
+    const url=new URL(value);
+    if(url.protocol!=='https:' || url.username || url.password) return false;
+    const host=url.hostname.toLowerCase();
+    if(
+      host==='localhost' ||
+      host.endsWith('.localhost') ||
+      host==='0.0.0.0' ||
+      host==='127.0.0.1' ||
+      host==='::1' ||
+      /^10\./.test(host) ||
+      /^192\.168\./.test(host) ||
+      /^169\.254\./.test(host)
+    ) return false;
+    const private172=host.match(/^172\.(\d{1,3})\./);
+    if(private172){
+      const octet=Number(private172[1]);
+      if(octet>=16 && octet<=31) return false;
+    }
+    return true;
+  }catch{
+    return false;
+  }
+}
+
 export function runPublishingGuard(input: GuardInput): GuardResult {
   const checks: GuardResult['checks'] = [];
   const push = (key: string, outcome: ComplianceOutcome, message: string) =>
@@ -46,19 +146,20 @@ export function runPublishingGuard(input: GuardInput): GuardResult {
     input.product.availability.value === 'available' ? 'Produto disponível.' : 'Disponibilidade precisa de atenção.',
   );
 
-  try {
-    const url = new URL(input.destinationUrl);
-    push('link', url.protocol === 'https:' ? 'PASS' : 'BLOCK', 'Link de destino validado.');
-  } catch {
-    push('link', 'BLOCK', 'Link de destino inválido.');
-  }
+  push(
+    'link',
+    isSafeExternalUrl(input.destinationUrl) ? 'PASS' : 'BLOCK',
+    isSafeExternalUrl(input.destinationUrl)
+      ? 'Link de destino externo e HTTPS validado.'
+      : 'Link de destino inválido, local ou inseguro.',
+  );
 
   const affiliateUrl = input.product.affiliateUrl?.value;
   if (input.product.marketplace === 'MELI') {
     let affiliateValid = false;
     if (affiliateUrl) {
       try {
-        affiliateValid = new URL(affiliateUrl).protocol === 'https:';
+        affiliateValid = isSafeExternalUrl(affiliateUrl);
       } catch {
         affiliateValid = false;
       }
