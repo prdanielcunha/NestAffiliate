@@ -1,5 +1,6 @@
 import { FEATURE_FLAGS, KILL_SWITCHES } from '@nestaffiliate/config';
 import { useI18n } from '../lib/i18n-context';
+import { PolicyWatchPanel } from './PolicyWatchPanel';
 
 type Status = 'active' | 'guided' | 'external' | 'off' | 'blocked';
 
@@ -93,6 +94,7 @@ export function ConnectionCenter() {
           </article>
         ))}
       </div>
+      <PolicyWatchPanel />
     </div>
   );
 }
