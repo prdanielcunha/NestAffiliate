@@ -21,6 +21,8 @@ import { appendApprovalEvent, markPublication, savePublicationPackage } from './
 import { ManualProductImport } from './features/ManualProductImport';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
+import { ConnectionCenter } from './features/ConnectionCenter';
+import { ensureNestAffiliateWorkspace } from './services/workspaceBootstrap';
 
 const marketplaceAdapter = new MercadoLivrePublicAdapter();
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
@@ -829,16 +831,7 @@ function Results({
 }
 
 function Connections() {
-  const { t } = useI18n();
-  const rows = [
-    ['Pinterest', FEATURE_FLAGS.PINTEREST_API_ENABLED ? 'API ativa' : 'Modo guiado', 'Standard Access continua bloqueado até aprovação externa.'],
-    ['Mercado Livre', FEATURE_FLAGS.MELI_ENABLED ? 'Catálogo público ativo' : 'Desativado', 'Dados de afiliado continuam separados do catálogo.'],
-    ['Shopee', FEATURE_FLAGS.SHOPEE_ENABLED ? 'Fluxo oficial/manual' : 'Desativado', 'Sem scraping de painel privado.'],
-    ['Gemini Free', FEATURE_FLAGS.GEMINI_FREE_ENABLED ? 'Ativo' : 'Off', 'Fallback local e Prompt Studio mantêm o produto funcionando.'],
-    ['ChatGPT Manual', 'Disponível', 'Sem API e sem custo adicional obrigatório.'],
-    ['OpenAI Future', FEATURE_FLAGS.OPENAI_API_ENABLED ? 'Ativo' : 'Off', 'Bloqueado por padrão.'],
-  ];
-  return <SimpleList eyebrow={t('connections').toUpperCase()} title={t('connectionsTitle')} subtitle={t('connectionsSub')} rows={rows} />;
+  return <ConnectionCenter />;
 }
 
 function AiCost() {
@@ -883,6 +876,19 @@ export function App() {
   }
   const org = auth.organizationId ?? 'demo-org';
   const editable = auth.role ? canWrite(auth.role) : false;
+
+  useEffect(() => {
+    if (!db || !auth.organizationId || !auth.user?.uid || !editable) return;
+    const currentDb = db;
+    void ensureNestAffiliateWorkspace({
+      db: currentDb,
+      organizationId: auth.organizationId,
+      userId: auth.user.uid,
+      locale,
+      boards: initialBoards,
+      templates: CREATIVE_TEMPLATES,
+    }).catch(() => undefined);
+  }, [auth.organizationId, auth.user?.uid, editable, locale]);
 
   return (
     <I18nProvider locale={locale}>
