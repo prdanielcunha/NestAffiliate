@@ -136,3 +136,22 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .schedule-controls .success-text,.schedule-controls .field-error{grid-column:1/-1}
 @media(max-width:760px){.schedule-panel{grid-template-columns:1fr}.schedule-controls{grid-template-columns:1fr}.schedule-controls .button{width:100%}.schedule-card{align-items:flex-start;flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.schedule-card{transition:none}}
+
+.policy-watch{margin-top:28px;display:grid;gap:16px}
+.policy-watch-head{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}
+.policy-watch-head h2{margin:4px 0 6px;font-size:22px}.policy-watch-head>div>p:not(.eyebrow){margin:0;max-width:760px;color:var(--muted);line-height:1.55}
+.policy-summary{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.policy-summary span{display:grid;gap:2px;min-width:88px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.policy-summary b{font-size:18px;color:var(--text);letter-spacing:0}
+.policy-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.policy-card{display:grid;gap:12px;padding:18px;border:1px solid var(--border);border-radius:var(--r-lg);background:var(--surface)}
+.policy-card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.policy-card h3{margin:7px 0 0;font-size:15px}
+.policy-card>p{margin:0;color:var(--muted);font-size:11px;line-height:1.55}
+.policy-status{font-size:9px;text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--border);border-radius:999px;padding:6px 8px;white-space:nowrap}
+.policy-status.current{color:var(--accent);background:var(--accent-soft)}
+.policy-status.review_soon{color:var(--warning)}
+.policy-status.review_due{color:var(--danger)}
+.policy-impact{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.policy-impact b{font-size:10px;margin-right:3px}.policy-impact span{font-size:9px;padding:5px 7px;border-radius:999px;background:var(--surface2);border:1px solid var(--border);color:var(--muted)}
+.policy-dates{display:flex;gap:14px;flex-wrap:wrap;font-size:9px;color:var(--muted)}
+.policy-link{justify-self:start;text-decoration:none}
+@media(max-width:760px){.policy-watch-head{display:grid}.policy-summary{justify-content:flex-start}.policy-grid{grid-template-columns:1fr}}
