@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
-import type { Campaign, ProductTruth, PublicationPackage } from '@nestaffiliate/core';
-import { campaignVersions, canWrite, nextCampaignVersion, restoreCampaignVersion, type Role } from '@nestaffiliate/core';
+import type { Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
+import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { runPublishingGuard } from '@nestaffiliate/compliance';
 import { MercadoLivrePublicAdapter } from '@nestaffiliate/integrations';
 import { buildOpportunity, shortlist } from '@nestaffiliate/radar';
@@ -29,6 +29,8 @@ import { defaultPreferences, loadUserPreferences, saveUserPreferences, type User
 import { recordRadarSignal } from './services/radarRepository';
 import { loadPublicationFrequency, type PublicationFrequencyState } from './services/publicationRepository';
 import { SettingsPanel } from './features/SettingsPanel';
+import { freshValidateProduct } from './services/freshValidation';
+import { completePublicationSchedule, listPublicationSchedules, savePublicationSchedule } from './services/publicationScheduleRepository';
 
 const marketplaceAdapter = new MercadoLivrePublicAdapter();
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
@@ -219,6 +221,91 @@ function usePreferencesStore(
   };
 
   return {preferences,update};
+}
+
+function usePublicationScheduleStore(
+  organizationId:string | null,
+  actorId:string | null,
+  role:Role | null,
+){
+  const demoEnabled=
+    import.meta.env.VITE_DEMO_DATA_ENABLED==='true' ||
+    import.meta.env.VITE_E2E_MOCK_AUTH==='true';
+  const key=`nestaffiliate_schedules_v1:${organizationId ?? 'pending'}`;
+  const [schedules,setSchedules]=useState<PublicationSchedule[]>(()=>{
+    try{
+      return (JSON.parse(localStorage.getItem(key) ?? '[]') as PublicationSchedule[])
+        .map((item)=>({...item,status:publicationScheduleStatus(item)}));
+    }catch{
+      return [];
+    }
+  });
+
+  useEffect(()=>{
+    if(!organizationId) return;
+    let active=true;
+    try{
+      const stored=(JSON.parse(localStorage.getItem(key) ?? '[]') as PublicationSchedule[])
+        .map((item)=>({...item,status:publicationScheduleStatus(item)}));
+      setSchedules(stored);
+    }catch{
+      localStorage.removeItem(key);
+      setSchedules([]);
+    }
+    if(db && !demoEnabled){
+      const currentDb=db;
+      void listPublicationSchedules(currentDb,organizationId)
+        .then((remote)=>{if(active)setSchedules(remote);})
+        .catch(()=>undefined);
+    }
+    return ()=>{active=false;};
+  },[organizationId,key,demoEnabled]);
+
+  useEffect(()=>{
+    if(!organizationId) return;
+    const normalized=schedules.map((item)=>({...item,status:publicationScheduleStatus(item)}));
+    localStorage.setItem(key,JSON.stringify(normalized));
+  },[organizationId,key,schedules]);
+
+  const add=(schedule:PublicationSchedule)=>{
+    if(!role || !canWrite(role)) return;
+    setSchedules((items)=>[schedule,...items.filter((item)=>item.id!==schedule.id)]);
+    if(db && organizationId && actorId && !demoEnabled){
+      const currentDb=db;
+      void savePublicationSchedule(currentDb,schedule)
+        .then(()=>appendAudit(currentDb,{
+          organizationId,
+          actorId,
+          action:'publication.scheduled',
+          entityType:'publicationSchedule',
+          entityId:schedule.id,
+          metadata:{campaignId:schedule.campaignId,scheduledFor:schedule.scheduledFor,mode:schedule.mode},
+        }))
+        .catch(()=>undefined);
+    }
+  };
+
+  const complete=(campaignId:string,campaignVersion:number)=>{
+    const matches=schedules.filter((item)=>
+      item.campaignId===campaignId &&
+      item.campaignVersion===campaignVersion &&
+      !['COMPLETED','CANCELLED'].includes(item.status),
+    );
+    if(!matches.length) return;
+    setSchedules((items)=>items.map((item)=>
+      matches.some((match)=>match.id===item.id)
+        ? {...item,status:'COMPLETED',updatedAt:new Date().toISOString()}
+        : item
+    ));
+    if(db && organizationId && !demoEnabled){
+      const currentDb=db;
+      for(const match of matches){
+        void completePublicationSchedule(currentDb,organizationId,match.id).catch(()=>undefined);
+      }
+    }
+  };
+
+  return {schedules,add,complete};
 }
 
 function Login() {
