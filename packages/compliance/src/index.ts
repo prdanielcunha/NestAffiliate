@@ -171,3 +171,108 @@ export function nextPolicyReviewDate(checkedAt=new Date(), days=30){
   next.setUTCDate(next.getUTCDate()+Math.max(1,days));
   return next.toISOString();
 }
+
+
+export type FreshValidationOutcome='PASS'|'REVIEW_REQUIRED'|'BLOCK';
+
+export interface FreshValidationChange {
+  field:'title'|'url'|'affiliateUrl'|'price'|'availability';
+  outcome:FreshValidationOutcome;
+  before?:string|number;
+  after?:string|number;
+  message:string;
+}
+
+export interface FreshValidationResult {
+  outcome:FreshValidationOutcome;
+  changes:FreshValidationChange[];
+  validatedAt:string;
+}
+
+function freshWorst(values:FreshValidationOutcome[]):FreshValidationOutcome{
+  if(values.includes('BLOCK')) return 'BLOCK';
+  if(values.includes('REVIEW_REQUIRED')) return 'REVIEW_REQUIRED';
+  return 'PASS';
+}
+
+export function validateFreshProduct(
+  approved:ProductTruth,
+  current:ProductTruth,
+  now=new Date(),
+):FreshValidationResult{
+  const changes:FreshValidationChange[]=[];
+  const push=(change:FreshValidationChange)=>changes.push(change);
+
+  if(current.availability.value==='unavailable'){
+    push({
+      field:'availability',
+      outcome:'BLOCK',
+      before:approved.availability.value,
+      after:current.availability.value,
+      message:'O produto ficou indisponível depois da aprovação.',
+    });
+  } else if(approved.availability.value!==current.availability.value){
+    push({
+      field:'availability',
+      outcome:'REVIEW_REQUIRED',
+      before:approved.availability.value,
+      after:current.availability.value,
+      message:'A disponibilidade mudou desde a aprovação.',
+    });
+  }
+
+  if(approved.url.value!==current.url.value){
+    push({
+      field:'url',
+      outcome:'REVIEW_REQUIRED',
+      before:approved.url.value,
+      after:current.url.value,
+      message:'A URL oficial do produto mudou.',
+    });
+  }
+
+  const oldAffiliate=approved.affiliateUrl?.value;
+  const newAffiliate=current.affiliateUrl?.value;
+  if(oldAffiliate!==newAffiliate){
+    push({
+      field:'affiliateUrl',
+      outcome:'REVIEW_REQUIRED',
+      before:oldAffiliate,
+      after:newAffiliate,
+      message:'O link afiliado mudou e precisa de nova aprovação.',
+    });
+  }
+
+  if(approved.title.value.trim()!==current.title.value.trim()){
+    push({
+      field:'title',
+      outcome:'REVIEW_REQUIRED',
+      before:approved.title.value,
+      after:current.title.value,
+      message:'O título oficial do produto mudou.',
+    });
+  }
+
+  if(approved.price && current.price && approved.price.value!==current.price.value){
+    push({
+      field:'price',
+      outcome:'REVIEW_REQUIRED',
+      before:approved.price.value,
+      after:current.price.value,
+      message:'O preço mudou desde a aprovação.',
+    });
+  } else if(approved.price && !current.price){
+    push({
+      field:'price',
+      outcome:'REVIEW_REQUIRED',
+      before:approved.price.value,
+      message:'Não foi possível confirmar o preço atual.',
+    });
+  }
+
+  return {
+    outcome:freshWorst(changes.map((change)=>change.outcome)),
+    changes,
+    validatedAt:now.toISOString(),
+  };
+}
