@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import type { Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
-import { runPublishingGuard } from '@nestaffiliate/compliance';
+import { runPublishingGuard, type FreshValidationResult } from '@nestaffiliate/compliance';
 import { MercadoLivrePublicAdapter } from '@nestaffiliate/integrations';
 import { buildOpportunity, shortlist } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
@@ -896,11 +896,13 @@ function Disclosure({ title, children, defaultOpen = false }: { title: string; c
 }
 
 function Publish({
-  campaigns, update, preferences,
+  campaigns, update, preferences, onSchedule, completeSchedule,
 }: {
   campaigns: Campaign[];
   update: (c: Campaign) => void;
   preferences: UserPreferences;
+  onSchedule:(schedule:PublicationSchedule)=>void;
+  completeSchedule:(campaignId:string,campaignVersion:number)=>void;
 }) {
   const { t } = useI18n();
   const { id } = useParams();
@@ -908,6 +910,11 @@ function Publish({
   const campaign = campaigns.find((c) => c.id === id);
   const [step, setStep] = useState(0);
   const [frequency,setFrequency]=useState<PublicationFrequencyState>({publications24h:0});
+  const [freshState,setFreshState]=useState<'idle'|'loading'|'pass'|'review'|'block'|'manual'|'error'>('idle');
+  const [freshResult,setFreshResult]=useState<FreshValidationResult|null>(null);
+  const [manualFreshConfirmed,setManualFreshConfirmed]=useState(false);
+  const [scheduledFor,setScheduledFor]=useState('');
+  const [scheduleMessage,setScheduleMessage]=useState('');
 
   useEffect(()=>{
     if(!campaign || !db || !identity.organizationId) {
@@ -918,6 +925,44 @@ function Publish({
     void loadPublicationFrequency(currentDb,identity.organizationId)
       .then(setFrequency)
       .catch(()=>setFrequency({publications24h:0}));
+  },[campaign,identity.organizationId]);
+
+  useEffect(()=>{
+    setFreshResult(null);
+    setManualFreshConfirmed(false);
+    if(!campaign || campaign.status!=='PUBLICATION_READY'){
+      setFreshState('idle');
+      return;
+    }
+    if(campaign.marketplace!=='MELI'){
+      setFreshState('manual');
+      return;
+    }
+    let active=true;
+    setFreshState('loading');
+    void freshValidateProduct(campaign.organizationId,campaign.currentVersion.product)
+      .then(({result})=>{
+        if(!active) return;
+        setFreshResult(result);
+        setFreshState(
+          result.outcome==='PASS' ? 'pass' :
+          result.outcome==='BLOCK' ? 'block' : 'review'
+        );
+        if(db && identity.organizationId){
+          const currentDb=db;
+          void saveFreshComplianceCheck(currentDb,{
+            organizationId:identity.organizationId,
+            campaign,
+            outcome:result.outcome,
+            changes:result.changes as unknown as Array<Record<string,unknown>>,
+            validatedAt:result.validatedAt,
+          }).catch(()=>undefined);
+        }
+      })
+      .catch(()=>{
+        if(active) setFreshState('error');
+      });
+    return ()=>{active=false;};
   },[campaign,identity.organizationId]);
 
   if (!campaign) return <Navigate to="/campaigns" replace />;
@@ -941,6 +986,15 @@ function Publish({
     destinationUrl: destination, boardName: v.boardName, topics: [v.keyword, 'casa organizada', 'ideias para casa'],
     altText: v.narrative.altText, compliance: guard.outcome,
   };
+  const apiMode=preferences.publishingMode==='api_when_available' && canAttemptPinterestPublish();
+  const manualFreshAllowed=!apiMode && ['manual','error'].includes(freshState) && manualFreshConfirmed;
+  const freshReady=freshState==='pass' || manualFreshAllowed;
+  const freshMaterialBlock=['review','block'].includes(freshState);
+  const publisherBlocked=
+    guard.outcome==='BLOCK' ||
+    freshMaterialBlock ||
+    ['idle','loading'].includes(freshState) ||
+    (!freshReady && ['manual','error'].includes(freshState));
 
   const marketplaceSteps = activeCampaign.marketplace === 'SHOPEE'
     ? [[t('shopeeGuideTitle'), t('shopeeGuideBody')]]
@@ -965,6 +1019,42 @@ function Publish({
     }
   }
 
+  function schedulePublication(){
+    const parsed=validateScheduledFor(scheduledFor);
+    if(!parsed.valid){
+      setScheduleMessage(t('scheduleInvalid'));
+      return;
+    }
+    const mode:'GUIDED'|'PINTEREST_API'=apiMode ? 'PINTEREST_API' : 'GUIDED';
+    const now=new Date().toISOString();
+    const schedule:PublicationSchedule={
+      id:`${activeCampaign.id}-v${v.version}`,
+      organizationId:activeCampaign.organizationId,
+      campaignId:activeCampaign.id,
+      campaignVersion:v.version,
+      mode,
+      scheduledFor:parsed.iso,
+      timezone:Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Sao_Paulo',
+      status:'SCHEDULED',
+      createdAt:now,
+      updatedAt:now,
+    };
+    onSchedule(schedule);
+    setScheduleMessage(t('scheduled'));
+    if(db && identity.organizationId){
+      const currentDb=db;
+      void Promise.all([
+        savePublicationPackage(currentDb,identity.organizationId,{...pkg,suggestedPublishAt:parsed.iso}),
+        markPublicationScheduled(currentDb,{
+          organizationId:identity.organizationId,
+          campaign:activeCampaign,
+          scheduledFor:parsed.iso,
+          mode,
+        }),
+      ]).catch(()=>undefined);
+    }
+  }
+
   async function downloadImage() {
     persistPackage();
     const canvas = document.createElement('canvas');
@@ -978,8 +1068,10 @@ function Publish({
   }
 
   function markPublished() {
+    if(publisherBlocked) return;
     const published: Campaign = { ...activeCampaign, status: 'PUBLISHED' };
     update(published);
+    completeSchedule(activeCampaign.id,v.version);
     if (db && identity.organizationId) {
       void markPublication(db, {
         organizationId: identity.organizationId,
@@ -996,6 +1088,26 @@ function Publish({
         {guard.checks.map((check) => <span key={check.key} className={`check ${check.outcome.toLowerCase()}`}>{check.outcome === 'PASS' ? '✓' : check.outcome === 'WARN' ? '!' : '×'} {check.key}</span>)}
       </div>
       {guard.outcome === 'BLOCK' && <div className="notice danger">{t('publishBlocked')}</div>}
+      <section className={`fresh-validation ${freshState}`}>
+        <div>
+          <p className="eyebrow">{t('freshValidation')}</p>
+          {freshState==='loading' && <strong>{t('validatingFresh')}</strong>}
+          {freshState==='pass' && <strong>{t('freshOk')}</strong>}
+          {freshState==='review' && <strong>{t('freshReview')}</strong>}
+          {freshState==='block' && <strong>{t('freshBlocked')}</strong>}
+          {['manual','error'].includes(freshState) && <strong>{t('freshUnavailable')}</strong>}
+        </div>
+        {freshResult?.changes.length ? (
+          <ul>{freshResult.changes.map((change,index)=><li key={`${change.field}-${index}`}>{change.message}</li>)}</ul>
+        ) : null}
+        {['manual','error'].includes(freshState) && !apiMode && (
+          <label className="manual-confirm">
+            <input type="checkbox" checked={manualFreshConfirmed} onChange={(e)=>setManualFreshConfirmed(e.target.checked)} />
+            <span>{t('manualFreshConfirm')}</span>
+          </label>
+        )}
+        {freshMaterialBlock && <NavLink className="button secondary" to={`/review/${activeCampaign.id}`}>{t('returnReview')}</NavLink>}
+      </section>
       <div className="publish-grid">
         <PinPreview campaign={campaign} />
         <section className="package-card">
@@ -1008,6 +1120,19 @@ function Publish({
           <Field label={t('altText')} value={pkg.altText} onCopy={() => copy(pkg.altText)} />
         </section>
       </div>
+      <section className="schedule-panel">
+        <div>
+          <p className="eyebrow">{t('schedulePublication')}</p>
+          <h2>{t('scheduleFor')}</h2>
+          <p>{t('scheduleGuided')}</p>
+          <small>{t('noUniversalTime')}</small>
+        </div>
+        <div className="schedule-controls">
+          <input type="datetime-local" value={scheduledFor} onChange={(e)=>{setScheduledFor(e.target.value);setScheduleMessage('');}} />
+          <button className="button secondary" onClick={schedulePublication}>{t('schedule')}</button>
+          {scheduleMessage && <span className={scheduleMessage===t('scheduled')?'success-text':'field-error'}>{scheduleMessage}</span>}
+        </div>
+      </section>
       <section className="guided">
         <div className="guided-copy">
           <p className="eyebrow">{t('guidedMode')}</p>
@@ -1018,9 +1143,9 @@ function Publish({
         <div className="guided-actions">
           {step > 0 && <button className="button secondary" onClick={() => setStep(step - 1)}>{t('back')}</button>}
           {step < steps.length - 1 ? (
-            <button className="button primary" disabled={guard.outcome === 'BLOCK'} onClick={() => { persistPackage(); setStep(step + 1); }}>{t('next')}</button>
+            <button className="button primary" disabled={publisherBlocked} onClick={() => { persistPackage(); setStep(step + 1); }}>{t('next')}</button>
           ) : (
-            <button className="button primary" onClick={markPublished}>{t('markPublished')}</button>
+            <button className="button primary" disabled={publisherBlocked} onClick={markPublished}>{t('markPublished')}</button>
           )}
         </div>
       </section>
