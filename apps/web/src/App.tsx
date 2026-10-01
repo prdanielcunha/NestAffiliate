@@ -430,6 +430,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
 }
 
 function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update: (c: Campaign) => void; editable: boolean }) {
+  const { t, locale } = useI18n();
   const { id } = useParams();
   const identity = useAuth();
   const navigate = useNavigate();
@@ -496,7 +497,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       setAffiliateError('');
       setSaved(true);
     } catch {
-      setAffiliateError('Cole um link afiliado HTTPS válido.');
+      setAffiliateError(t('affiliateInvalid'));
     }
   }
 
@@ -511,7 +512,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       });
       setSwapOptions(alternatives.filter((item) => item.externalId !== v.product.externalId));
     } catch {
-      setAffiliateError('Não foi possível buscar alternativas agora.');
+      setAffiliateError(t('radarError'));
     } finally {
       setSwapLoading(false);
     }
@@ -559,15 +560,15 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         <PinPreview campaign={campaign} />
         <section className="decision-panel">
           <div className="review-header">
-            <div><p className="eyebrow">REVIEW</p><h1>{v.keyword}</h1></div>
-            <div className="score-badge"><strong>{campaign.score.score}</strong><span>NestScore<br/>Confiança {campaign.score.confidence}</span></div>
+            <div><p className="eyebrow">{t('review')}</p><h1>{v.keyword}</h1></div>
+            <div className="score-badge"><strong>{campaign.score.score}</strong><span>NestScore<br/>{t('confidence')} {t(campaign.score.confidence as 'high'|'medium'|'low')}</span></div>
           </div>
-          <Disclosure title="Produto" defaultOpen>
+          <Disclosure title={t('product')} defaultOpen>
             <h3>{v.product.title.value}</h3>
-            <p className="muted">{campaign.marketplace} · {v.product.sellerName?.value ?? 'Seller não informado'}</p>
-            <small>Fonte: {v.product.title.source} · {new Date(v.product.title.observedAt).toLocaleString('pt-BR')}</small>
+            <p className="muted">{campaign.marketplace} · {v.product.sellerName?.value ?? t('sellerUnknown')}</p>
+            <small>{t('source')}: {v.product.title.source} · {new Date(v.product.title.observedAt).toLocaleString(locale)}</small>
             <div className="affiliate-editor">
-              <label>{campaign.marketplace === 'MELI' ? 'Link afiliado obrigatório' : 'Link afiliado / marcação oficial'}</label>
+              <label>{campaign.marketplace === 'MELI' ? t('affiliateRequired') : t('affiliateOfficial')}</label>
               <div className="inline-editor">
                 <input
                   value={affiliateDraft}
@@ -576,24 +577,24 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
                   inputMode="url"
                   aria-label="Link afiliado"
                 />
-                <button className="button secondary" onClick={saveAffiliateLink}>Validar link</button>
+                <button className="button secondary" onClick={saveAffiliateLink}>{t('validateLink')}</button>
               </div>
               {affiliateError && <p className="field-error">{affiliateError}</p>}
               {!v.product.affiliateUrl && campaign.marketplace === 'MELI' && (
-                <p className="field-hint">A publicação fica bloqueada até existir um link afiliado válido.</p>
+                <p className="field-hint">{t('affiliateMissing')}</p>
               )}
             </div>
           </Disclosure>
-          <Disclosure title="Por que escolhemos" defaultOpen>
+          <Disclosure title={t('why')} defaultOpen>
             <ul>{campaign.score.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
           </Disclosure>
-          <Disclosure title="Conteúdo">
-            <label>Título</label><p>{v.narrative.pinterestTitle}</p>
-            <label>Descrição</label><p>{v.narrative.description}</p>
+          <Disclosure title={t('content')}>
+            <label>{t('title')}</label><p>{v.narrative.pinterestTitle}</p>
+            <label>{t('description')}</label><p>{v.narrative.description}</p>
             <label>Disclosure</label><p>{v.narrative.disclosure}</p>
           </Disclosure>
-          <Disclosure title="Pinterest">
-            <label>Board</label>
+          <Disclosure title={t('pinterest')}>
+            <label>{t('board')}</label>
             <select
               value={v.boardName}
               disabled={!editable}
@@ -601,7 +602,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             >
               {initialBoards.map((board) => <option key={board} value={board}>{board}</option>)}
             </select>
-            <label>Template</label>
+            <label>{t('template')}</label>
             <select
               value={v.template}
               disabled={!editable}
@@ -609,9 +610,9 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             >
               {CREATIVE_TEMPLATES.map((template) => <option key={template.id} value={template.label}>{template.label}</option>)}
             </select>
-            <p><b>Alt:</b> {v.narrative.altText}</p>
+            <p><b>{t('alt')}:</b> {v.narrative.altText}</p>
           </Disclosure>
-          <Disclosure title="Histórico e undo">
+          <Disclosure title={t('historyUndo')}>
             <div className="version-list">
               {campaignVersions(campaign).map((version) => (
                 <button
@@ -621,19 +622,19 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
                   onClick={() => update(restoreCampaignVersion(campaign, version.version))}
                 >
                   <span>v{version.version} · {version.reason}</span>
-                  <small>{new Date(version.createdAt).toLocaleString('pt-BR')}</small>
+                  <small>{new Date(version.createdAt).toLocaleString(locale)}</small>
                 </button>
               ))}
             </div>
           </Disclosure>
-          <div className="save-state">{saved ? 'Salvo' : 'Salvando…'} · v{v.version}</div>
+          <div className="save-state">{saved ? t('saved') : t('saving')} · v{v.version}</div>
           <div className="primary-actions">
-            <button className="button primary" disabled={!editable} onClick={approve}>Aprovar</button>
-            <button className="button secondary" disabled={!editable} onClick={() => document.getElementById('ai-edit')?.focus()}>Editar</button>
+            <button className="button primary" disabled={!editable} onClick={approve}>{t('approve')}</button>
+            <button className="button secondary" disabled={!editable} onClick={() => document.getElementById('ai-edit')?.focus()}>{t('edit')}</button>
           </div>
           <div className="minor-actions">
-            <button disabled={!editable} onClick={() => void loadSwaps()}>{swapLoading ? 'Buscando…' : 'Trocar produto'}</button>
-            <button disabled={!editable} onClick={() => applyEdit('Refaz tudo')}>Refazer</button>
+            <button disabled={!editable} onClick={() => void loadSwaps()}>{swapLoading ? t('searching') : t('swap')}</button>
+            <button disabled={!editable} onClick={() => applyEdit('Refaz tudo')}>{t('redo')}</button>
             <button disabled={!editable} onClick={() => {
               const rejected: Campaign = { ...campaign, status: 'REJECTED' };
               update(rejected);
@@ -645,16 +646,16 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
                   decision: 'REJECTED',
                 }).catch(() => undefined);
               }
-            }}>Descartar</button>
+            }}>{t('discard')}</button>
           </div>
           {swapOptions.length > 0 && (
             <div className="swap-panel">
-              <div className="section-heading"><h3>Melhores alternativas</h3><button className="text-button" onClick={() => setSwapOptions([])}>Fechar</button></div>
+              <div className="section-heading"><h3>{t('bestAlternatives')}</h3><button className="text-button" onClick={() => setSwapOptions([])}>{t('close')}</button></div>
               {swapOptions.slice(0, 4).map((product, index) => (
                 <button className="swap-option" key={product.externalId} onClick={() => chooseSwap(product)}>
-                  <span>{index === 0 ? 'Recomendado' : index === 1 ? 'Mais barato' : 'Alternativa'}</span>
+                  <span>{index === 0 ? t('recommended') : index === 1 ? t('cheaper') : t('alternative')}</span>
                   <strong>{product.title.value}</strong>
-                  <em>{product.price ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:product.currency.value}).format(product.price.value) : 'Preço não informado'}</em>
+                  <em>{product.price ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</em>
                 </button>
               ))}
             </div>
@@ -663,21 +664,22 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       </div>
       <div className="ai-bar">
         <span className="spark">✦</span>
-        <input id="ai-edit" disabled={!editable} value={command} onChange={(e) => { setSaved(false); setCommand(e.target.value); }} onKeyDown={(e) => e.key === 'Enter' && applyEdit(command)} placeholder={editable ? 'Peça qualquer alteração… Ex.: mais premium, menos texto, outra headline' : 'Acesso somente leitura'} />
-        <button disabled={!editable} onClick={() => applyEdit(command)}>Aplicar</button>
+        <input id="ai-edit" disabled={!editable} value={command} onChange={(e) => { setSaved(false); setCommand(e.target.value); }} onKeyDown={(e) => e.key === 'Enter' && applyEdit(command)} placeholder={editable ? t('askChange') : t('readOnly')} />
+        <button disabled={!editable} onClick={() => applyEdit(command)}>{t('apply')}</button>
       </div>
     </div>
   );
 }
 
 function PinPreview({ campaign }: { campaign: Campaign }) {
+  const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     if (canvasRef.current) void renderPin(canvasRef.current, campaign.currentVersion);
   }, [campaign.currentVersion]);
   return (
     <section className="preview-panel">
-      <div className="preview-toolbar"><span>PIN PREVIEW</span><span>1000 × 1500 · 2:3</span></div>
+      <div className="preview-toolbar"><span>{t('pinPreview')}</span><span>1000 × 1500 · 2:3</span></div>
       <canvas ref={canvasRef} className="pin-canvas" aria-label="Prévia do Pin" />
     </section>
   );
@@ -688,6 +690,7 @@ function Disclosure({ title, children, defaultOpen = false }: { title: string; c
 }
 
 function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Campaign) => void }) {
+  const { t } = useI18n();
   const { id } = useParams();
   const identity = useAuth();
   const campaign = campaigns.find((c) => c.id === id)!;
@@ -751,36 +754,36 @@ function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Cam
 
   return (
     <div className="page publish-page">
-      <PageTitle eyebrow="PUBLICAÇÃO" title="Seu Pin está pronto." subtitle="A aprovação humana aconteceu. Agora seguimos o último checklist antes da publicação." />
+      <PageTitle eyebrow={t('publishEyebrow')} title={t('publishReady')} subtitle={t('publishSub')} />
       <div className="validation-row">
         {guard.checks.map((check) => <span key={check.key} className={`check ${check.outcome.toLowerCase()}`}>{check.outcome === 'PASS' ? '✓' : check.outcome === 'WARN' ? '!' : '×'} {check.key}</span>)}
       </div>
-      {guard.outcome === 'BLOCK' && <div className="notice danger">A publicação foi bloqueada. Corrija os itens marcados antes de continuar.</div>}
+      {guard.outcome === 'BLOCK' && <div className="notice danger">{t('publishBlocked')}</div>}
       <div className="publish-grid">
         <PinPreview campaign={campaign} />
         <section className="package-card">
-          <button className="button primary download-button" onClick={() => void downloadImage()}>Baixar imagem PNG</button>
-          <Field label="Arquivo" value={pkg.filename} onCopy={() => copy(pkg.filename)} />
-          <Field label="Título" value={pkg.title} onCopy={() => copy(pkg.title)} />
-          <Field label="Descrição" value={pkg.description} onCopy={() => copy(`${pkg.description}\n\n${pkg.disclosure}`)} />
+          <button className="button primary download-button" onClick={() => void downloadImage()}>{t('downloadPng')}</button>
+          <Field label={t('file')} value={pkg.filename} onCopy={() => copy(pkg.filename)} />
+          <Field label={t('title')} value={pkg.title} onCopy={() => copy(pkg.title)} />
+          <Field label={t('description')} value={pkg.description} onCopy={() => copy(`${pkg.description}\n\n${pkg.disclosure}`)} />
           <Field label="Link" value={pkg.destinationUrl} onCopy={() => copy(pkg.destinationUrl)} />
-          <Field label="Salvar em" value={pkg.boardName} onCopy={() => copy(pkg.boardName)} />
-          <Field label="Alt text" value={pkg.altText} onCopy={() => copy(pkg.altText)} />
+          <Field label={t('saveTo')} value={pkg.boardName} onCopy={() => copy(pkg.boardName)} />
+          <Field label={t('altText')} value={pkg.altText} onCopy={() => copy(pkg.altText)} />
         </section>
       </div>
       <section className="guided">
         <div className="guided-copy">
-          <p className="eyebrow">MODO GUIADO</p>
+          <p className="eyebrow">{t('guidedMode')}</p>
           <h2>{steps[step]?.[0]}</h2>
           <p>{steps[step]?.[1]}</p>
           <div className="step-dots">{steps.map((_,i) => <span key={i} className={i === step ? 'active' : ''} />)}</div>
         </div>
         <div className="guided-actions">
-          {step > 0 && <button className="button secondary" onClick={() => setStep(step - 1)}>Voltar</button>}
+          {step > 0 && <button className="button secondary" onClick={() => setStep(step - 1)}>{t('back')}</button>}
           {step < steps.length - 1 ? (
-            <button className="button primary" disabled={guard.outcome === 'BLOCK'} onClick={() => { persistPackage(); setStep(step + 1); }}>Próxima etapa</button>
+            <button className="button primary" disabled={guard.outcome === 'BLOCK'} onClick={() => { persistPackage(); setStep(step + 1); }}>{t('next')}</button>
           ) : (
-            <button className="button primary" onClick={markPublished}>Marcar como publicado</button>
+            <button className="button primary" onClick={markPublished}>{t('markPublished')}</button>
           )}
         </div>
       </section>
@@ -789,19 +792,21 @@ function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Cam
 }
 
 function Field({ label, value, onCopy }: { label: string; value: string; onCopy: () => void }) {
-  return <div className="package-field"><label>{label}</label><p>{value}</p><button onClick={onCopy}>Copiar</button></div>;
+  const { t } = useI18n();
+  return <div className="package-field"><label>{label}</label><p>{value}</p><button onClick={onCopy}>{t('copy')}</button></div>;
 }
 
 function Campaigns({ campaigns }: { campaigns: Campaign[] }) {
+  const { t } = useI18n();
   const [tab,setTab] = useState<'READY'|'PUBLICATION_READY'|'PUBLISHED'|'REJECTED'>('READY');
-  const map = { READY:'Para revisar', PUBLICATION_READY:'Aprovadas', PUBLISHED:'Publicadas', REJECTED:'Arquivadas' };
+  const map = { READY:t('toReview'), PUBLICATION_READY:t('approved'), PUBLISHED:t('published'), REJECTED:t('archived') };
   const visible = campaigns.filter((c) => c.status === tab || (tab === 'REJECTED' && c.status === 'BLOCKED'));
   return (
     <div className="page">
-      <PageTitle eyebrow="CAMPANHAS" title="Campanhas" subtitle="Poucas decisões. Todo o contexto." />
+      <PageTitle eyebrow={t('campaigns').toUpperCase()} title={t('campaigns')} subtitle={t('campaignsSub')} />
       <div className="tabs">{Object.entries(map).map(([key,label]) => <button className={tab === key ? 'active' : ''} key={key} onClick={() => setTab(key as typeof tab)}>{label}</button>)}</div>
       <div className="campaign-grid">{visible.map((c) => <CampaignCard key={c.id} campaign={c} />)}</div>
-      {!visible.length && <Empty title="Nada aqui por enquanto." body="Quando houver uma campanha neste estado, ela aparece automaticamente." />}
+      {!visible.length && <Empty title={t('nothingHere')} body={t('nothingHereBody')} />}
     </div>
   );
 }
@@ -814,9 +819,10 @@ function Results({
   rows:PerformanceDaily[];
   onSave:(row:PerformanceDaily)=>void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="page">
-      <PageTitle eyebrow="RESULTADOS" title="Resultado vira próxima ação." subtitle="Métricas ligadas à campanha e aprendizado somente depois de evidência suficiente." />
+      <PageTitle eyebrow={t('results').toUpperCase()} title={t('resultsTitle')} subtitle={t('resultsSub')} />
       <PerformancePanel organizationId={organizationId} campaigns={campaigns} rows={rows} onSave={onSave} />
     </div>
   );
