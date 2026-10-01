@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import type { Campaign, ProductTruth, PublicationPackage } from '@nestaffiliate/core';
-import { nextCampaignVersion } from '@nestaffiliate/core';
+import { campaignVersions, nextCampaignVersion, restoreCampaignVersion } from '@nestaffiliate/core';
 import { runPublishingGuard } from '@nestaffiliate/compliance';
-import { calculateNestScore } from '@nestaffiliate/scoring';
 import { MercadoLivrePublicAdapter } from '@nestaffiliate/integrations';
+import { buildOpportunity, shortlist } from '@nestaffiliate/radar';
+import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { campaignFilename, renderPin } from '@nestaffiliate/creative-engine';
 import { FEATURE_FLAGS, KILL_SWITCHES } from '@nestaffiliate/config';
 import { createTranslator, type Locale } from './lib/i18n';
@@ -12,6 +13,10 @@ import { demoCampaigns, initialBoards } from './lib/demo';
 import { useAuth } from './lib/auth';
 import { db } from './lib/firebase';
 import { listCampaigns, saveCampaign } from './services/campaignRepository';
+import { listPerformance, savePerformance } from './services/performanceRepository';
+import { ManualProductImport } from './features/ManualProductImport';
+import { PerformancePanel } from './features/PerformancePanel';
+import { PromptStudio } from './features/PromptStudio';
 
 const marketplaceAdapter = new MercadoLivrePublicAdapter();
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
@@ -79,6 +84,52 @@ function useCampaignStore(organizationId: string | null) {
   return { campaigns, update, add };
 }
 
+function usePerformanceStore(organizationId: string | null) {
+  const demoEnabled =
+    import.meta.env.VITE_DEMO_DATA_ENABLED === 'true' ||
+    import.meta.env.VITE_E2E_MOCK_AUTH === 'true';
+  const key = `nestaffiliate_performance_v1:${organizationId ?? 'pending'}`;
+  const [rows, setRows] = useState<PerformanceDaily[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(key) ?? '[]') as PerformanceDaily[];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (!organizationId) return;
+    let active = true;
+    try {
+      setRows(JSON.parse(localStorage.getItem(key) ?? '[]') as PerformanceDaily[]);
+    } catch {
+      localStorage.removeItem(key);
+      setRows([]);
+    }
+    if (db && !demoEnabled) {
+      void listPerformance(db, organizationId)
+        .then((remote) => {
+          if (active && remote.length) setRows(remote);
+        })
+        .catch(() => undefined);
+    }
+    return () => { active = false; };
+  }, [organizationId, key, demoEnabled]);
+
+  useEffect(() => {
+    if (organizationId) localStorage.setItem(key, JSON.stringify(rows));
+  }, [rows, organizationId, key]);
+
+  const save = (row: PerformanceDaily) => {
+    setRows((current) => [row, ...current.filter((item) => item.id !== row.id)]);
+    if (db && organizationId && !demoEnabled) {
+      void savePerformance(db, organizationId, row).catch(() => undefined);
+    }
+  };
+
+  return { rows, save };
+}
+
 function Login() {
   const { state, signIn, switchAccount, user } = useAuth();
   if (state === 'ready') return <Navigate to="/" replace />;
@@ -140,7 +191,7 @@ function Shell({ children, locale, setLocale }: { children: React.ReactNode; loc
   ];
   const secondary: Array<[string, string]> = [
     ['/library', t('library')], ['/boards', t('boards')], ['/connections', t('connections')],
-    ['/ai-cost', t('cost')], ['/workspace', t('workspace')], ['/help', t('help')],
+    ['/prompt-studio', 'Prompt Studio'], ['/ai-cost', t('cost')], ['/workspace', t('workspace')], ['/help', t('help')],
   ];
 
   return (
@@ -182,7 +233,7 @@ function CommandPalette({ close }: { close: () => void }) {
   const navigate = useNavigate();
   const commands: Array<[string, string]> = [
     ['Hoje', '/'], ['Mostrar oportunidades', '/radar'], ['Revisar campanhas', '/campaigns'],
-    ['Ver resultados', '/results'], ['Conectar Pinterest', '/connections'], ['Custos de IA', '/ai-cost'],
+    ['Ver resultados', '/results'], ['Conectar Pinterest', '/connections'], ['Prompt Studio', '/prompt-studio'], ['Custos de IA', '/ai-cost'],
   ];
   return (
     <div className="modal-backdrop" onMouseDown={close}>
@@ -196,6 +247,7 @@ function CommandPalette({ close }: { close: () => void }) {
 
 function Today({ campaigns }: { campaigns: Campaign[] }) {
   const ready = campaigns.filter((c) => c.status === 'READY');
+  const productCount = new Set(campaigns.map((c) => c.currentVersion.product.productId)).size;
   return (
     <div className="page">
       <section className="hero">
@@ -203,8 +255,8 @@ function Today({ campaigns }: { campaigns: Campaign[] }) {
         <h1>NestAffiliate trabalhou por você.</h1>
         <p className="hero-sub">Você só entra quando existe uma decisão que vale seu tempo.</p>
         <div className="stat-row">
-          <Stat value={ready.length ? '6.284' : '—'} label="produtos observados" />
-          <Stat value={ready.length ? '27' : '—'} label="oportunidades analisadas" />
+          <Stat value={String(productCount)} label="produtos em campanhas" />
+          <Stat value={String(campaigns.length)} label="oportunidades salvas" />
           <Stat value={String(ready.length)} label="campanhas prontas" />
         </div>
         <NavLink to={ready[0] ? `/review/${ready[0].id}` : '/radar'} className="button primary hero-cta">
@@ -268,19 +320,18 @@ function Radar({ addCampaign, organizationId }: { addCampaign: (c: Campaign) => 
   async function search() {
     setState('loading');
     try {
-      const found = await marketplaceAdapter.search({ organizationId, query, limit: 12 });
-      setItems(found);
+      const found = await marketplaceAdapter.search({ organizationId, query, limit: 25 });
+      setItems(shortlist(found, query, 12).map((opportunity) => opportunity.product));
       setState('idle');
     } catch {
       setState('error');
     }
   }
 
-  function create(product: ProductTruth) {
-    const score = calculateNestScore({
-      trend: 12, intent: 14, visual: product.imageUrl ? 12 : 8, yield: 7,
-      quality: product.sellerName ? 9 : 7, competition: 7, creative: 7, seasonality: 3, dataConfidence: 2,
-    });
+  function create(product: ProductTruth, keywordOverride?: string) {
+    const campaignKeyword = keywordOverride?.trim() || query;
+    const opportunity = buildOpportunity(product, campaignKeyword);
+    const score = opportunity.score;
     const id = `campaign-${Date.now()}`;
     const campaign: Campaign = {
       id, organizationId, status: 'READY', marketplace: product.marketplace, score,
@@ -288,16 +339,16 @@ function Radar({ addCampaign, organizationId }: { addCampaign: (c: Campaign) => 
         id: `${id}-v1`, campaignId: id, version: 1, createdAt: new Date().toISOString(), reason: 'radar',
         product,
         narrative: {
-          headline: `Uma ideia prática para ${query.toLowerCase()}`,
+          headline: `Uma ideia prática para ${campaignKeyword.toLowerCase()}`,
           subheadline: 'Curadoria simples para uma casa mais funcional.',
-          pinterestTitle: `${query}: uma solução prática para o dia a dia`,
+          pinterestTitle: `${campaignKeyword}: uma solução prática para o dia a dia`,
           description: 'Uma curadoria editorial para ajudar a organizar melhor a rotina. Antes de publicar, confirme o link afiliado.',
           disclosure: 'Conteúdo com link de afiliado. Posso receber comissão por compras qualificadas, sem custo adicional para você.',
-          altText: `Ideia editorial relacionada a ${query}.`,
+          altText: `Ideia editorial relacionada a ${campaignKeyword}.`,
           cta: 'Ver a ideia',
         },
-        boardName: query.includes('cozinha') ? initialBoards[0]! : initialBoards[7]!,
-        keyword: query,
+        boardName: campaignKeyword.includes('cozinha') ? initialBoards[0]! : initialBoards[7]!,
+        keyword: campaignKeyword,
         template: 'Editorial Premium',
       },
       history: [],
@@ -313,10 +364,11 @@ function Radar({ addCampaign, organizationId }: { addCampaign: (c: Campaign) => 
         <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void search()} placeholder="Ex.: organizador cozinha pequena" />
         <button className="button primary" onClick={() => void search()}>Analisar produtos</button>
       </div>
-      <div className="chips"><span>Casa</span><span>Cozinha</span><span>Mercado Livre</span><span>Alta intenção</span></div>
+      <div className="chips"><span>Casa</span><span>Cozinha</span><span>Mercado Livre</span><span>Dedupe ativo</span><span>Sazonalidade local</span></div>
       {state === 'loading' && <ProgressSteps />}
       {state === 'error' && <div className="notice danger">Não foi possível consultar o Mercado Livre agora. O restante do app continua disponível.</div>}
       {!items.length && state === 'idle' && <Empty title="Comece por uma intenção, não por um produto." body="Pesquise um problema ou desejo. O Radar compara os produtos e cria a campanha somente depois da seleção." />}
+      <ManualProductImport organizationId={organizationId} onImported={(product, keyword) => create(product, keyword)} />
       <div className="opportunity-grid">
         {items.map((product) => (
           <article className="opportunity-card" key={product.externalId}>
@@ -492,8 +544,29 @@ function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Camp
             <label>Disclosure</label><p>{v.narrative.disclosure}</p>
           </Disclosure>
           <Disclosure title="Pinterest">
-            <p><b>Board:</b> {v.boardName}</p>
+            <label>Board</label>
+            <select
+              value={v.boardName}
+              onChange={(e) => update(nextCampaignVersion(campaign, { boardName: e.target.value }, 'board changed'))}
+            >
+              {initialBoards.map((board) => <option key={board} value={board}>{board}</option>)}
+            </select>
             <p><b>Alt:</b> {v.narrative.altText}</p>
+          </Disclosure>
+          <Disclosure title="Histórico e undo">
+            <div className="version-list">
+              {campaignVersions(campaign).map((version) => (
+                <button
+                  key={version.id}
+                  className={version.id === v.id ? 'version-row current' : 'version-row'}
+                  disabled={version.id === v.id}
+                  onClick={() => update(restoreCampaignVersion(campaign, version.version))}
+                >
+                  <span>v{version.version} · {version.reason}</span>
+                  <small>{new Date(version.createdAt).toLocaleString('pt-BR')}</small>
+                </button>
+              ))}
+            </div>
           </Disclosure>
           <div className="save-state">{saved ? 'Salvo' : 'Salvando…'} · v{v.version}</div>
           <div className="primary-actions">
@@ -646,15 +719,18 @@ function Campaigns({ campaigns }: { campaigns: Campaign[] }) {
   );
 }
 
-function Results({ campaigns }: { campaigns: Campaign[] }) {
-  const published = campaigns.filter((c) => c.status === 'PUBLISHED').length;
+function Results({
+  campaigns, organizationId, rows, onSave,
+}:{
+  campaigns:Campaign[];
+  organizationId:string;
+  rows:PerformanceDaily[];
+  onSave:(row:PerformanceDaily)=>void;
+}) {
   return (
     <div className="page">
-      <PageTitle eyebrow="RESULTADOS" title="Resultado vira próxima ação." subtitle="Sem 30 gráficos. Só o que ajuda a decidir melhor." />
-      <div className="metric-grid">
-        <Metric label="Receita" value="R$ 0,00" /><Metric label="EPM" value="—" /><Metric label="Cliques" value="0" /><Metric label="Vendas" value="0" />
-      </div>
-      <Empty title={published ? 'Aguardando dados do Pinterest.' : 'Ainda é cedo para comparar performance.'} body={published ? 'Assim que a conexão de analytics estiver ativa, vinculamos os dados às campanhas publicadas.' : 'Publique alguns Pins para começarmos a aprender.'} />
+      <PageTitle eyebrow="RESULTADOS" title="Resultado vira próxima ação." subtitle="Métricas ligadas à campanha e aprendizado somente depois de evidência suficiente." />
+      <PerformancePanel organizationId={organizationId} campaigns={campaigns} rows={rows} onSave={onSave} />
     </div>
   );
 }
@@ -703,6 +779,7 @@ function ProgressSteps() { return <div className="progress-steps"><span>Comparan
 export function App() {
   const auth = useAuth();
   const store = useCampaignStore(auth.organizationId);
+  const performance = usePerformanceStore(auth.organizationId);
   const [locale,setLocale] = useState<Locale>(() => (localStorage.getItem('na_locale') as Locale) || 'pt-BR');
   useEffect(() => localStorage.setItem('na_locale', locale), [locale]);
 
@@ -717,8 +794,9 @@ export function App() {
         <Route path="/campaigns" element={<Campaigns campaigns={store.campaigns} />} />
         <Route path="/review/:id" element={<Review campaigns={store.campaigns} update={store.update} />} />
         <Route path="/publish/:id" element={<Publish campaigns={store.campaigns} update={store.update} />} />
-        <Route path="/results" element={<Results campaigns={store.campaigns} />} />
+        <Route path="/results" element={<Results campaigns={store.campaigns} organizationId={org} rows={performance.rows} onSave={performance.save} />} />
         <Route path="/connections" element={<Connections />} />
+        <Route path="/prompt-studio" element={<PromptStudio campaigns={store.campaigns} />} />
         <Route path="/ai-cost" element={<AiCost />} />
         <Route path="/boards" element={<Boards />} />
         <Route path="/library" element={<Library />} />
