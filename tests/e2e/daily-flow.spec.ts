@@ -30,3 +30,49 @@ test('mobile exposes the four primary destinations', async ({ page }, testInfo) 
   await expect(nav.getByRole('link', { name: 'Campanhas' })).toBeVisible();
   await expect(nav.getByRole('link', { name: 'Resultados' })).toBeVisible();
 });
+
+
+test('creative preview preserves Pinterest 2:3 output contract', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: /Revisar 3 campanhas/i }).click();
+  const canvas=page.locator('canvas.pin-canvas');
+  await expect(canvas).toBeVisible();
+  await expect(canvas).toHaveAttribute('width','1000');
+  await expect(canvas).toHaveAttribute('height','1500');
+  const data=await canvas.evaluate((node:HTMLCanvasElement)=>({
+    width:node.width,
+    height:node.height,
+    url:node.toDataURL('image/png'),
+  }));
+  expect(data.width/data.height).toBeCloseTo(2/3,5);
+  expect(data.url.startsWith('data:image/png;base64,')).toBe(true);
+  expect(data.url.length).toBeGreaterThan(1000);
+});
+
+test('light mode and language switching keep primary navigation usable', async ({ page }) => {
+  await page.goto('/');
+  const theme=page.getByRole('button',{name:'Theme'});
+  await theme.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+
+  const language=page.getByRole('combobox',{name:'Language'});
+  await language.selectOption('en');
+  await expect(page.getByRole('link',{name:'Today'}).first()).toBeVisible();
+  await expect(page.getByRole('link',{name:'Campaigns'}).first()).toBeVisible();
+
+  await language.selectOption('es');
+  await expect(page.getByRole('link',{name:'Hoy'}).first()).toBeVisible();
+  await expect(page.getByRole('link',{name:'Campañas'}).first()).toBeVisible();
+});
+
+test('review is usable without horizontal overflow on mobile', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile');
+  await page.goto('/');
+  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+  const sizes=await page.evaluate(()=>({
+    scrollWidth:document.documentElement.scrollWidth,
+    clientWidth:document.documentElement.clientWidth,
+  }));
+  expect(sizes.scrollWidth).toBeLessThanOrEqual(sizes.clientWidth+1);
+  await expect(page.getByPlaceholder(/Peça qualquer alteração/i)).toBeVisible();
+});
