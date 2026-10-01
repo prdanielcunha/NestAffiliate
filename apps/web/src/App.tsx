@@ -799,7 +799,8 @@ function Publish({
   },[campaign,identity.organizationId]);
 
   if (!campaign) return <Navigate to="/campaigns" replace />;
-  const v = campaign.currentVersion;
+  const activeCampaign: Campaign = campaign;
+  const v = activeCampaign.currentVersion;
   const destination = v.product.affiliateUrl?.value ?? v.product.url.value;
   const hasFrequencyPolicy=preferences.maxPublications24h!==null || preferences.minGapMinutes!==null;
   const guard = runPublishingGuard({
