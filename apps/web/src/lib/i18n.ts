@@ -74,7 +74,7 @@ const dictionaries = {
     campaign:'Campanha', select:'Selecione…', saveResult:'Salvar resultado', learningEngine:'LEARNING ENGINE', whatLearned:'O que o sistema aprendeu',
     promptTitle:'IA sem prender o produto a uma API.', promptSub:'Use o pacote no ChatGPT/Gemini manualmente. Fatos comerciais continuam bloqueados e separados da narrativa.',
     whatChange:'O que você quer mudar', promptEmpty:'Crie uma campanha no Radar para gerar um Prompt Package.', providerSuggested:'Provider sugerido',
-    privacyRedactions:'Redações de privacidade', requiredCost:'Custo obrigatório', copied:'Copiado', copyPackage:'Copiar pacote',
+    privacyRedactions:'Redações de privacidade', requiredCost:'Custo obrigatório', copied:'Copiado', copyPackage:'Copiar pacote', aiResult:'Resultado da IA', importAiResult:'Importar resultado', importedAiResult:'Resultado importado como nova versão.', invalidAiResult:'Cole um JSON válido com campos editoriais.', truthSafeImport:'Somente campos editoriais são importados; preço, estoque, rating, comissão e outros fatos comerciais são ignorados.',
   },
   en: {
     today:'Today', radar:'Radar', campaigns:'Campaigns', results:'Results', library:'Library', boards:'Boards',
@@ -149,7 +149,7 @@ const dictionaries = {
     campaign:'Campaign', select:'Select…', saveResult:'Save result', learningEngine:'LEARNING ENGINE', whatLearned:'What the system learned',
     promptTitle:'AI without locking the product to one API.', promptSub:'Use the package manually in ChatGPT/Gemini. Commercial facts stay locked and separate from narrative.',
     whatChange:'What do you want to change', promptEmpty:'Create a Radar campaign to generate a Prompt Package.', providerSuggested:'Suggested provider',
-    privacyRedactions:'Privacy redactions', requiredCost:'Required cost', copied:'Copied', copyPackage:'Copy package',
+    privacyRedactions:'Privacy redactions', requiredCost:'Required cost', copied:'Copied', copyPackage:'Copy package', aiResult:'AI result', importAiResult:'Import result', importedAiResult:'Result imported as a new version.', invalidAiResult:'Paste valid JSON with editorial fields.', truthSafeImport:'Only editorial fields are imported; price, inventory, rating, commission and other commercial facts are ignored.',
   },
   es: {
     today:'Hoy', radar:'Radar', campaigns:'Campañas', results:'Resultados', library:'Biblioteca', boards:'Tableros',
@@ -224,7 +224,7 @@ const dictionaries = {
     campaign:'Campaña', select:'Selecciona…', saveResult:'Guardar resultado', learningEngine:'LEARNING ENGINE', whatLearned:'Lo que aprendió el sistema',
     promptTitle:'IA sin atar el producto a una API.', promptSub:'Usa el paquete manualmente en ChatGPT/Gemini. Los hechos comerciales permanecen bloqueados y separados de la narrativa.',
     whatChange:'Qué quieres cambiar', promptEmpty:'Crea una campaña en Radar para generar un Prompt Package.', providerSuggested:'Provider sugerido',
-    privacyRedactions:'Redacciones de privacidad', requiredCost:'Costo obligatorio', copied:'Copiado', copyPackage:'Copiar paquete',
+    privacyRedactions:'Redacciones de privacidad', requiredCost:'Costo obligatorio', copied:'Copiado', copyPackage:'Copiar paquete', aiResult:'Resultado de IA', importAiResult:'Importar resultado', importedAiResult:'Resultado importado como nueva versión.', invalidAiResult:'Pega JSON válido con campos editoriales.', truthSafeImport:'Solo se importan campos editoriales; precio, inventario, rating, comisión y otros hechos comerciales se ignoran.',
   },
 } as const;
 
