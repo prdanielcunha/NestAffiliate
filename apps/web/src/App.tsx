@@ -8,7 +8,8 @@ import { buildOpportunity, shortlist } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
 import { FEATURE_FLAGS, KILL_SWITCHES } from '@nestaffiliate/config';
-import { createTranslator, type Locale } from './lib/i18n';
+import { type Locale } from './lib/i18n';
+import { I18nProvider, useI18n } from './lib/i18n-context';
 import { demoCampaigns, initialBoards } from './lib/demo';
 import { useAuth } from './lib/auth';
 import { db } from './lib/firebase';
@@ -160,6 +161,7 @@ function usePerformanceStore(organizationId: string | null, actorId: string | nu
 }
 
 function Login() {
+  const { t } = useI18n();
   const { state, signIn, switchAccount, user } = useAuth();
   if (state === 'ready') return <Navigate to="/" replace />;
   return (
@@ -167,24 +169,24 @@ function Login() {
       <section className="login-brand">
         <div className="brand-mark large">N</div>
         <p className="eyebrow">AFFILIATE INTELLIGENCE BY MILLIONSNEST</p>
-        <h1>Seu operador inteligente de afiliados.</h1>
-        <p>O sistema pesquisa, decide, prepara e leva até você apenas o que realmente precisa de aprovação.</p>
+        <h1>{t('loginTitle')}</h1>
+        <p>{t('loginDescription')}</p>
         <div className="signal-line"><span /> Intelligence → Creation → Approval → Learning</div>
       </section>
       <section className="login-card">
         <div className="status-orb" />
-        <h2>{state === 'loading' ? 'Preparando seu workspace…' : 'Entre para continuar'}</h2>
-        <p className="muted">Use sua identidade MillionsNest. Nenhuma senha é armazenada pelo NestAffiliate.</p>
+        <h2>{state === 'loading' ? t('loadingAccount') : t('enterContinue')}</h2>
+        <p className="muted">{t('loginPrivacy')}</p>
         {state === 'denied' ? (
           <>
-            <div className="notice danger">Esta conta ainda não possui um workspace elegível para o NestAffiliate.</div>
-            <button className="button primary" onClick={switchAccount}>Usar outra conta</button>
+            <div className="notice danger">{t('accessDenied')}</div>
+            <button className="button primary" onClick={switchAccount}>{t('tryAnother')}</button>
           </>
         ) : (
-          <button className="button primary" onClick={signIn}>Continuar com Google</button>
+          <button className="button primary" onClick={signIn}>{t('continueGoogle')}</button>
         )}
         <a className="button secondary" href={import.meta.env.VITE_HUB_URL || 'https://www.millionsnest.com'}>
-          Abrir MillionsNest
+          {t('openHub')}
         </a>
         {user?.email && <small className="muted">{user.email}</small>}
       </section>
@@ -193,7 +195,7 @@ function Login() {
 }
 
 function Shell({ children, locale, setLocale }: { children: React.ReactNode; locale: Locale; setLocale: (l: Locale) => void }) {
-  const t = createTranslator(locale);
+  const { t } = useI18n();
   const { logout, role } = useAuth();
   const [commandOpen, setCommandOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('na_theme') as 'dark' | 'light') || 'dark');
@@ -220,7 +222,7 @@ function Shell({ children, locale, setLocale }: { children: React.ReactNode; loc
   ];
   const secondary: Array<[string, string]> = [
     ['/library', t('library')], ['/boards', t('boards')], ['/connections', t('connections')],
-    ['/prompt-studio', 'Prompt Studio'], ['/ai-cost', t('cost')], ['/workspace', t('workspace')], ['/help', t('help')],
+    ['/prompt-studio', t('promptStudio')], ['/ai-cost', t('cost')], ['/workspace', t('workspace')], ['/help', t('help')],
   ];
 
   return (
