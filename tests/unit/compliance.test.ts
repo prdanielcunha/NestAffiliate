@@ -51,3 +51,17 @@ describe('Publishing Guard', () => {
     expect(result.outcome).toBe('BLOCK');
   });
 });
+
+
+it('blocks when configured editorial frequency is exhausted', () => {
+  const result = runPublishingGuard({
+    product,
+    disclosure: 'Conteúdo com link de afiliado. Posso receber comissão.',
+    destinationUrl: 'https://example.com/p',
+    headline: 'Organização para cozinha',
+    description: 'Uma ideia prática.',
+    frequencyPolicy: { maxPublications24h: 5, publications24h: 5 },
+  });
+  expect(result.outcome).toBe('BLOCK');
+  expect(result.checks.find((check) => check.key === 'frequency-daily')?.outcome).toBe('BLOCK');
+});
