@@ -41,7 +41,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Dependency audit
-        run: pnpm audit --audit-level=high
+        run: pnpm audit --audit-level=moderate
 
       - name: Lint typecheck unit and build gate
         run: pnpm run ci
