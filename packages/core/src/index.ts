@@ -139,16 +139,32 @@ export interface ApprovalEvent {
   note?: string;
 }
 
+export type PublicationStatus =
+  | 'GUIDED_READY'
+  | 'SCHEDULED'
+  | 'DUE'
+  | 'VALIDATING'
+  | 'PUBLISHING'
+  | 'PUBLISHED'
+  | 'BLOCKED'
+  | 'FAILED'
+  | 'CANCELLED';
+
 export interface Publication {
   id: string;
   organizationId: string;
   campaignId: string;
   campaignVersion: number;
   channel: 'PINTEREST';
-  status: 'GUIDED_READY' | 'PUBLISHED' | 'FAILED';
+  status: PublicationStatus;
+  mode: 'GUIDED' | 'PINTEREST_API';
   externalId?: string;
   externalUrl?: string;
+  scheduledFor?: string;
+  approvedAt?: string;
+  lastValidatedAt?: string;
   publishedAt?: string;
+  failureCode?: string;
   source: 'GUIDED' | 'PINTEREST_API';
 }
 
@@ -194,4 +210,35 @@ export function campaignVersions(campaign: Campaign) {
   return [...campaign.history, campaign.currentVersion]
     .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index)
     .sort((a, b) => b.version - a.version);
+}
+
+
+export interface PublicationSchedule {
+  id:string;
+  organizationId:string;
+  campaignId:string;
+  campaignVersion:number;
+  mode:'GUIDED'|'PINTEREST_API';
+  scheduledFor:string;
+  timezone:string;
+  status:'SCHEDULED'|'DUE'|'COMPLETED'|'CANCELLED'|'BLOCKED';
+  createdAt:string;
+  updatedAt:string;
+}
+
+export function publicationScheduleStatus(
+  schedule:PublicationSchedule,
+  now=new Date(),
+):PublicationSchedule['status']{
+  if(['COMPLETED','CANCELLED','BLOCKED'].includes(schedule.status)) return schedule.status;
+  const due=new Date(schedule.scheduledFor).getTime();
+  if(!Number.isFinite(due)) return 'BLOCKED';
+  return due<=now.getTime() ? 'DUE' : 'SCHEDULED';
+}
+
+export function validateScheduledFor(value:string,now=new Date()){
+  const at=new Date(value);
+  if(!Number.isFinite(at.getTime())) return {valid:false,reason:'INVALID_DATE'} as const;
+  if(at.getTime()<=now.getTime()) return {valid:false,reason:'NOT_IN_FUTURE'} as const;
+  return {valid:true,iso:at.toISOString()} as const;
 }
