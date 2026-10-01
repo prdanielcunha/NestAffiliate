@@ -476,12 +476,12 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       <div className="chips"><span>{t('home')}</span><span>{t('kitchen')}</span><span>Mercado Livre</span><span>{t('dedupeActive')}</span><span>{t('localSeasonality')}</span></div>
       <div className="radar-filters">
         <label>
-          <span>Preço máximo</span>
-          <input inputMode="decimal" value={maxPrice} onChange={(e)=>setMaxPrice(e.target.value)} placeholder="Sem limite" />
+          <span>{t('maxPrice')}</span>
+          <input inputMode="decimal" value={maxPrice} onChange={(e)=>setMaxPrice(e.target.value)} placeholder={t('noLimit')} />
         </label>
         <label className="filter-check">
           <input type="checkbox" checked={requireImage} onChange={(e)=>setRequireImage(e.target.checked)} />
-          <span>Somente com imagem</span>
+          <span>{t('withImageOnly')}</span>
         </label>
       </div>
       {state === 'loading' && <ProgressSteps />}
@@ -772,18 +772,44 @@ function Disclosure({ title, children, defaultOpen = false }: { title: string; c
   return <details className="disclosure" open={defaultOpen}><summary>{title}<span>+</span></summary><div>{children}</div></details>;
 }
 
-function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Campaign) => void }) {
+function Publish({
+  campaigns, update, preferences,
+}: {
+  campaigns: Campaign[];
+  update: (c: Campaign) => void;
+  preferences: UserPreferences;
+}) {
   const { t } = useI18n();
   const { id } = useParams();
   const identity = useAuth();
-  const campaign = campaigns.find((c) => c.id === id)!;
+  const campaign = campaigns.find((c) => c.id === id);
   const [step, setStep] = useState(0);
+  const [frequency,setFrequency]=useState<PublicationFrequencyState>({publications24h:0});
+
+  useEffect(()=>{
+    if(!campaign || !db || !identity.organizationId) {
+      setFrequency({publications24h:0});
+      return;
+    }
+    const currentDb=db;
+    void loadPublicationFrequency(currentDb,identity.organizationId)
+      .then(setFrequency)
+      .catch(()=>setFrequency({publications24h:0}));
+  },[campaign?.id,identity.organizationId]);
+
   if (!campaign) return <Navigate to="/campaigns" replace />;
   const v = campaign.currentVersion;
   const destination = v.product.affiliateUrl?.value ?? v.product.url.value;
+  const hasFrequencyPolicy=preferences.maxPublications24h!==null || preferences.minGapMinutes!==null;
   const guard = runPublishingGuard({
     product: v.product, disclosure: v.narrative.disclosure, destinationUrl: destination,
     headline: v.narrative.headline, description: v.narrative.description,
+    frequencyPolicy:hasFrequencyPolicy ? {
+      maxPublications24h:preferences.maxPublications24h ?? undefined,
+      publications24h:frequency.publications24h,
+      minGapMinutes:preferences.minGapMinutes ?? undefined,
+      minutesSinceLastPublication:frequency.minutesSinceLastPublication,
+    } : undefined,
   });
   const pkg: PublicationPackage = {
     campaignId: campaign.id, version: v.version, filename: campaignFilename(v), width: 1000, height: 1500,
@@ -792,12 +818,16 @@ function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Cam
     altText: v.narrative.altText, compliance: guard.outcome,
   };
 
+  const marketplaceSteps = campaign.marketplace === 'SHOPEE'
+    ? [[t('shopeeGuideTitle'), t('shopeeGuideBody')]]
+    : [];
   const steps = [
     ['Baixe a imagem', 'Use o arquivo 1000 × 1500 preparado pelo NestAffiliate.'],
     ['Abra o Pinterest', 'Crie um novo Pin na conta Achados do Nest.'],
     ['Envie o arquivo', pkg.filename],
     ['Cole título e descrição', 'Use os campos preparados abaixo.'],
     ['Adicione o link', pkg.destinationUrl],
+    ...marketplaceSteps,
     ['Salve na pasta', pkg.boardName],
     ['Revise e publique', 'Confira a prévia final no Pinterest antes de publicar.'],
     ['Marque como publicado', 'O NestAffiliate começa a acompanhar o resultado.'],
@@ -959,6 +989,7 @@ export function App() {
   const store = useCampaignStore(auth.organizationId, auth.user?.uid ?? null, auth.role);
   const performance = usePerformanceStore(auth.organizationId, auth.user?.uid ?? null, auth.role);
   const [locale,setLocale] = useState<Locale>(() => (localStorage.getItem('na_locale') as Locale) || 'pt-BR');
+  const preferenceStore=usePreferencesStore(auth.organizationId,auth.user?.uid ?? null,auth.role,locale);
   useEffect(() => localStorage.setItem('na_locale', locale), [locale]);
 
   const editable = auth.role ? canWrite(auth.role) : false;
@@ -988,11 +1019,12 @@ export function App() {
         <Route path="/radar" element={<Radar addCampaign={store.add} organizationId={org} editable={editable} />} />
         <Route path="/campaigns" element={<Campaigns campaigns={store.campaigns} />} />
         <Route path="/review/:id" element={<Review campaigns={store.campaigns} update={store.update} editable={editable} />} />
-        <Route path="/publish/:id" element={<Publish campaigns={store.campaigns} update={store.update} />} />
+        <Route path="/publish/:id" element={<Publish campaigns={store.campaigns} update={store.update} preferences={preferenceStore.preferences} />} />
         <Route path="/results" element={<Results campaigns={store.campaigns} organizationId={org} rows={performance.rows} onSave={performance.save} />} />
         <Route path="/connections" element={<Connections />} />
-        <Route path="/prompt-studio" element={<PromptStudio campaigns={store.campaigns} />} />
+        <Route path="/prompt-studio" element={<PromptStudio campaigns={store.campaigns} editable={editable} onUpdate={store.update} />} />
         <Route path="/ai-cost" element={<AiCost />} />
+        <Route path="/settings" element={<SettingsPanel preferences={preferenceStore.preferences} editable={editable} onChange={preferenceStore.update} />} />
         <Route path="/boards" element={<Boards />} />
         <Route path="/library" element={<Library />} />
         <Route path="/workspace" element={<Workspace />} />
