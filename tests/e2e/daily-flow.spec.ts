@@ -76,3 +76,19 @@ test('review is usable without horizontal overflow on mobile', async ({ page }, 
   expect(sizes.scrollWidth).toBeLessThanOrEqual(sizes.clientWidth+1);
   await expect(page.getByPlaceholder(/Peça qualquer alteração/i)).toBeVisible();
 });
+
+
+test('scheduled publication returns to Today as an upcoming action', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: /Revisar 3 campanhas/i }).click();
+  await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Seu Pin está pronto.' })).toBeVisible();
+
+  await page.locator('input[type="datetime-local"]').fill('2030-01-01T10:00');
+  await page.getByRole('button', { name: 'Agendar', exact: true }).click();
+  await expect(page.getByText('Agendado', { exact: true })).toBeVisible();
+
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Próximas publicações' })).toBeVisible();
+  await expect(page.getByText(/2030/)).toBeVisible();
+});
