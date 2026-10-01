@@ -15,6 +15,8 @@ import { db } from './lib/firebase';
 import { listCampaigns, saveCampaign } from './services/campaignRepository';
 import { listPerformance, savePerformance } from './services/performanceRepository';
 import { appendAudit } from './services/auditRepository';
+import { persistCampaignIntelligence } from './services/intelligenceRepository';
+import { appendApprovalEvent, markPublication, savePublicationPackage } from './services/lifecycleRepository';
 import { ManualProductImport } from './features/ManualProductImport';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
@@ -66,7 +68,10 @@ function useCampaignStore(organizationId: string | null, actorId: string | null,
 
   const persist = (campaign: Campaign, action: string) => {
     if (db && organizationId && actorId && !demoEnabled) {
-      void saveCampaign(db, organizationId, campaign)
+      void Promise.all([
+        saveCampaign(db, organizationId, campaign),
+        persistCampaignIntelligence(db, organizationId, campaign),
+      ])
         .then(() => appendAudit(db, {
           organizationId,
           actorId,
@@ -418,6 +423,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
 
 function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update: (c: Campaign) => void; editable: boolean }) {
   const { id } = useParams();
+  const identity = useAuth();
   const navigate = useNavigate();
   const campaign = campaigns.find((c) => c.id === id)!;
   const [command, setCommand] = useState('');
@@ -528,6 +534,14 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       status: guard.outcome === 'BLOCK' ? 'BLOCKED' : 'PUBLICATION_READY',
     };
     update(next);
+    if (db && identity.organizationId && identity.user?.uid && guard.outcome !== 'BLOCK') {
+      void appendApprovalEvent(db, {
+        organizationId: identity.organizationId,
+        campaign: next,
+        actorId: identity.user.uid,
+        decision: 'APPROVED',
+      }).catch(() => undefined);
+    }
     if (guard.outcome !== 'BLOCK') navigate(`/publish/${campaign.id}`);
   }
 
@@ -612,7 +626,18 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           <div className="minor-actions">
             <button disabled={!editable} onClick={() => void loadSwaps()}>{swapLoading ? 'Buscando…' : 'Trocar produto'}</button>
             <button disabled={!editable} onClick={() => applyEdit('Refaz tudo')}>Refazer</button>
-            <button disabled={!editable} onClick={() => update({ ...campaign, status: 'REJECTED' })}>Descartar</button>
+            <button disabled={!editable} onClick={() => {
+              const rejected: Campaign = { ...campaign, status: 'REJECTED' };
+              update(rejected);
+              if (db && identity.organizationId && identity.user?.uid) {
+                void appendApprovalEvent(db, {
+                  organizationId: identity.organizationId,
+                  campaign: rejected,
+                  actorId: identity.user.uid,
+                  decision: 'REJECTED',
+                }).catch(() => undefined);
+              }
+            }}>Descartar</button>
           </div>
           {swapOptions.length > 0 && (
             <div className="swap-panel">
@@ -656,6 +681,7 @@ function Disclosure({ title, children, defaultOpen = false }: { title: string; c
 
 function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Campaign) => void }) {
   const { id } = useParams();
+  const identity = useAuth();
   const campaign = campaigns.find((c) => c.id === id)!;
   const [step, setStep] = useState(0);
   if (!campaign) return <Navigate to="/campaigns" replace />;
@@ -671,6 +697,12 @@ function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Cam
     destinationUrl: destination, boardName: v.boardName, topics: [v.keyword, 'casa organizada', 'ideias para casa'],
     altText: v.narrative.altText, compliance: guard.outcome,
   };
+
+  useEffect(() => {
+    if (db && identity.organizationId && campaign.status === 'PUBLICATION_READY') {
+      void savePublicationPackage(db, identity.organizationId, pkg).catch(() => undefined);
+    }
+  }, [campaign.id, campaign.status, identity.organizationId, pkg.campaignId, pkg.version]);
 
   const steps = [
     ['Baixe a imagem', 'Use o arquivo 1000 × 1500 preparado pelo NestAffiliate.'],
@@ -696,7 +728,17 @@ function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Cam
     link.remove();
   }
 
-  function markPublished() { update({ ...campaign, status: 'PUBLISHED' }); }
+  function markPublished() {
+    const published: Campaign = { ...campaign, status: 'PUBLISHED' };
+    update(published);
+    if (db && identity.organizationId) {
+      void markPublication(db, {
+        organizationId: identity.organizationId,
+        campaign: published,
+        source: 'GUIDED',
+      }).catch(() => undefined);
+    }
+  }
 
   return (
     <div className="page publish-page">
