@@ -20,3 +20,14 @@ describe('campaign versioning',()=>{
     expect(campaignVersions(restored).map(v=>v.version)).toEqual([3,2,1]);
   });
 });
+
+
+it('links every new version to its exact parent and gives it a unique id',()=>{
+  const v2a=nextCampaignVersion(base,{template:'Minimal'},'edit a');
+  const v2b=nextCampaignVersion(base,{template:'Problem → Solution'},'edit b');
+  expect(v2a.currentVersion.parentVersionId).toBe(base.currentVersion.id);
+  expect(v2b.currentVersion.parentVersionId).toBe(base.currentVersion.id);
+  expect(v2a.currentVersion.id).not.toBe(v2b.currentVersion.id);
+  expect(v2a.currentVersion.version).toBe(2);
+  expect(v2b.currentVersion.version).toBe(2);
+});
