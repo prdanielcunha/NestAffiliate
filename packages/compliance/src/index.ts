@@ -150,18 +150,24 @@ export function runPublishingGuard(input: GuardInput): GuardResult {
 }
 
 
+export type PolicyProvider='PINTEREST'|'MELI'|'SHOPEE'|'CONAR'|'INTERNAL';
+
 export interface PolicySnapshot {
   id:string;
   organizationId:string;
-  provider:'PINTEREST'|'MELI'|'SHOPEE'|'CONAR'|'INTERNAL';
+  provider:PolicyProvider;
   title:string;
+  version:string;
+  effectiveDate?:string;
   sourceUrl?:string;
-  checkedAt:string;
+  summary:string;
+  impact:string[];
+  reviewedAt:string;
   reviewAfter:string;
   notes:string[];
 }
 
-export function isPolicySnapshotStale(snapshot:PolicySnapshot, now=new Date()){
+export function isPolicySnapshotStale(snapshot:Pick<PolicySnapshot,'reviewAfter'>, now=new Date()){
   const reviewAt=new Date(snapshot.reviewAfter).getTime();
   return !Number.isFinite(reviewAt) || reviewAt <= now.getTime();
 }
@@ -274,5 +280,102 @@ export function validateFreshProduct(
     outcome:freshWorst(changes.map((change)=>change.outcome)),
     changes,
     validatedAt:now.toISOString(),
+  };
+}
+
+
+export interface PolicyBaseline extends Omit<PolicySnapshot,'organizationId'> {}
+
+export const POLICY_BASELINES:PolicyBaseline[]=[
+  {
+    id:'pinterest-affiliate-guidelines',
+    provider:'PINTEREST',
+    title:'Pinterest — Conteúdo comercial e afiliados',
+    version:'reviewed-2026-10-01',
+    sourceUrl:'https://policy.pinterest.com/pt-br/commercial-and-branded-content-guidelines',
+    summary:'Conteúdo afiliado deve ser original, agregar valor, deixar a natureza comercial clara e evitar comportamento repetitivo ou spam.',
+    impact:['disclosure','conteúdo','volume','links'],
+    reviewedAt:'2026-10-01T00:00:00.000Z',
+    reviewAfter:'2026-10-31T00:00:00.000Z',
+    notes:['Manter uma presença autêntica e não manipular saves ou distribuição.'],
+  },
+  {
+    id:'pinterest-access-tiers',
+    provider:'PINTEREST',
+    title:'Pinterest — Access Tiers',
+    version:'reviewed-2026-10-01',
+    sourceUrl:'https://developers.pinterest.com/docs/key-concepts/access-tiers/',
+    summary:'Trial permite testar a API, mas Pins e boards criados são entidades Sandbox visíveis apenas ao criador; produção pública requer Standard Access.',
+    impact:['api','publicação','analytics'],
+    reviewedAt:'2026-10-01T00:00:00.000Z',
+    reviewAfter:'2026-10-31T00:00:00.000Z',
+    notes:['Auto-publish público permanece bloqueado enquanto Standard Access estiver ausente.'],
+  },
+  {
+    id:'pinterest-oauth',
+    provider:'PINTEREST',
+    title:'Pinterest — OAuth e tokens',
+    version:'reviewed-2026-10-01',
+    sourceUrl:'https://developers.pinterest.com/docs/getting-started/set-up-authentication-and-authorization/',
+    summary:'Authorization Code exige troca segura do código por token com client secret fora do navegador; tokens devem ser mantidos atualizados.',
+    impact:['oauth','secrets','conexões'],
+    reviewedAt:'2026-10-01T00:00:00.000Z',
+    reviewAfter:'2026-10-31T00:00:00.000Z',
+    notes:['Nunca armazenar client secret ou refresh token em documento legível pelo frontend.'],
+  },
+  {
+    id:'meli-items-bulk',
+    provider:'MELI',
+    title:'Mercado Livre — migração de consulta de itens',
+    version:'reviewed-2026-10-01',
+    effectiveDate:'2026-10-25',
+    sourceUrl:'https://developers.mercadolivre.com.br/pt_br/itens-e-buscas',
+    summary:'Novas integrações devem usar /items/bulk e /users/bulk no lugar dos multigets antigos.',
+    impact:['produto','fresh-validation','api'],
+    reviewedAt:'2026-10-01T00:00:00.000Z',
+    reviewAfter:'2026-10-20T00:00:00.000Z',
+    notes:['Fresh validation do NestAffiliate já usa /items/bulk.'],
+  },
+  {
+    id:'shopee-pinterest-affiliate',
+    provider:'SHOPEE',
+    title:'Shopee — parceria de afiliados com Pinterest',
+    version:'reviewed-2026-10-01',
+    sourceUrl:'https://help.shopee.com.br/portal/10/article/224179-Parceria-com-Afiliados-do-Pinterest',
+    summary:'A integração oficial permite vincular Shopee ao Pinterest e marcar produtos do catálogo nos Pins, com geração de link afiliado pela experiência oficial.',
+    impact:['links','publicação','produto'],
+    reviewedAt:'2026-10-01T00:00:00.000Z',
+    reviewAfter:'2026-10-31T00:00:00.000Z',
+    notes:['O Guided Publisher mantém uma confirmação especial para a marcação Shopee.'],
+  },
+  {
+    id:'conar-influencer-guide',
+    provider:'CONAR',
+    title:'CONAR — publicidade por influenciadores digitais',
+    version:'2026-guide',
+    effectiveDate:'2026-06-01',
+    sourceUrl:'https://www.conar.org.br/diretrizes',
+    summary:'Conteúdo comercial em redes sociais deve ter identificação publicitária clara, apresentação verdadeira e governança de conformidade.',
+    impact:['disclosure','claims','conteúdo','ia'],
+    reviewedAt:'2026-10-01T00:00:00.000Z',
+    reviewAfter:'2026-10-31T00:00:00.000Z',
+    notes:['A atualização de 2026 também trata do uso de inteligência artificial na publicidade.'],
+  },
+];
+
+export function policyWatchStatus(baseline:PolicyBaseline,now=new Date()){
+  if(isPolicySnapshotStale(baseline,now)) return 'REVIEW_DUE' as const;
+  const reviewAt=new Date(baseline.reviewAfter).getTime();
+  const days=Math.ceil((reviewAt-now.getTime())/86_400_000);
+  return days<=7 ? 'REVIEW_SOON' as const : 'CURRENT' as const;
+}
+
+export function policyWatchSummary(now=new Date()){
+  const statuses=POLICY_BASELINES.map((baseline)=>({baseline,status:policyWatchStatus(baseline,now)}));
+  return {
+    current:statuses.filter((item)=>item.status==='CURRENT').length,
+    reviewSoon:statuses.filter((item)=>item.status==='REVIEW_SOON').length,
+    reviewDue:statuses.filter((item)=>item.status==='REVIEW_DUE').length,
+    statuses,
   };
 }
