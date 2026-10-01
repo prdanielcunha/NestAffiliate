@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react';
-import type { Campaign } from '@nestaffiliate/core';
+import type { ApprovalEvent, Campaign } from '@nestaffiliate/core';
 import { normalizePerformanceInput, summarizePerformance, type PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { useI18n } from '../lib/i18n-context';
 
 export function PerformancePanel({
-  organizationId,campaigns,rows,onSave,
+  organizationId,campaigns,rows,approvalEvents,onSave,
 }:{
   organizationId:string;
   campaigns:Campaign[];
   rows:PerformanceDaily[];
+  approvalEvents:ApprovalEvent[];
   onSave:(row:PerformanceDaily)=>void;
 }){
   const { t, locale } = useI18n();
@@ -17,7 +18,7 @@ export function PerformancePanel({
   const [campaignId,setCampaignId]=useState(published[0]?.id ?? '');
   const [form,setForm]=useState({impressions:'',engagements:'',saves:'',pinClicks:'',outboundClicks:'',sales:'',revenue:'',commission:''});
   const summary=useMemo(()=>summarizePerformance(rows),[rows]);
-  const insights=useMemo(()=>deriveLearning(campaigns,rows),[campaigns,rows]);
+  const insights=useMemo(()=>deriveLearning(campaigns,rows,approvalEvents),[campaigns,rows,approvalEvents]);
 
   function save(){
     if(!campaignId) return;
