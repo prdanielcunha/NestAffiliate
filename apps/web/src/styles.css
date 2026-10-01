@@ -183,3 +183,7 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .legal-footer a{color:var(--muted);font-size:11px;text-decoration:none}.legal-footer a:hover{color:var(--text)}
 @media(max-width:620px){.legal-topbar{padding:14px 16px}.legal-document{width:min(100% - 28px,860px);padding:44px 0 60px}.legal-intro{font-size:16px}.legal-footer{display:grid}.legal-footer nav{justify-content:flex-start}}
 @media(prefers-reduced-motion:reduce){.legal-languages button{transition:none}}
+
+.login-legal-links{display:flex;justify-content:center;gap:8px 14px;flex-wrap:wrap;margin-top:2px}
+.login-legal-links a{color:var(--muted);font-size:10px;text-decoration:none}
+.login-legal-links a:hover,.login-legal-links a:focus-visible{color:var(--text);text-decoration:underline;text-underline-offset:3px}
