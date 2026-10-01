@@ -112,6 +112,9 @@ Production safety rules are maintained additively in the central prdanielcunha/m
 - Shopee-specific official-program verification step;
 - mark-as-published;
 - configurable publication-frequency guard;
+- zero-cost publication scheduling with Today due queue;
+- fresh product validation immediately before publish;
+- offline mode never fakes a completed publication;
 - explicit human approval remains mandatory.
 
 ### Phase 8 — Pinterest Analytics — product path complete; Pinterest credentials/access external
@@ -134,16 +137,20 @@ Implemented:
 - persisted learningSignals;
 - historical score adjustment bounded to ±6;
 - no score adjustment before a minimum repeated sample;
+- persisted human decision signals for approve/reject/edit/swap/restore/regenerate/preferred variant;
 - explanations preserve human rules and Product Truth.
 
-### Phase 10 — Standard Access / Auto Publish — architecture ready; externally gated
+### Phase 10 — Standard Access / Auto Publish — internal prerequisites complete; public API publish externally gated
 - publish broker contract exists;
+- scheduling/status lifecycle exists;
+- fresh validation exists;
+- final human approval is mandatory;
 - feature flags and kill switch exist;
 - Standard Access is checked independently from Trial;
-- final human approval is mandatory;
-- no browser-held client secret.
+- no browser-held client secret;
+- Guided Publisher remains the production fallback while Standard Access is absent.
 
-**External gate:** Pinterest Standard Access approval.
+**External gate:** Pinterest Standard Access approval and Pinterest application credentials.
 
 ### Phase 11 — OpenAI API — intentionally not activated
 Per the official roadmap, paid OpenAI providers are only activated after revenue or explicit cost authorization.
@@ -170,8 +177,22 @@ The data model is multi-tenant from day one, but external billing/plans/onboardi
 - auditEvents are append-only.
 - approvalEvents preserve human decisions.
 - Product facts retain source + observed timestamp.
-- Publishing Guard checks availability, destination, disclosure, asset rights, claims, price freshness and configured frequency.
+- Publishing Guard checks availability, destination, disclosure, asset rights, claims, price freshness, weighted duplicate similarity and configured frequency.
+- Product/affiliate URLs reject insecure, localhost, private-network and credential-bearing destinations.
+- Optimistic Firestore concurrency prevents a stale tab/member from silently overwriting a newer campaign version.
+- Hosting ships CSP, HSTS, anti-framing, referrer and permissions headers.
+- Live Firebase Web configuration is resolved in deploy workflows instead of being hardcoded in the repository HEAD.
+- Dependency audit blocks high-severity vulnerable dependencies; the grpc high advisory is pinned to a patched release.
+- Automated axe/WCAG, keyboard, reduced-motion and 360/390/768/1024/1440/1920 overflow checks run in E2E.
 - Production Rules deployment uses the canonical MillionsNest ruleset and is tested before release.
+
+## Operational automation
+
+- Daily Agent incrementally refreshes stale READY Mercado Livre campaigns on app open.
+- The agent never silently edits an already approved campaign.
+- Product changes create a new version and rescore; unavailable products are blocked.
+- Policy Watch versions official Pinterest/Mercado Livre/Shopee/CONAR baselines and surfaces review dates.
+- Zero-cost scheduling persists publication intent and returns due work to Today without requiring a paid 24/7 job.
 
 ## Zero-cost state
 
