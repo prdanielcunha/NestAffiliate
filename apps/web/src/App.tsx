@@ -43,6 +43,7 @@ function useCampaignStore(organizationId: string | null, actorId: string | null,
     import.meta.env.VITE_E2E_MOCK_AUTH === 'true';
   const storageKey = `${STORAGE_PREFIX}:${organizationId ?? 'pending'}`;
   const [campaigns, setCampaigns] = useState<Campaign[]>(demoEnabled ? demoCampaigns : []);
+  const [syncError,setSyncError]=useState<'conflict'|'generic'|null>(null);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -82,10 +83,9 @@ function useCampaignStore(organizationId: string | null, actorId: string | null,
   const persist = (campaign: Campaign, action: string) => {
     if (db && organizationId && actorId && !demoEnabled) {
       const currentDb = db;
-      void Promise.all([
-        saveCampaign(currentDb, organizationId, campaign),
-        persistCampaignIntelligence(currentDb, organizationId, campaign),
-      ])
+      setSyncError(null);
+      void saveCampaign(currentDb, organizationId, campaign)
+        .then(() => persistCampaignIntelligence(currentDb, organizationId, campaign))
         .then(() => appendAudit(currentDb, {
           organizationId,
           actorId,
@@ -94,7 +94,16 @@ function useCampaignStore(organizationId: string | null, actorId: string | null,
           entityId: campaign.id,
           metadata: { status: campaign.status, version: campaign.currentVersion.version },
         }))
-        .catch(() => undefined);
+        .catch(async (error:unknown) => {
+          const conflict=error instanceof Error && error.message.includes('STALE_CAMPAIGN_WRITE');
+          setSyncError(conflict ? 'conflict' : 'generic');
+          try{
+            const remote=await listCampaigns(currentDb,organizationId);
+            setCampaigns(remote);
+          }catch{
+            // Keep the explicit sync error visible if even recovery fails.
+          }
+        });
     }
   };
 
@@ -112,7 +121,7 @@ function useCampaignStore(organizationId: string | null, actorId: string | null,
     persist(campaign, 'campaign.created');
   };
 
-  return { campaigns, update, add };
+  return { campaigns, update, add, syncError, clearSyncError:()=>setSyncError(null) };
 }
 
 function usePerformanceStore(organizationId: string | null, actorId: string | null, role: Role | null) {
@@ -410,6 +419,21 @@ function campaignDuplicateSimilarity(candidate:Campaign,campaigns:Campaign[]){
     .filter((item)=>item.id!==candidate.id && item.status==='PUBLISHED')
     .map(campaignFingerprint);
   return maxDuplicateSimilarity(campaignFingerprint(candidate),recent);
+}
+
+function SyncErrorBanner({
+  kind,
+  onDismiss,
+}:{
+  kind:'conflict'|'generic'|null;
+  onDismiss:()=>void;
+}){
+  const {t}=useI18n();
+  if(!kind) return null;
+  return <div className="global-sync-error" role="alert">
+    <span>{kind==='conflict' ? t('syncConflict') : t('syncError')}</span>
+    <button className="text-button" onClick={onDismiss}>{t('dismiss')}</button>
+  </div>;
 }
 
 function Login() {
@@ -1435,6 +1459,7 @@ export function App() {
   return (
     <I18nProvider locale={locale}>
     <Shell locale={locale} setLocale={setLocale}>
+      <SyncErrorBanner kind={store.syncError} onDismiss={store.clearSyncError} />
       <Routes>
         <Route path="/" element={<Today campaigns={store.campaigns} schedules={scheduleStore.schedules} agentReport={dailyAgentReport} />} />
         <Route path="/radar" element={<Radar addCampaign={store.add} organizationId={org} editable={editable} />} />
