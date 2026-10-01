@@ -8,7 +8,7 @@ import { buildOpportunity, shortlist } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
-import { FEATURE_FLAGS, KILL_SWITCHES } from '@nestaffiliate/config';
+import { FEATURE_FLAGS, KILL_SWITCHES, canAttemptPinterestPublish } from '@nestaffiliate/config';
 import { type Locale } from './lib/i18n';
 import { I18nProvider, useI18n } from './lib/i18n-context';
 import { demoCampaigns, initialBoards } from './lib/demo';
@@ -18,7 +18,7 @@ import { listCampaigns, saveCampaign } from './services/campaignRepository';
 import { listPerformance, savePerformance } from './services/performanceRepository';
 import { appendAudit } from './services/auditRepository';
 import { persistCampaignIntelligence } from './services/intelligenceRepository';
-import { appendApprovalEvent, markPublication, savePublicationPackage } from './services/lifecycleRepository';
+import { appendApprovalEvent, markPublication, markPublicationScheduled, saveFreshComplianceCheck, savePublicationPackage } from './services/lifecycleRepository';
 import { saveLearningInsights } from './services/learningRepository';
 import { ManualProductImport } from './features/ManualProductImport';
 import { PerformancePanel } from './features/PerformancePanel';
@@ -425,9 +425,14 @@ function CommandPalette({ close }: { close: () => void }) {
   );
 }
 
-function Today({ campaigns }: { campaigns: Campaign[] }) {
-  const { t } = useI18n();
+function Today({ campaigns, schedules }: { campaigns: Campaign[]; schedules: PublicationSchedule[] }) {
+  const { t, locale } = useI18n();
   const ready = campaigns.filter((c) => c.status === 'READY');
+  const liveSchedules=schedules
+    .map((item)=>({...item,status:publicationScheduleStatus(item)}))
+    .filter((item)=>!['COMPLETED','CANCELLED','BLOCKED'].includes(item.status));
+  const due=liveSchedules.filter((item)=>item.status==='DUE');
+  const upcoming=liveSchedules.filter((item)=>item.status==='SCHEDULED').slice(0,3);
   const productCount = new Set(campaigns.map((c) => c.currentVersion.product.productId)).size;
   return (
     <div className="page">
@@ -452,6 +457,36 @@ function Today({ campaigns }: { campaigns: Campaign[] }) {
           </div>
         ) : <Empty title={t('nothingNeeds')} body={t('nothingNeedsBody')} />}
       </section>
+      {(due.length > 0 || upcoming.length > 0) && (
+        <section className="section">
+          {due.length > 0 && <>
+            <div className="section-heading"><h2>{t('duePublications')}</h2><span>{due.length}</span></div>
+            <div className="schedule-list">
+              {due.map((schedule)=> {
+                const campaign=campaigns.find((item)=>item.id===schedule.campaignId);
+                if(!campaign) return null;
+                return <NavLink className="schedule-card due" key={schedule.id} to={`/publish/${schedule.campaignId}`}>
+                  <div><strong>{campaign.currentVersion.keyword}</strong><span>{new Date(schedule.scheduledFor).toLocaleString(locale)}</span></div>
+                  <b>{t('openPublisher')} →</b>
+                </NavLink>;
+              })}
+            </div>
+          </>}
+          {upcoming.length > 0 && <>
+            <div className="section-heading schedule-upcoming-heading"><h2>{t('upcomingPublications')}</h2><span>{upcoming.length}</span></div>
+            <div className="schedule-list">
+              {upcoming.map((schedule)=>{
+                const campaign=campaigns.find((item)=>item.id===schedule.campaignId);
+                if(!campaign) return null;
+                return <NavLink className="schedule-card" key={schedule.id} to={`/publish/${schedule.campaignId}`}>
+                  <div><strong>{campaign.currentVersion.keyword}</strong><span>{new Date(schedule.scheduledFor).toLocaleString(locale)}</span></div>
+                  <b>{t('scheduled')}</b>
+                </NavLink>;
+              })}
+            </div>
+          </>}
+        </section>
+      )}
       <section className="two-col">
         <div className="surface">
           <p className="eyebrow">{t('whileAway')}</p>
