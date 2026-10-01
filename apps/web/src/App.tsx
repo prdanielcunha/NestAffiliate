@@ -262,14 +262,15 @@ function Shell({ children, locale, setLocale }: { children: React.ReactNode; loc
 
 function CommandPalette({ close }: { close: () => void }) {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const commands: Array<[string, string]> = [
-    ['Hoje', '/'], ['Mostrar oportunidades', '/radar'], ['Revisar campanhas', '/campaigns'],
-    ['Ver resultados', '/results'], ['Conectar Pinterest', '/connections'], ['Prompt Studio', '/prompt-studio'], ['Custos de IA', '/ai-cost'],
+    [t('today'), '/'], [t('showOpportunities'), '/radar'], [t('reviewCampaigns'), '/campaigns'],
+    [t('viewResults'), '/results'], [t('connectPinterest'), '/connections'], [t('promptStudio'), '/prompt-studio'], [t('aiCosts'), '/ai-cost'],
   ];
   return (
     <div className="modal-backdrop" onMouseDown={close}>
       <div className="command" onMouseDown={(e) => e.stopPropagation()}>
-        <input autoFocus placeholder="Buscar ou executar um comando…" />
+        <input autoFocus placeholder={t('commandPlaceholder')} />
         {commands.map(([label,to]) => <button key={to} onClick={() => { navigate(to); close(); }}>{label}<span>↗</span></button>)}
       </div>
     </div>
@@ -277,44 +278,45 @@ function CommandPalette({ close }: { close: () => void }) {
 }
 
 function Today({ campaigns }: { campaigns: Campaign[] }) {
+  const { t } = useI18n();
   const ready = campaigns.filter((c) => c.status === 'READY');
   const productCount = new Set(campaigns.map((c) => c.currentVersion.product.productId)).size;
   return (
     <div className="page">
       <section className="hero">
-        <p className="eyebrow">HOJE</p>
-        <h1>NestAffiliate trabalhou por você.</h1>
-        <p className="hero-sub">Você só entra quando existe uma decisão que vale seu tempo.</p>
+        <p className="eyebrow">{t('today').toUpperCase()}</p>
+        <h1>{t('workedForYou')}</h1>
+        <p className="hero-sub">{t('heroSub')}</p>
         <div className="stat-row">
-          <Stat value={String(productCount)} label="produtos em campanhas" />
-          <Stat value={String(campaigns.length)} label="oportunidades salvas" />
-          <Stat value={String(ready.length)} label="campanhas prontas" />
+          <Stat value={String(productCount)} label={t('productsInCampaigns')} />
+          <Stat value={String(campaigns.length)} label={t('opportunitiesSaved')} />
+          <Stat value={String(ready.length)} label={t('ready')} />
         </div>
         <NavLink to={ready[0] ? `/review/${ready[0].id}` : '/radar'} className="button primary hero-cta">
-          {ready.length ? `Revisar ${ready.length} campanhas` : 'Encontrar oportunidades'}
+          {ready.length ? t('reviewCount',{n:ready.length}) : t('findOpportunities')}
         </NavLink>
       </section>
       <section className="section">
-        <div className="section-heading"><h2>Precisa de você</h2><span>{ready.length ? '~2 min' : 'Tudo em dia'}</span></div>
+        <div className="section-heading"><h2>{t('needsYou')}</h2><span>{ready.length ? '~2 min' : t('allDone')}</span></div>
         {ready.length ? (
           <div className="campaign-grid">
             {ready.slice(0,3).map((campaign) => <CampaignCard key={campaign.id} campaign={campaign} />)}
           </div>
-        ) : <Empty title="Nada precisa da sua atenção agora." body="Abra o Radar para encontrar oportunidades. O sistema só vai trazer para revisão o que passar pelos filtros." />}
+        ) : <Empty title={t('nothingNeeds')} body={t('nothingNeedsBody')} />}
       </section>
       <section className="two-col">
         <div className="surface">
-          <p className="eyebrow">ENQUANTO VOCÊ ESTAVA FORA</p>
+          <p className="eyebrow">{t('whileAway')}</p>
           <div className="timeline">
-            <span><b>0</b> produtos alterados desde o último ciclo</span>
-            <span><b>0</b> bloqueios de compliance</span>
-            <span><b>{ready.length}</b> campanhas aguardando decisão</span>
+            <span><b>0</b> {t('productsChanged')}</span>
+            <span><b>0</b> {t('complianceBlocks')}</span>
+            <span><b>{ready.length}</b> {t('campaignsWaiting')}</span>
           </div>
         </div>
         <div className="surface">
           <p className="eyebrow">CUSTO</p>
           <h3>R$ 0,00</h3>
-          <p className="muted">Serviços pagos bloqueados por política global.</p>
+          <p className="muted">{t('paidServicesBlocked')}</p>
         </div>
       </section>
     </div>
@@ -326,6 +328,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 function CampaignCard({ campaign }: { campaign: Campaign }) {
+  const { t } = useI18n();
   const v = campaign.currentVersion;
   return (
     <NavLink className="campaign-card" to={`/review/${campaign.id}`}>
@@ -333,7 +336,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
         <span>{v.keyword}</span><strong>{v.narrative.headline}</strong><em>Achados do Nest</em>
       </div>
       <div className="card-copy">
-        <div className="score-line"><b>{campaign.score.score}</b><span>NestScore · confiança {campaign.score.confidence}</span></div>
+        <div className="score-line"><b>{campaign.score.score}</b><span>NestScore · {t('confidence')} {t(campaign.score.confidence as 'high'|'medium'|'low')}</span></div>
         <h3>{v.product.title.value}</h3>
         <p>{campaign.score.reasons[0]}</p>
         <span className="market-chip">{campaign.marketplace === 'MELI' ? 'Mercado Livre' : 'Shopee'}</span>
@@ -343,6 +346,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
 }
 
 function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Campaign) => void; organizationId: string; editable: boolean }) {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [query, setQuery] = useState('organizador cozinha pequena');
   const [items, setItems] = useState<ProductTruth[]>([]);
@@ -391,32 +395,32 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
 
   return (
     <div className="page">
-      <PageTitle eyebrow="RADAR" title="Oportunidades" subtitle="O que vale sua atenção agora." />
+      <PageTitle eyebrow="RADAR" title={t('opportunities')} subtitle={t('opportunitiesSub')} />
       <div className="search-box">
         <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void search()} placeholder="Ex.: organizador cozinha pequena" />
-        <button className="button primary" onClick={() => void search()}>Analisar produtos</button>
+        <button className="button primary" onClick={() => void search()}>{t('analyzeProducts')}</button>
       </div>
-      <div className="chips"><span>Casa</span><span>Cozinha</span><span>Mercado Livre</span><span>Dedupe ativo</span><span>Sazonalidade local</span></div>
+      <div className="chips"><span>{t('home')}</span><span>{t('kitchen')}</span><span>Mercado Livre</span><span>{t('dedupeActive')}</span><span>{t('localSeasonality')}</span></div>
       {state === 'loading' && <ProgressSteps />}
-      {state === 'error' && <div className="notice danger">Não foi possível consultar o Mercado Livre agora. O restante do app continua disponível.</div>}
-      {!items.length && state === 'idle' && <Empty title="Comece por uma intenção, não por um produto." body="Pesquise um problema ou desejo. O Radar compara os produtos e cria a campanha somente depois da seleção." />}
+      {state === 'error' && <div className="notice danger">{t('radarError')}</div>}
+      {!items.length && state === 'idle' && <Empty title={t('radarEmpty')} body={t('radarEmptyBody')} />}
       {editable ? (
         <ManualProductImport organizationId={organizationId} onImported={(product, keyword) => create(product, keyword)} />
       ) : (
-        <div className="notice">Seu acesso é somente leitura. O Radar continua disponível, mas criar campanhas exige papel editor, admin ou owner.</div>
+        <div className="notice">{t('readOnlyRadar')}</div>
       )}
       <div className="opportunity-grid">
         {items.map((product) => (
           <article className="opportunity-card" key={product.externalId}>
             <div className="product-image">
-              {product.imageUrl ? <img src={product.imageUrl.value} alt="" /> : <span>Asset indisponível</span>}
+              {product.imageUrl ? <img src={product.imageUrl.value} alt="" /> : <span>{t('assetUnavailable')}</span>}
             </div>
             <div>
               <span className="market-chip">Mercado Livre</span>
               <h3>{product.title.value}</h3>
-              <p className="price">{product.price ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:product.currency.value}).format(product.price.value) : 'Preço não informado'}</p>
-              <p className="muted">Dados factuais preservados com fonte e timestamp.</p>
-              <button className="button secondary" disabled={!editable} onClick={() => create(product)}>Criar campanha</button>
+              <p className="price">{product.price ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
+              <p className="muted">{t('truthPreserved')}</p>
+              <button className="button secondary" disabled={!editable} onClick={() => create(product)}>{t('createCampaign')}</button>
             </div>
           </article>
         ))}
@@ -857,7 +861,7 @@ function SimpleList({ eyebrow,title,subtitle,rows }: { eyebrow:string; title:str
 function Metric({ label,value }: { label:string; value:string }) { return <div className="metric-card"><span>{label}</span><strong>{value}</strong></div>; }
 function Empty({ title,body }: { title:string; body:string }) { return <div className="empty"><span className="empty-orb" /><h3>{title}</h3><p>{body}</p></div>; }
 function PageTitle({ eyebrow,title,subtitle }: { eyebrow:string; title:string; subtitle:string }) { return <header className="page-title"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{subtitle}</p></header>; }
-function ProgressSteps() { return <div className="progress-steps"><span>Comparando produtos…</span><span>Validando fatos…</span><span>Calculando oportunidade…</span></div>; }
+function ProgressSteps() { const { t } = useI18n(); return <div className="progress-steps"><span>{t('comparing')}</span><span>{t('validatingFacts')}</span><span>{t('calculating')}</span></div>; }
 
 export function App() {
   const auth = useAuth();
