@@ -2,8 +2,8 @@ import {
   collection,
   doc,
   getDocs,
+  runTransaction,
   serverTimestamp,
-  writeBatch,
   type Firestore,
 } from 'firebase/firestore';
 import type { Campaign } from '@nestaffiliate/core';
@@ -25,18 +25,49 @@ export async function saveCampaign(db: Firestore, organizationId: string, campai
   const root = ['organizations', organizationId, 'products', 'nestaffiliate'] as const;
   const campaignRef = doc(db, ...root, 'campaigns', campaign.id);
   const versionRef = doc(db, ...root, 'campaignVersions', campaign.currentVersion.id);
-  const batch=writeBatch(db);
-  batch.set(campaignRef, {
-    ...campaign,
-    organizationId,
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
-  batch.set(versionRef, {
-    ...campaign.currentVersion,
-    organizationId,
-    marketplace: campaign.marketplace,
-    status: campaign.status,
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
-  await batch.commit();
+
+  await runTransaction(db, async (transaction) => {
+    const currentSnapshot = await transaction.get(campaignRef);
+    if (currentSnapshot.exists()) {
+      const remote = currentSnapshot.data() as Campaign;
+      const remoteVersion = remote.currentVersion?.version ?? 0;
+      const remoteVersionId = remote.currentVersion?.id ?? '';
+      const incoming = campaign.currentVersion;
+
+      if (incoming.version < remoteVersion) {
+        throw new Error('STALE_CAMPAIGN_WRITE');
+      }
+
+      if (incoming.id !== remoteVersionId) {
+        const isDirectChild =
+          incoming.parentVersionId === remoteVersionId &&
+          incoming.version === remoteVersion + 1;
+        if (!isDirectChild) {
+          throw new Error('STALE_CAMPAIGN_WRITE');
+        }
+      }
+    }
+
+    transaction.set(
+      campaignRef,
+      {
+        ...campaign,
+        organizationId,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    transaction.set(
+      versionRef,
+      {
+        ...campaign.currentVersion,
+        organizationId,
+        marketplace: campaign.marketplace,
+        status: campaign.status,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  });
 }
