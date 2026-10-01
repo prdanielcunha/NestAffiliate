@@ -795,7 +795,7 @@ function Publish({
     void loadPublicationFrequency(currentDb,identity.organizationId)
       .then(setFrequency)
       .catch(()=>setFrequency({publications24h:0}));
-  },[campaign?.id,identity.organizationId]);
+  },[campaign,identity.organizationId]);
 
   if (!campaign) return <Navigate to="/campaigns" replace />;
   const v = campaign.currentVersion;
