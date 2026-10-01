@@ -34,7 +34,7 @@ jobs:
       - name: Unit and integration tests
         run: pnpm test
       - name: Dependency audit
-        run: pnpm audit --audit-level=high
+        run: pnpm audit --audit-level=moderate
 
       - name: Build
         env:
