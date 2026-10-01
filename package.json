@@ -39,5 +39,10 @@
     "vitest": "^3.2.4",
     "@axe-core/playwright": "^4.10.2"
   },
-  "type": "module"
+  "type": "module",
+  "pnpm": {
+    "overrides": {
+      "@grpc/grpc-js": "^1.13.6"
+    }
+  }
 }
