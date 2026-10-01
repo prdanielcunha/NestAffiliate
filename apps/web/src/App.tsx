@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import type { Campaign, ProductTruth, PublicationPackage } from '@nestaffiliate/core';
-import { campaignVersions, nextCampaignVersion, restoreCampaignVersion } from '@nestaffiliate/core';
+import { campaignVersions, canWrite, nextCampaignVersion, restoreCampaignVersion, type Role } from '@nestaffiliate/core';
 import { runPublishingGuard } from '@nestaffiliate/compliance';
 import { MercadoLivrePublicAdapter } from '@nestaffiliate/integrations';
 import { buildOpportunity, shortlist } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
-import { campaignFilename, renderPin } from '@nestaffiliate/creative-engine';
+import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
 import { FEATURE_FLAGS, KILL_SWITCHES } from '@nestaffiliate/config';
 import { createTranslator, type Locale } from './lib/i18n';
 import { demoCampaigns, initialBoards } from './lib/demo';
@@ -14,6 +14,7 @@ import { useAuth } from './lib/auth';
 import { db } from './lib/firebase';
 import { listCampaigns, saveCampaign } from './services/campaignRepository';
 import { listPerformance, savePerformance } from './services/performanceRepository';
+import { appendAudit } from './services/auditRepository';
 import { ManualProductImport } from './features/ManualProductImport';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
@@ -21,7 +22,7 @@ import { PromptStudio } from './features/PromptStudio';
 const marketplaceAdapter = new MercadoLivrePublicAdapter();
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
 
-function useCampaignStore(organizationId: string | null) {
+function useCampaignStore(organizationId: string | null, actorId: string | null, role: Role | null) {
   const demoEnabled =
     import.meta.env.VITE_DEMO_DATA_ENABLED === 'true' ||
     import.meta.env.VITE_E2E_MOCK_AUTH === 'true';
@@ -63,28 +64,39 @@ function useCampaignStore(organizationId: string | null) {
     localStorage.setItem(storageKey, JSON.stringify(campaigns));
   }, [campaigns, organizationId, storageKey]);
 
-  const persist = (campaign: Campaign) => {
-    if (db && organizationId && !demoEnabled) {
-      void saveCampaign(db, organizationId, campaign).catch(() => undefined);
+  const persist = (campaign: Campaign, action: string) => {
+    if (db && organizationId && actorId && !demoEnabled) {
+      void saveCampaign(db, organizationId, campaign)
+        .then(() => appendAudit(db, {
+          organizationId,
+          actorId,
+          action,
+          entityType: 'campaign',
+          entityId: campaign.id,
+          metadata: { status: campaign.status, version: campaign.currentVersion.version },
+        }))
+        .catch(() => undefined);
     }
   };
 
   const update = (campaign: Campaign) => {
+    if (!role || !canWrite(role)) return;
     setCampaigns((items) =>
       items.map((item) => (item.id === campaign.id ? campaign : item)),
     );
-    persist(campaign);
+    persist(campaign, 'campaign.updated');
   };
 
   const add = (campaign: Campaign) => {
+    if (!role || !canWrite(role)) return;
     setCampaigns((items) => [campaign, ...items]);
-    persist(campaign);
+    persist(campaign, 'campaign.created');
   };
 
   return { campaigns, update, add };
 }
 
-function usePerformanceStore(organizationId: string | null) {
+function usePerformanceStore(organizationId: string | null, actorId: string | null, role: Role | null) {
   const demoEnabled =
     import.meta.env.VITE_DEMO_DATA_ENABLED === 'true' ||
     import.meta.env.VITE_E2E_MOCK_AUTH === 'true';
@@ -121,9 +133,19 @@ function usePerformanceStore(organizationId: string | null) {
   }, [rows, organizationId, key]);
 
   const save = (row: PerformanceDaily) => {
+    if (!role || !canWrite(role)) return;
     setRows((current) => [row, ...current.filter((item) => item.id !== row.id)]);
-    if (db && organizationId && !demoEnabled) {
-      void savePerformance(db, organizationId, row).catch(() => undefined);
+    if (db && organizationId && actorId && !demoEnabled) {
+      void savePerformance(db, organizationId, row)
+        .then(() => appendAudit(db, {
+          organizationId,
+          actorId,
+          action: 'performance.recorded',
+          entityType: 'performanceDaily',
+          entityId: row.id,
+          metadata: { campaignId: row.campaignId, date: row.date },
+        }))
+        .catch(() => undefined);
     }
   };
 
@@ -311,7 +333,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
   );
 }
 
-function Radar({ addCampaign, organizationId }: { addCampaign: (c: Campaign) => void; organizationId: string }) {
+function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Campaign) => void; organizationId: string; editable: boolean }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('organizador cozinha pequena');
   const [items, setItems] = useState<ProductTruth[]>([]);
@@ -329,6 +351,7 @@ function Radar({ addCampaign, organizationId }: { addCampaign: (c: Campaign) => 
   }
 
   function create(product: ProductTruth, keywordOverride?: string) {
+    if (!editable) return;
     const campaignKeyword = keywordOverride?.trim() || query;
     const opportunity = buildOpportunity(product, campaignKeyword);
     const score = opportunity.score;
@@ -368,7 +391,11 @@ function Radar({ addCampaign, organizationId }: { addCampaign: (c: Campaign) => 
       {state === 'loading' && <ProgressSteps />}
       {state === 'error' && <div className="notice danger">Não foi possível consultar o Mercado Livre agora. O restante do app continua disponível.</div>}
       {!items.length && state === 'idle' && <Empty title="Comece por uma intenção, não por um produto." body="Pesquise um problema ou desejo. O Radar compara os produtos e cria a campanha somente depois da seleção." />}
-      <ManualProductImport organizationId={organizationId} onImported={(product, keyword) => create(product, keyword)} />
+      {editable ? (
+        <ManualProductImport organizationId={organizationId} onImported={(product, keyword) => create(product, keyword)} />
+      ) : (
+        <div className="notice">Seu acesso é somente leitura. O Radar continua disponível, mas criar campanhas exige papel editor, admin ou owner.</div>
+      )}
       <div className="opportunity-grid">
         {items.map((product) => (
           <article className="opportunity-card" key={product.externalId}>
@@ -380,7 +407,7 @@ function Radar({ addCampaign, organizationId }: { addCampaign: (c: Campaign) => 
               <h3>{product.title.value}</h3>
               <p className="price">{product.price ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:product.currency.value}).format(product.price.value) : 'Preço não informado'}</p>
               <p className="muted">Dados factuais preservados com fonte e timestamp.</p>
-              <button className="button secondary" onClick={() => create(product)}>Criar campanha</button>
+              <button className="button secondary" disabled={!editable} onClick={() => create(product)}>Criar campanha</button>
             </div>
           </article>
         ))}
@@ -389,7 +416,7 @@ function Radar({ addCampaign, organizationId }: { addCampaign: (c: Campaign) => 
   );
 }
 
-function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Campaign) => void }) {
+function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update: (c: Campaign) => void; editable: boolean }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const campaign = campaigns.find((c) => c.id === id)!;
@@ -547,9 +574,18 @@ function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Camp
             <label>Board</label>
             <select
               value={v.boardName}
+              disabled={!editable}
               onChange={(e) => update(nextCampaignVersion(campaign, { boardName: e.target.value }, 'board changed'))}
             >
               {initialBoards.map((board) => <option key={board} value={board}>{board}</option>)}
+            </select>
+            <label>Template</label>
+            <select
+              value={v.template}
+              disabled={!editable}
+              onChange={(e) => update(nextCampaignVersion(campaign, { template: e.target.value }, 'template changed'))}
+            >
+              {CREATIVE_TEMPLATES.map((template) => <option key={template.id} value={template.label}>{template.label}</option>)}
             </select>
             <p><b>Alt:</b> {v.narrative.altText}</p>
           </Disclosure>
@@ -559,7 +595,7 @@ function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Camp
                 <button
                   key={version.id}
                   className={version.id === v.id ? 'version-row current' : 'version-row'}
-                  disabled={version.id === v.id}
+                  disabled={!editable || version.id === v.id}
                   onClick={() => update(restoreCampaignVersion(campaign, version.version))}
                 >
                   <span>v{version.version} · {version.reason}</span>
@@ -570,13 +606,13 @@ function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Camp
           </Disclosure>
           <div className="save-state">{saved ? 'Salvo' : 'Salvando…'} · v{v.version}</div>
           <div className="primary-actions">
-            <button className="button primary" onClick={approve}>Aprovar</button>
-            <button className="button secondary" onClick={() => document.getElementById('ai-edit')?.focus()}>Editar</button>
+            <button className="button primary" disabled={!editable} onClick={approve}>Aprovar</button>
+            <button className="button secondary" disabled={!editable} onClick={() => document.getElementById('ai-edit')?.focus()}>Editar</button>
           </div>
           <div className="minor-actions">
-            <button onClick={() => void loadSwaps()}>{swapLoading ? 'Buscando…' : 'Trocar produto'}</button>
-            <button onClick={() => applyEdit('Refaz tudo')}>Refazer</button>
-            <button onClick={() => update({ ...campaign, status: 'REJECTED' })}>Descartar</button>
+            <button disabled={!editable} onClick={() => void loadSwaps()}>{swapLoading ? 'Buscando…' : 'Trocar produto'}</button>
+            <button disabled={!editable} onClick={() => applyEdit('Refaz tudo')}>Refazer</button>
+            <button disabled={!editable} onClick={() => update({ ...campaign, status: 'REJECTED' })}>Descartar</button>
           </div>
           {swapOptions.length > 0 && (
             <div className="swap-panel">
@@ -594,8 +630,8 @@ function Review({ campaigns, update }: { campaigns: Campaign[]; update: (c: Camp
       </div>
       <div className="ai-bar">
         <span className="spark">✦</span>
-        <input id="ai-edit" value={command} onChange={(e) => { setSaved(false); setCommand(e.target.value); }} onKeyDown={(e) => e.key === 'Enter' && applyEdit(command)} placeholder="Peça qualquer alteração… Ex.: mais premium, menos texto, outra headline" />
-        <button onClick={() => applyEdit(command)}>Aplicar</button>
+        <input id="ai-edit" disabled={!editable} value={command} onChange={(e) => { setSaved(false); setCommand(e.target.value); }} onKeyDown={(e) => e.key === 'Enter' && applyEdit(command)} placeholder={editable ? 'Peça qualquer alteração… Ex.: mais premium, menos texto, outra headline' : 'Acesso somente leitura'} />
+        <button disabled={!editable} onClick={() => applyEdit(command)}>Aplicar</button>
       </div>
     </div>
   );
@@ -778,21 +814,22 @@ function ProgressSteps() { return <div className="progress-steps"><span>Comparan
 
 export function App() {
   const auth = useAuth();
-  const store = useCampaignStore(auth.organizationId);
-  const performance = usePerformanceStore(auth.organizationId);
+  const store = useCampaignStore(auth.organizationId, auth.user?.uid ?? null, auth.role);
+  const performance = usePerformanceStore(auth.organizationId, auth.user?.uid ?? null, auth.role);
   const [locale,setLocale] = useState<Locale>(() => (localStorage.getItem('na_locale') as Locale) || 'pt-BR');
   useEffect(() => localStorage.setItem('na_locale', locale), [locale]);
 
   if (auth.state !== 'ready') return <Login />;
   const org = auth.organizationId ?? 'demo-org';
+  const editable = auth.role ? canWrite(auth.role) : false;
 
   return (
     <Shell locale={locale} setLocale={setLocale}>
       <Routes>
         <Route path="/" element={<Today campaigns={store.campaigns} />} />
-        <Route path="/radar" element={<Radar addCampaign={store.add} organizationId={org} />} />
+        <Route path="/radar" element={<Radar addCampaign={store.add} organizationId={org} editable={editable} />} />
         <Route path="/campaigns" element={<Campaigns campaigns={store.campaigns} />} />
-        <Route path="/review/:id" element={<Review campaigns={store.campaigns} update={store.update} />} />
+        <Route path="/review/:id" element={<Review campaigns={store.campaigns} update={store.update} editable={editable} />} />
         <Route path="/publish/:id" element={<Publish campaigns={store.campaigns} update={store.update} />} />
         <Route path="/results" element={<Results campaigns={store.campaigns} organizationId={org} rows={performance.rows} onSave={performance.save} />} />
         <Route path="/connections" element={<Connections />} />
