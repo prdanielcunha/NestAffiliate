@@ -36,7 +36,9 @@ packages/ai-router
 packages/integrations
 packages/compliance
 packages/config
-packages/ui
+packages/radar
+packages/analytics
+packages/learning
 firebase
 tests
 docs
@@ -70,6 +72,19 @@ The global policy `PAID_SERVICES_DISABLED` defaults to `true`. Gemini Free is op
 
 NestAffiliate shares MillionsNest identity. Business data is scoped to the active organization. Because the Firebase project is shared with the ecosystem, NestAffiliate rules are maintained as an additive product fragment; this repository must never overwrite the ecosystem-wide Firestore rules blindly.
 
+## Production
+
+- Official domain: https://nestaffiliate.millionsnest.com
+- Firebase fallback: https://mn-nestaffiliate-555464791734.web.app
+- `main`: development / homologation
+- `production`: certified production branch
+
 ## Documentation
 
-The six 2026-09-30 master documents are the product source of truth and must be kept under `docs/specs/` during implementation.
+The six 2026-09-30 master documents are the product source of truth and are versioned under `docs/specs/`:
+- Product / Architecture / Roadmap
+- UI/UX Master Design
+- Technical Implementation Blueprint
+- Integrations & Data Contracts
+- QA / Security / Release Playbook
+- Growth Operating Playbook
