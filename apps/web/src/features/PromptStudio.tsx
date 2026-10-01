@@ -17,7 +17,7 @@ interface AIEditorialResult {
 }
 
 function parseEditorialResult(raw:string):AIEditorialResult{
-  const cleaned=raw.trim().replace(/^\`\`\`(?:json)?\s*/i,'').replace(/\s*\`\`\`$/,'');
+  const cleaned=raw.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
   const parsed=JSON.parse(cleaned) as Record<string,unknown>;
   const text=(key:string)=>typeof parsed[key]==='string' ? String(parsed[key]).trim() : undefined;
   return {
