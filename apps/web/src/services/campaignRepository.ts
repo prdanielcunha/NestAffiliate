@@ -2,8 +2,8 @@ import {
   collection,
   doc,
   getDocs,
-  setDoc,
   serverTimestamp,
+  writeBatch,
   type Firestore,
 } from 'firebase/firestore';
 import type { Campaign } from '@nestaffiliate/core';
@@ -22,14 +22,21 @@ export async function listCampaigns(db: Firestore, organizationId: string): Prom
 
 export async function saveCampaign(db: Firestore, organizationId: string, campaign: Campaign) {
   if (campaign.organizationId !== organizationId) throw new Error('TENANT_MISMATCH');
-  const ref = doc(campaignsCollection(db, organizationId), campaign.id);
-  await setDoc(
-    ref,
-    {
-      ...campaign,
-      organizationId,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
+  const root = ['organizations', organizationId, 'products', 'nestaffiliate'] as const;
+  const campaignRef = doc(db, ...root, 'campaigns', campaign.id);
+  const versionRef = doc(db, ...root, 'campaignVersions', campaign.currentVersion.id);
+  const batch=writeBatch(db);
+  batch.set(campaignRef, {
+    ...campaign,
+    organizationId,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+  batch.set(versionRef, {
+    ...campaign.currentVersion,
+    organizationId,
+    marketplace: campaign.marketplace,
+    status: campaign.status,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+  await batch.commit();
 }
