@@ -531,7 +531,8 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   }, [campaign?.currentVersion.id, campaign?.currentVersion.product.affiliateUrl?.value]);
 
   if (!campaign) return <Navigate to="/campaigns" replace />;
-  const v = campaign.currentVersion;
+  const activeCampaign: Campaign = campaign;
+  const v = activeCampaign.currentVersion;
 
   function applyEdit(raw: string) {
     const text = raw.trim().toLowerCase();
@@ -640,7 +641,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   return (
     <div className="review-page">
       <div className="review-grid">
-        <PinPreview campaign={campaign} />
+        <PinPreview campaign={activeCampaign} />
         <section className="decision-panel">
           <div className="review-header">
             <div><p className="eyebrow">{t('review')}</p><h1>{v.keyword}</h1></div>
@@ -812,13 +813,13 @@ function Publish({
     } : undefined,
   });
   const pkg: PublicationPackage = {
-    campaignId: campaign.id, version: v.version, filename: campaignFilename(v), width: 1000, height: 1500,
+    campaignId: activeCampaign.id, version: v.version, filename: campaignFilename(v), width: 1000, height: 1500,
     title: v.narrative.pinterestTitle, description: v.narrative.description, disclosure: v.narrative.disclosure,
     destinationUrl: destination, boardName: v.boardName, topics: [v.keyword, 'casa organizada', 'ideias para casa'],
     altText: v.narrative.altText, compliance: guard.outcome,
   };
 
-  const marketplaceSteps = campaign.marketplace === 'SHOPEE'
+  const marketplaceSteps = activeCampaign.marketplace === 'SHOPEE'
     ? [[t('shopeeGuideTitle'), t('shopeeGuideBody')]]
     : [];
   const steps = [
@@ -836,7 +837,7 @@ function Publish({
   async function copy(text: string) { await navigator.clipboard.writeText(text); }
 
   function persistPackage() {
-    if (db && identity.organizationId && campaign.status === 'PUBLICATION_READY') {
+    if (db && identity.organizationId && activeCampaign.status === 'PUBLICATION_READY') {
       void savePublicationPackage(db, identity.organizationId, pkg).catch(() => undefined);
     }
   }
@@ -854,7 +855,7 @@ function Publish({
   }
 
   function markPublished() {
-    const published: Campaign = { ...campaign, status: 'PUBLISHED' };
+    const published: Campaign = { ...activeCampaign, status: 'PUBLISHED' };
     update(published);
     if (db && identity.organizationId) {
       void markPublication(db, {
