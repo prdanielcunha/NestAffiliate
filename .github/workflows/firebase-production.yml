@@ -124,3 +124,6 @@ jobs:
           else
             echo "NESTAFFILIATE_OFFICIAL_DOMAIN_PENDING_CERT_OR_DNS=true"
           fi
+
+      - name: Verify public legal pages live
+        run: node scripts/verify-live-legal.mjs
