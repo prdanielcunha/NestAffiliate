@@ -464,6 +464,11 @@ function Login() {
         <a className="button secondary" href={import.meta.env.VITE_HUB_URL || 'https://www.millionsnest.com'}>
           {t('openHub')}
         </a>
+        <nav className="login-legal-links" aria-label="Legal">
+          <a href="/privacy">{t('privacy')}</a>
+          <a href="/terms">{t('terms')}</a>
+          <a href="/data-deletion">{t('dataDeletion')}</a>
+        </nav>
         {user?.email && <small className="muted">{user.email}</small>}
       </section>
     </main>
