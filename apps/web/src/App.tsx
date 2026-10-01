@@ -700,12 +700,6 @@ function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Cam
     altText: v.narrative.altText, compliance: guard.outcome,
   };
 
-  useEffect(() => {
-    if (db && identity.organizationId && campaign.status === 'PUBLICATION_READY') {
-      void savePublicationPackage(db, identity.organizationId, pkg).catch(() => undefined);
-    }
-  }, [campaign.id, campaign.status, identity.organizationId, pkg.campaignId, pkg.version]);
-
   const steps = [
     ['Baixe a imagem', 'Use o arquivo 1000 × 1500 preparado pelo NestAffiliate.'],
     ['Abra o Pinterest', 'Crie um novo Pin na conta Achados do Nest.'],
@@ -719,7 +713,14 @@ function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Cam
 
   async function copy(text: string) { await navigator.clipboard.writeText(text); }
 
+  function persistPackage() {
+    if (db && identity.organizationId && campaign.status === 'PUBLICATION_READY') {
+      void savePublicationPackage(db, identity.organizationId, pkg).catch(() => undefined);
+    }
+  }
+
   async function downloadImage() {
+    persistPackage();
     const canvas = document.createElement('canvas');
     const dataUrl = await renderPin(canvas, v);
     const link = document.createElement('a');
@@ -771,7 +772,7 @@ function Publish({ campaigns, update }: { campaigns: Campaign[]; update: (c: Cam
         <div className="guided-actions">
           {step > 0 && <button className="button secondary" onClick={() => setStep(step - 1)}>Voltar</button>}
           {step < steps.length - 1 ? (
-            <button className="button primary" disabled={guard.outcome === 'BLOCK'} onClick={() => setStep(step + 1)}>Próxima etapa</button>
+            <button className="button primary" disabled={guard.outcome === 'BLOCK'} onClick={() => { persistPackage(); setStep(step + 1); }}>Próxima etapa</button>
           ) : (
             <button className="button primary" onClick={markPublished}>Marcar como publicado</button>
           )}
