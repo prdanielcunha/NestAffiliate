@@ -134,7 +134,14 @@ export interface ApprovalEvent {
   campaignId: string;
   campaignVersion: number;
   actorId: string;
-  decision: 'APPROVED' | 'REJECTED' | 'EDITED' | 'SWAPPED' | 'RESTORED';
+  decision:
+    | 'APPROVED'
+    | 'REJECTED'
+    | 'EDITED'
+    | 'SWAPPED'
+    | 'RESTORED'
+    | 'REGENERATED'
+    | 'PREFERRED_VARIANT';
   createdAt: string;
   note?: string;
 }
