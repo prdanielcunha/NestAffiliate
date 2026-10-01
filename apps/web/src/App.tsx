@@ -751,6 +751,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   const [affiliateError, setAffiliateError] = useState('');
   const [swapOptions, setSwapOptions] = useState<ProductTruth[]>([]);
   const [swapLoading, setSwapLoading] = useState(false);
+  const approvingRef = useRef(false);
 
   useEffect(() => {
     setAffiliateDraft(campaign?.currentVersion.product.affiliateUrl?.value ?? '');
@@ -841,6 +842,8 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   }
 
   function approve() {
+    if (approvingRef.current) return;
+    approvingRef.current = true;
     const destination = v.product.affiliateUrl?.value ?? v.product.url.value;
     const guard = runPublishingGuard({
       product: v.product,
@@ -863,7 +866,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         decision: 'APPROVED',
       }).catch(() => undefined);
     }
-    if (guard.outcome !== 'BLOCK') navigate(`/publish/${campaign.id}`);
+    if (guard.outcome !== 'BLOCK') {
+      navigate(`/publish/${campaign.id}`);
+    } else {
+      approvingRef.current = false;
+    }
   }
 
   return (
@@ -1107,15 +1114,15 @@ function Publish({
     ? [[t('shopeeGuideTitle'), t('shopeeGuideBody')]]
     : [];
   const steps = [
-    ['Baixe a imagem', 'Use o arquivo 1000 × 1500 preparado pelo NestAffiliate.'],
-    ['Abra o Pinterest', 'Crie um novo Pin na conta Achados do Nest.'],
-    ['Envie o arquivo', pkg.filename],
-    ['Cole título e descrição', 'Use os campos preparados abaixo.'],
-    ['Adicione o link', pkg.destinationUrl],
+    [t('guideDownloadTitle'), t('guideDownloadBody')],
+    [t('guideOpenPinterestTitle'), t('guideOpenPinterestBody')],
+    [t('guideUploadTitle'), pkg.filename],
+    [t('guideCopyTitle'), t('guideCopyBody')],
+    [t('guideLinkTitle'), pkg.destinationUrl],
     ...marketplaceSteps,
-    ['Salve na pasta', pkg.boardName],
-    ['Revise e publique', 'Confira a prévia final no Pinterest antes de publicar.'],
-    ['Marque como publicado', 'O NestAffiliate começa a acompanhar o resultado.'],
+    [t('guideBoardTitle'), pkg.boardName],
+    [t('guideReviewTitle'), t('guideReviewBody')],
+    [t('guideMarkTitle'), t('guideMarkBody')],
   ];
 
   async function copy(text: string) { await navigator.clipboard.writeText(text); }
