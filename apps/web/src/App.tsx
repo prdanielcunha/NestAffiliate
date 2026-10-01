@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import type { Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
-import { runPublishingGuard, type FreshValidationResult } from '@nestaffiliate/compliance';
+import { maxDuplicateSimilarity, runPublishingGuard, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
 import { MercadoLivrePublicAdapter } from '@nestaffiliate/integrations';
 import { buildOpportunity, shortlist } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
@@ -388,6 +388,27 @@ function useDailyAgent(input:{
   ]);
 
   return report;
+}
+
+function campaignFingerprint(campaign:Campaign):PublicationFingerprint{
+  const version=campaign.currentVersion;
+  return {
+    productId:version.product.productId,
+    imageUrl:version.product.imageUrl?.value,
+    headline:version.narrative.headline,
+    description:version.narrative.description,
+    template:version.template,
+    board:version.boardName,
+    keyword:version.keyword,
+    publishedAt:campaign.status==='PUBLISHED' ? version.createdAt : undefined,
+  };
+}
+
+function campaignDuplicateSimilarity(candidate:Campaign,campaigns:Campaign[]){
+  const recent=campaigns
+    .filter((item)=>item.id!==candidate.id && item.status==='PUBLISHED')
+    .map(campaignFingerprint);
+  return maxDuplicateSimilarity(campaignFingerprint(candidate),recent);
 }
 
 function Login() {
@@ -827,6 +848,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       destinationUrl: destination,
       headline: v.narrative.headline,
       description: v.narrative.description,
+      duplicateSimilarity: campaignDuplicateSimilarity(campaign,campaigns),
     });
     const next: Campaign = {
       ...campaign,
@@ -1057,6 +1079,7 @@ function Publish({
   const guard = runPublishingGuard({
     product: v.product, disclosure: v.narrative.disclosure, destinationUrl: destination,
     headline: v.narrative.headline, description: v.narrative.description,
+    duplicateSimilarity:campaignDuplicateSimilarity(activeCampaign,campaigns),
     frequencyPolicy:hasFrequencyPolicy ? {
       maxPublications24h:preferences.maxPublications24h ?? undefined,
       publications24h:frequency.publications24h,
