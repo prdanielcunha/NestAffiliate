@@ -1,4 +1,4 @@
-import type { Campaign } from '@nestaffiliate/core';
+import type { ApprovalEvent, Campaign } from '@nestaffiliate/core';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { summarizePerformance } from '@nestaffiliate/analytics';
 
@@ -92,7 +92,7 @@ export function historicalScoreAdjustment(
   };
 }
 
-export function deriveLearning(campaigns: Campaign[], metrics: PerformanceDaily[]): LearningInsight[] {
+export function deriveLearning(campaigns: Campaign[], metrics: PerformanceDaily[], approvalEvents: ApprovalEvent[] = []): LearningInsight[] {
   const published=campaigns.filter((c)=>c.status==='PUBLISHED');
   const insights:LearningInsight[]=[];
 
@@ -184,20 +184,61 @@ export function deriveLearning(campaigns: Campaign[], metrics: PerformanceDaily[
     });
   }
 
-  const approvals=campaigns.filter((c)=>['PUBLICATION_READY','PUBLISHED'].includes(c.status)).length;
-  const rejections=campaigns.filter((c)=>['REJECTED','BLOCKED'].includes(c.status)).length;
-  const decisionCount=approvals+rejections;
+  const fallbackApprovals=campaigns.filter((c)=>['PUBLICATION_READY','PUBLISHED'].includes(c.status)).length;
+  const fallbackRejections=campaigns.filter((c)=>['REJECTED','BLOCKED'].includes(c.status)).length;
+  const approvals=approvalEvents.length
+    ? approvalEvents.filter((event)=>event.decision==='APPROVED').length
+    : fallbackApprovals;
+  const rejections=approvalEvents.length
+    ? approvalEvents.filter((event)=>event.decision==='REJECTED').length
+    : fallbackRejections;
+  const edits=approvalEvents.filter((event)=>event.decision==='EDITED').length;
+  const swaps=approvalEvents.filter((event)=>event.decision==='SWAPPED').length;
+  const regenerations=approvalEvents.filter((event)=>event.decision==='REGENERATED').length;
+  const preferredVariants=approvalEvents.filter((event)=>event.decision==='PREFERRED_VARIANT').length;
+  const restores=approvalEvents.filter((event)=>event.decision==='RESTORED').length;
+  const decisionCount=approvalEvents.length || approvals+rejections;
   insights.push({
     id:'preference:approval',
     type:'PREFERENCE',
     confidence:confidence(decisionCount),
-    title:'Preferências de aprovação',
+    title:'Preferências de decisão',
     explanation: decisionCount < 5
       ? 'Ainda há poucas decisões humanas; o NestAffiliate não vai inferir sua preferência cedo demais.'
-      : `Foram observadas ${decisionCount} decisões humanas, com ${approvals} aprovações e ${rejections} rejeições.`,
+      : `Foram observados ${decisionCount} sinais humanos: ${approvals} aprovações, ${rejections} rejeições, ${edits} edições, ${swaps} trocas, ${regenerations} regenerações e ${preferredVariants} variantes preferidas.`,
     evidenceCount:decisionCount,
-    dimensions:{approvals,rejections,approvalRate:decisionCount?approvals/decisionCount:0},
+    dimensions:{
+      approvals,
+      rejections,
+      edits,
+      swaps,
+      regenerations,
+      preferredVariants,
+      restores,
+      approvalRate:(approvals+rejections)?approvals/(approvals+rejections):0,
+    },
   });
+
+  if(approvalEvents.length>=5){
+    const notes=approvalEvents
+      .filter((event)=>event.decision==='PREFERRED_VARIANT' && event.note?.startsWith('template:'))
+      .map((event)=>event.note!.slice('template:'.length).trim())
+      .filter(Boolean);
+    const counts=new Map<string,number>();
+    for(const note of notes) counts.set(note,(counts.get(note) ?? 0)+1);
+    const favorite=[...counts.entries()].sort((a,b)=>b[1]-a[1])[0];
+    if(favorite && favorite[1]>=3){
+      insights.push({
+        id:`preference:template:${favorite[0]}`,
+        type:'PREFERENCE',
+        confidence:confidence(favorite[1]),
+        title:`Preferência recorrente de template: ${favorite[0]}`,
+        explanation:`O template foi escolhido explicitamente ${favorite[1]} vezes. O sistema registra a recorrência, mas não a transforma em padrão sem confirmação humana.`,
+        evidenceCount:favorite[1],
+        dimensions:{template:favorite[0],explicitSelections:favorite[1]},
+      });
+    }
+  }
 
   return insights;
 }
