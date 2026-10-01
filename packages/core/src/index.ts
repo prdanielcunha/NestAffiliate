@@ -70,6 +70,7 @@ export type CampaignStatus =
 
 export interface CampaignVersion {
   id: string;
+  parentVersionId?: string;
   campaignId: string;
   version: number;
   createdAt: string;
@@ -181,10 +182,15 @@ export function nextCampaignVersion(
   reason: string,
 ): Campaign {
   const previous = campaign.currentVersion;
+  const suffix =
+    typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID().slice(0, 8)
+      : Date.now().toString(36);
   const next: CampaignVersion = {
     ...previous,
     ...patch,
-    id: `${campaign.id}-v${previous.version + 1}`,
+    id: `${campaign.id}-v${previous.version + 1}-${suffix}`,
+    parentVersionId: previous.id,
     version: previous.version + 1,
     createdAt: new Date().toISOString(),
     reason,
