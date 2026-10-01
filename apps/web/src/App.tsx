@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
-import type { Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
+import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
 import { MercadoLivrePublicAdapter } from '@nestaffiliate/integrations';
@@ -762,6 +762,22 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   const activeCampaign: Campaign = campaign;
   const v = activeCampaign.currentVersion;
 
+  function recordDecision(
+    decision:ApprovalEvent['decision'],
+    target:Campaign,
+    note?:string,
+  ){
+    if(!db || !identity.organizationId || !identity.user?.uid) return;
+    const currentDb=db;
+    void appendApprovalEvent(currentDb,{
+      organizationId:identity.organizationId,
+      campaign:target,
+      actorId:identity.user.uid,
+      decision,
+      note,
+    }).catch(()=>undefined);
+  }
+
   function applyEdit(raw: string) {
     const text = raw.trim().toLowerCase();
     if (!text) return;
@@ -788,7 +804,9 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     } else {
       narrative.subheadline = `Ajuste solicitado: ${raw.trim()}`;
     }
-    update(nextCampaignVersion(campaign, { narrative, template }, raw.trim()));
+    const next=nextCampaignVersion(campaign, { narrative, template }, raw.trim());
+    update(next);
+    recordDecision(text.includes('refaz tudo') ? 'REGENERATED' : 'EDITED',next,raw.trim());
     setCommand('');
     setSaved(true);
   }
@@ -805,7 +823,9 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           observedAt: new Date().toISOString(),
         },
       };
-      update(nextCampaignVersion(campaign, { product }, 'affiliate link updated'));
+      const next=nextCampaignVersion(campaign, { product }, 'affiliate link updated');
+      update(next);
+      recordDecision('EDITED',next,'affiliate link updated');
       setAffiliateError('');
       setSaved(true);
     } catch {
@@ -836,7 +856,9 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       { product: { ...product, organizationId: campaign.organizationId } },
       'product swap',
     );
-    update({ ...versioned, marketplace: product.marketplace });
+    const next={ ...versioned, marketplace: product.marketplace };
+    update(next);
+    recordDecision('SWAPPED',next,'product swap');
     setSwapOptions([]);
     setAffiliateDraft('');
   }
@@ -917,7 +939,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             <select
               value={v.boardName}
               disabled={!editable}
-              onChange={(e) => update(nextCampaignVersion(campaign, { boardName: e.target.value }, 'board changed'))}
+              onChange={(e) => {
+                const next=nextCampaignVersion(campaign,{boardName:e.target.value},'board changed');
+                update(next);
+                recordDecision('EDITED',next,`board:${e.target.value}`);
+              }}
             >
               {initialBoards.map((board) => <option key={board} value={board}>{board}</option>)}
             </select>
@@ -925,7 +951,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             <select
               value={v.template}
               disabled={!editable}
-              onChange={(e) => update(nextCampaignVersion(campaign, { template: e.target.value }, 'template changed'))}
+              onChange={(e) => {
+                const next=nextCampaignVersion(campaign,{template:e.target.value},'template changed');
+                update(next);
+                recordDecision('PREFERRED_VARIANT',next,`template:${e.target.value}`);
+              }}
             >
               {CREATIVE_TEMPLATES.map((template) => <option key={template.id} value={template.label}>{template.label}</option>)}
             </select>
@@ -938,7 +968,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
                   key={version.id}
                   className={version.id === v.id ? 'version-row current' : 'version-row'}
                   disabled={!editable || version.id === v.id}
-                  onClick={() => update(restoreCampaignVersion(campaign, version.version))}
+                  onClick={() => {
+                    const next=restoreCampaignVersion(campaign,version.version);
+                    update(next);
+                    recordDecision('RESTORED',next,`restore:v${version.version}`);
+                  }}
                 >
                   <span>v{version.version} · {version.reason}</span>
                   <small>{new Date(version.createdAt).toLocaleString(locale)}</small>
