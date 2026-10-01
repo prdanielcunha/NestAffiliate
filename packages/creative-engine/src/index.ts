@@ -2,6 +2,7 @@ import type { CampaignVersion } from '@nestaffiliate/core';
 
 export const PIN_WIDTH = 1000 as const;
 export const PIN_HEIGHT = 1500 as const;
+export const SAFE_MARGIN = 72 as const;
 
 export interface CreativeTheme {
   background: string;
@@ -11,6 +12,32 @@ export interface CreativeTheme {
   accent: string;
 }
 
+export interface CreativeTemplate {
+  id: string;
+  label: string;
+  eyebrow: string;
+  imageY: number;
+  imageH: number;
+  headlineY: number;
+  headlineSize: number;
+  headlineMaxLines: number;
+  align: 'left' | 'center';
+  treatment: 'editorial' | 'minimal' | 'problem' | 'collection';
+}
+
+export const CREATIVE_TEMPLATES: CreativeTemplate[] = [
+  { id:'editorial-premium', label:'Editorial Premium', eyebrow:'ACHADOS DO NEST', imageY:220, imageH:620, headlineY:950, headlineSize:72, headlineMaxLines:4, align:'left', treatment:'editorial' },
+  { id:'problem-solution', label:'Problem → Solution', eyebrow:'PROBLEMA → SOLUÇÃO', imageY:245, imageH:555, headlineY:905, headlineSize:76, headlineMaxLines:4, align:'left', treatment:'problem' },
+  { id:'minimal', label:'Minimal', eyebrow:'ACHADO INTELIGENTE', imageY:260, imageH:520, headlineY:905, headlineSize:82, headlineMaxLines:3, align:'left', treatment:'minimal' },
+  { id:'hero-product', label:'Hero Product', eyebrow:'DESTAQUE DO NEST', imageY:180, imageH:760, headlineY:1035, headlineSize:64, headlineMaxLines:3, align:'left', treatment:'editorial' },
+  { id:'checklist', label:'Checklist', eyebrow:'IDEIA PRÁTICA', imageY:245, imageH:500, headlineY:860, headlineSize:70, headlineMaxLines:4, align:'left', treatment:'collection' },
+  { id:'before-after', label:'Before / After Concept', eyebrow:'ANTES → DEPOIS', imageY:220, imageH:590, headlineY:925, headlineSize:74, headlineMaxLines:4, align:'left', treatment:'problem' },
+  { id:'small-space', label:'Small Space', eyebrow:'PEQUENOS ESPAÇOS', imageY:235, imageH:575, headlineY:925, headlineSize:72, headlineMaxLines:4, align:'left', treatment:'editorial' },
+  { id:'routine-hack', label:'Routine Hack', eyebrow:'FACILITA A ROTINA', imageY:255, imageH:520, headlineY:885, headlineSize:78, headlineMaxLines:4, align:'left', treatment:'minimal' },
+  { id:'collection', label:'Collection', eyebrow:'CURADORIA DO NEST', imageY:235, imageH:555, headlineY:910, headlineSize:70, headlineMaxLines:4, align:'left', treatment:'collection' },
+  { id:'seasonal', label:'Seasonal', eyebrow:'AGORA FAZ SENTIDO', imageY:225, imageH:590, headlineY:930, headlineSize:72, headlineMaxLines:4, align:'left', treatment:'editorial' },
+];
+
 export const ACHADOS_DARK: CreativeTheme = {
   background: '#101412',
   panel: '#18201c',
@@ -18,6 +45,25 @@ export const ACHADOS_DARK: CreativeTheme = {
   muted: '#b7c0b9',
   accent: '#b8e36f',
 };
+
+const ACHADOS_LIGHT: CreativeTheme = {
+  background: '#f2f0e9',
+  panel: '#ffffff',
+  text: '#172019',
+  muted: '#667168',
+  accent: '#456f2b',
+};
+
+export function templateFor(value: string): CreativeTemplate {
+  const normalized=value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  return CREATIVE_TEMPLATES.find((template)=>
+    template.id===normalized ||
+    template.label.toLowerCase()===value.toLowerCase() ||
+    (value.toLowerCase().includes('problem') && template.id==='problem-solution') ||
+    (value.toLowerCase().includes('minimal') && template.id==='minimal') ||
+    (value.toLowerCase().includes('light') && template.id==='minimal')
+  ) ?? CREATIVE_TEMPLATES[0]!;
+}
 
 export function slugifyFilename(value: string) {
   return value
@@ -52,31 +98,58 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number,
   return lines;
 }
 
+function drawBackground(ctx:CanvasRenderingContext2D,template:CreativeTemplate,theme:CreativeTheme){
+  const gradient=ctx.createLinearGradient(0,0,PIN_WIDTH,PIN_HEIGHT);
+  gradient.addColorStop(0,theme.background);
+  gradient.addColorStop(1,template.treatment==='problem' ? '#252018' : template.treatment==='collection' ? '#172020' : '#202a24');
+  ctx.fillStyle=gradient;
+  ctx.fillRect(0,0,PIN_WIDTH,PIN_HEIGHT);
+
+  if(template.treatment==='minimal'){
+    ctx.strokeStyle=theme.accent;
+    ctx.globalAlpha=.15;
+    ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(820,170,240,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha=1;
+  } else if(template.treatment==='problem'){
+    ctx.fillStyle=theme.accent;
+    ctx.globalAlpha=.08;
+    ctx.fillRect(0,0,330,PIN_HEIGHT);
+    ctx.globalAlpha=1;
+  } else if(template.treatment==='collection'){
+    ctx.fillStyle=theme.accent;
+    ctx.globalAlpha=.07;
+    ctx.beginPath();ctx.roundRect(610,55,330,160,34);ctx.fill();
+    ctx.globalAlpha=1;
+  }
+}
+
 export async function renderPin(
   canvas: HTMLCanvasElement,
   version: CampaignVersion,
-  theme: CreativeTheme = ACHADOS_DARK,
+  suppliedTheme?: CreativeTheme,
 ) {
   canvas.width = PIN_WIDTH;
   canvas.height = PIN_HEIGHT;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas unavailable');
 
-  const gradient = ctx.createLinearGradient(0, 0, PIN_WIDTH, PIN_HEIGHT);
-  gradient.addColorStop(0, theme.background);
-  gradient.addColorStop(1, '#202a24');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, PIN_WIDTH, PIN_HEIGHT);
+  const template=templateFor(version.template);
+  const theme=suppliedTheme ?? (version.template.toLowerCase().includes('light') ? ACHADOS_LIGHT : ACHADOS_DARK);
+  drawBackground(ctx,template,theme);
 
   ctx.fillStyle = theme.accent;
-  ctx.fillRect(72, 80, 72, 8);
+  ctx.fillRect(SAFE_MARGIN, 80, template.treatment==='minimal' ? 42 : 72, 8);
 
   ctx.fillStyle = theme.muted;
-  ctx.font = '600 28px system-ui, sans-serif';
-  ctx.fillText('ACHADOS DO NEST', 72, 145);
+  ctx.font = '700 25px system-ui, sans-serif';
+  ctx.fillText(template.eyebrow, SAFE_MARGIN, 145);
+
+  drawKeywordBadge(ctx,version.keyword,theme,template);
 
   const image = version.product.imageUrl?.value;
-  if (image && ['AUTHORIZED', 'PLATFORM_PROVIDED', 'USER_PROVIDED'].includes(version.product.assetRights)) {
+  const safeAsset = ['AUTHORIZED', 'USER_PROVIDED', 'GENERATED'].includes(version.product.assetRights);
+  if (image && safeAsset) {
     try {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -85,51 +158,84 @@ export async function renderPin(
         img.onerror = () => reject(new Error('asset load failed'));
         img.src = image;
       });
-      const frameX = 72, frameY = 220, frameW = 856, frameH = 620;
-      const scale = Math.min(frameW / img.width, frameH / img.height);
-      const w = img.width * scale;
-      const h = img.height * scale;
-      ctx.fillStyle = '#f4f2ec';
-      ctx.beginPath();
-      ctx.roundRect(frameX, frameY, frameW, frameH, 34);
-      ctx.fill();
-      ctx.drawImage(img, frameX + (frameW - w) / 2, frameY + (frameH - h) / 2, w, h);
+      drawProductFrame(ctx,img,template,theme);
     } catch {
-      drawProductPlaceholder(ctx, theme);
+      drawProductPlaceholder(ctx, theme, template);
     }
   } else {
-    drawProductPlaceholder(ctx, theme);
+    drawProductPlaceholder(ctx, theme, template);
   }
 
+  const textX=SAFE_MARGIN;
+  const textWidth=PIN_WIDTH-SAFE_MARGIN*2;
   ctx.fillStyle = theme.text;
-  ctx.font = '700 72px system-ui, sans-serif';
-  const lines = wrapText(ctx, version.narrative.headline, 856, 4);
-  lines.forEach((line, index) => ctx.fillText(line, 72, 950 + index * 84));
+  ctx.font = `750 ${template.headlineSize}px system-ui, sans-serif`;
+  ctx.textAlign=template.align;
+  const x=template.align==='center' ? PIN_WIDTH/2 : textX;
+  const lines = wrapText(ctx, version.narrative.headline, textWidth, template.headlineMaxLines);
+  const lineHeight=Math.round(template.headlineSize*1.14);
+  lines.forEach((line,index)=>ctx.fillText(line,x,template.headlineY+index*lineHeight));
+  ctx.textAlign='left';
 
+  const subY=Math.min(1345,template.headlineY+lines.length*lineHeight+38);
   ctx.fillStyle = theme.muted;
-  ctx.font = '500 30px system-ui, sans-serif';
+  ctx.font = '500 29px system-ui, sans-serif';
   const sub = version.narrative.subheadline ?? version.narrative.cta;
-  wrapText(ctx, sub, 780, 2).forEach((line, index) => ctx.fillText(line, 72, 1298 + index * 42));
+  wrapText(ctx, sub, 780, 2).forEach((line,index)=>ctx.fillText(line,SAFE_MARGIN,subY+index*40));
 
-  ctx.fillStyle = theme.accent;
-  ctx.beginPath();
-  ctx.roundRect(72, 1400, 250, 54, 27);
-  ctx.fill();
-  ctx.fillStyle = '#111610';
-  ctx.font = '700 24px system-ui, sans-serif';
-  ctx.fillText(version.narrative.cta.toUpperCase(), 104, 1435);
+  drawCta(ctx,version.narrative.cta,theme);
+  drawFooter(ctx,theme);
 
   return canvas.toDataURL('image/png');
 }
 
-function drawProductPlaceholder(ctx: CanvasRenderingContext2D, theme: CreativeTheme) {
+function drawProductFrame(ctx:CanvasRenderingContext2D,img:HTMLImageElement,template:CreativeTemplate,theme:CreativeTheme){
+  const frameX=SAFE_MARGIN, frameY=template.imageY, frameW=PIN_WIDTH-SAFE_MARGIN*2, frameH=template.imageH;
+  const scale=Math.min(frameW/img.width,frameH/img.height);
+  const w=img.width*scale,h=img.height*scale;
+  ctx.fillStyle=theme.panel;
+  ctx.beginPath();ctx.roundRect(frameX,frameY,frameW,frameH,template.treatment==='minimal'?18:34);ctx.fill();
+  ctx.drawImage(img,frameX+(frameW-w)/2,frameY+(frameH-h)/2,w,h);
+}
+
+function drawKeywordBadge(ctx:CanvasRenderingContext2D,keyword:string,theme:CreativeTheme,template:CreativeTemplate){
+  if(template.treatment==='minimal') return;
+  const label=keyword.toUpperCase().slice(0,34);
+  ctx.font='700 18px system-ui, sans-serif';
+  const width=Math.min(420,ctx.measureText(label).width+42);
+  ctx.fillStyle=theme.panel;
+  ctx.beginPath();ctx.roundRect(PIN_WIDTH-SAFE_MARGIN-width,80,width,42,21);ctx.fill();
+  ctx.fillStyle=theme.muted;
+  ctx.fillText(label,PIN_WIDTH-SAFE_MARGIN-width+21,107);
+}
+
+function drawCta(ctx:CanvasRenderingContext2D,cta:string,theme:CreativeTheme){
+  const label=cta.toUpperCase().slice(0,26);
+  ctx.font='750 23px system-ui, sans-serif';
+  const width=Math.min(320,ctx.measureText(label).width+64);
+  ctx.fillStyle=theme.accent;
+  ctx.beginPath();ctx.roundRect(SAFE_MARGIN,1400,width,54,27);ctx.fill();
+  ctx.fillStyle=theme.background;
+  ctx.fillText(label,SAFE_MARGIN+32,1435);
+}
+
+function drawFooter(ctx:CanvasRenderingContext2D,theme:CreativeTheme){
+  ctx.fillStyle=theme.muted;
+  ctx.font='600 18px system-ui, sans-serif';
+  ctx.textAlign='right';
+  ctx.fillText('achados do nest',PIN_WIDTH-SAFE_MARGIN,1436);
+  ctx.textAlign='left';
+}
+
+function drawProductPlaceholder(ctx: CanvasRenderingContext2D, theme: CreativeTheme, template:CreativeTemplate) {
   ctx.fillStyle = theme.panel;
   ctx.beginPath();
-  ctx.roundRect(72, 220, 856, 620, 34);
+  ctx.roundRect(SAFE_MARGIN, template.imageY, PIN_WIDTH-SAFE_MARGIN*2, template.imageH, template.treatment==='minimal'?18:34);
   ctx.fill();
   ctx.fillStyle = theme.muted;
-  ctx.font = '600 30px system-ui, sans-serif';
-  ctx.fillText('Produto selecionado', 110, 300);
-  ctx.font = '500 24px system-ui, sans-serif';
-  ctx.fillText('Asset será usado somente quando o direito de uso estiver validado.', 110, 350);
+  ctx.font = '650 30px system-ui, sans-serif';
+  ctx.fillText('Asset protegido', SAFE_MARGIN+38, template.imageY+82);
+  ctx.font = '500 23px system-ui, sans-serif';
+  const text='A imagem só entra quando o direito de uso estiver confirmado.';
+  wrapText(ctx,text,720,2).forEach((line,index)=>ctx.fillText(line,SAFE_MARGIN+38,template.imageY+128+index*34));
 }
