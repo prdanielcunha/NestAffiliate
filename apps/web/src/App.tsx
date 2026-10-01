@@ -407,17 +407,29 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
 }
 
 function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Campaign) => void; organizationId: string; editable: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const identity=useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('organizador cozinha pequena');
   const [items, setItems] = useState<ProductTruth[]>([]);
+  const [maxPrice,setMaxPrice]=useState('');
+  const [requireImage,setRequireImage]=useState(false);
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
 
   async function search() {
     setState('loading');
     try {
       const found = await marketplaceAdapter.search({ organizationId, query, limit: 25 });
-      setItems(shortlist(found, query, 12).map((opportunity) => opportunity.product));
+      if(db && identity.user?.uid){
+        const currentDb=db;
+        void recordRadarSignal({db:currentDb,organizationId,query,products:found}).catch(()=>undefined);
+      }
+      const ceiling=maxPrice.trim() ? Number(maxPrice.replace(',','.')) : null;
+      const filtered=shortlist(found, query, 20)
+        .map((opportunity) => opportunity.product)
+        .filter((product)=>ceiling===null || !product.price || product.price.value<=ceiling)
+        .filter((product)=>!requireImage || Boolean(product.imageUrl));
+      setItems(filtered.slice(0,12));
       setState('idle');
     } catch {
       setState('error');
@@ -462,6 +474,16 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         <button className="button primary" onClick={() => void search()}>{t('analyzeProducts')}</button>
       </div>
       <div className="chips"><span>{t('home')}</span><span>{t('kitchen')}</span><span>Mercado Livre</span><span>{t('dedupeActive')}</span><span>{t('localSeasonality')}</span></div>
+      <div className="radar-filters">
+        <label>
+          <span>Preço máximo</span>
+          <input inputMode="decimal" value={maxPrice} onChange={(e)=>setMaxPrice(e.target.value)} placeholder="Sem limite" />
+        </label>
+        <label className="filter-check">
+          <input type="checkbox" checked={requireImage} onChange={(e)=>setRequireImage(e.target.checked)} />
+          <span>Somente com imagem</span>
+        </label>
+      </div>
       {state === 'loading' && <ProgressSteps />}
       {state === 'error' && <div className="notice danger">{t('radarError')}</div>}
       {!items.length && state === 'idle' && <Empty title={t('radarEmpty')} body={t('radarEmptyBody')} />}
@@ -479,7 +501,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             <div>
               <span className="market-chip">Mercado Livre</span>
               <h3>{product.title.value}</h3>
-              <p className="price">{product.price ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
+              <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
               <p className="muted">{t('truthPreserved')}</p>
               <button className="button secondary" disabled={!editable} onClick={() => create(product)}>{t('createCampaign')}</button>
             </div>
