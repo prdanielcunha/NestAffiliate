@@ -284,7 +284,7 @@ export function validateFreshProduct(
 }
 
 
-export interface PolicyBaseline extends Omit<PolicySnapshot,'organizationId'> {}
+export type PolicyBaseline = Omit<PolicySnapshot,'organizationId'>;
 
 export const POLICY_BASELINES:PolicyBaseline[]=[
   {
