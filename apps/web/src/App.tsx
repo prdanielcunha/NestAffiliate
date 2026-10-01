@@ -8,7 +8,7 @@ import { buildOpportunity, shortlist } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
-import { FEATURE_FLAGS, KILL_SWITCHES, canAttemptPinterestPublish } from '@nestaffiliate/config';
+import { FEATURE_FLAGS, KILL_SWITCHES, automationEnabled, canAttemptPinterestPublish } from '@nestaffiliate/config';
 import { type Locale } from './lib/i18n';
 import { I18nProvider, useI18n } from './lib/i18n-context';
 import { demoCampaigns, initialBoards } from './lib/demo';
@@ -29,6 +29,7 @@ import { defaultPreferences, loadUserPreferences, saveUserPreferences, type User
 import { recordRadarSignal } from './services/radarRepository';
 import { loadPublicationFrequency, type PublicationFrequencyState } from './services/publicationRepository';
 import { SettingsPanel } from './features/SettingsPanel';
+import { runDailyAgentCycle, type DailyAgentReport } from './services/dailyAgent';
 import { freshValidateProduct } from './services/freshValidation';
 import { completePublicationSchedule, listPublicationSchedules, savePublicationSchedule } from './services/publicationScheduleRepository';
 
@@ -308,6 +309,87 @@ function usePublicationScheduleStore(
   return {schedules,add,complete};
 }
 
+function useDailyAgent(input:{
+  authState:string;
+  organizationId:string|null;
+  actorId:string|null;
+  editable:boolean;
+  campaigns:Campaign[];
+  updateCampaign:(campaign:Campaign)=>void;
+}){
+  const reportKey=`nestaffiliate_daily_agent_report:${input.organizationId ?? 'pending'}`;
+  const runKey=`nestaffiliate_daily_agent_last_run:${input.organizationId ?? 'pending'}`;
+  const [report,setReport]=useState<DailyAgentReport|null>(()=>{
+    try{
+      const stored=localStorage.getItem(reportKey);
+      return stored ? JSON.parse(stored) as DailyAgentReport : null;
+    }catch{
+      return null;
+    }
+  });
+  const running=useRef(false);
+
+  useEffect(()=>{
+    const demoEnabled=
+      import.meta.env.VITE_DEMO_DATA_ENABLED==='true' ||
+      import.meta.env.VITE_E2E_MOCK_AUTH==='true';
+    if(
+      input.authState!=='ready' ||
+      !input.organizationId ||
+      !input.actorId ||
+      !input.editable ||
+      demoEnabled ||
+      !automationEnabled() ||
+      running.current
+    ) return;
+
+    const lastRun=Number(localStorage.getItem(runKey) ?? '0');
+    if(Number.isFinite(lastRun) && Date.now()-lastRun<30*60_000) return;
+
+    running.current=true;
+    localStorage.setItem(runKey,String(Date.now()));
+    void runDailyAgentCycle({
+      organizationId:input.organizationId,
+      campaigns:input.campaigns,
+      updateCampaign:input.updateCampaign,
+      maxProductsPerCycle:3,
+      minAgeMinutes:60,
+    }).then((next)=>{
+      setReport(next);
+      localStorage.setItem(reportKey,JSON.stringify(next));
+      if(db){
+        const currentDb=db;
+        void appendAudit(currentDb,{
+          organizationId:input.organizationId!,
+          actorId:input.actorId!,
+          action:'daily_agent.completed',
+          entityType:'systemCycle',
+          entityId:next.completedAt,
+          metadata:{
+            checked:next.checked,
+            changed:next.changed,
+            blocked:next.blocked,
+            errors:next.errors,
+          },
+        }).catch(()=>undefined);
+      }
+    }).finally(()=>{
+      running.current=false;
+    });
+  },[
+    input.authState,
+    input.organizationId,
+    input.actorId,
+    input.editable,
+    input.campaigns,
+    input.updateCampaign,
+    reportKey,
+    runKey,
+  ]);
+
+  return report;
+}
+
 function Login() {
   const { t } = useI18n();
   const { state, signIn, switchAccount, user } = useAuth();
@@ -425,7 +507,7 @@ function CommandPalette({ close }: { close: () => void }) {
   );
 }
 
-function Today({ campaigns, schedules }: { campaigns: Campaign[]; schedules: PublicationSchedule[] }) {
+function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; schedules: PublicationSchedule[]; agentReport: DailyAgentReport|null }) {
   const { t, locale } = useI18n();
   const ready = campaigns.filter((c) => c.status === 'READY');
   const liveSchedules=schedules
@@ -491,9 +573,11 @@ function Today({ campaigns, schedules }: { campaigns: Campaign[]; schedules: Pub
         <div className="surface">
           <p className="eyebrow">{t('whileAway')}</p>
           <div className="timeline">
-            <span><b>0</b> {t('productsChanged')}</span>
-            <span><b>0</b> {t('complianceBlocks')}</span>
+            <span><b>{agentReport?.checked ?? 0}</b> {t('productsChecked')}</span>
+            <span><b>{agentReport?.changed ?? 0}</b> {t('productsChanged')}</span>
+            <span><b>{agentReport?.blocked ?? 0}</b> {t('complianceBlocks')}</span>
             <span><b>{ready.length}</b> {t('campaignsWaiting')}</span>
+            {agentReport?.completedAt && <small>{t('lastSync')}: {new Date(agentReport.completedAt).toLocaleString(locale)}</small>}
           </div>
         </div>
         <div className="surface">
@@ -1240,9 +1324,17 @@ export function App() {
   const scheduleStore = usePublicationScheduleStore(auth.organizationId, auth.user?.uid ?? null, auth.role);
   const [locale,setLocale] = useState<Locale>(() => (localStorage.getItem('na_locale') as Locale) || 'pt-BR');
   const preferenceStore=usePreferencesStore(auth.organizationId,auth.user?.uid ?? null,auth.role,locale);
+  const editable = auth.role ? canWrite(auth.role) : false;
+  const dailyAgentReport=useDailyAgent({
+    authState:auth.state,
+    organizationId:auth.organizationId,
+    actorId:auth.user?.uid ?? null,
+    editable,
+    campaigns:store.campaigns,
+    updateCampaign:store.update,
+  });
   useEffect(() => localStorage.setItem('na_locale', locale), [locale]);
 
-  const editable = auth.role ? canWrite(auth.role) : false;
   useEffect(() => {
     if (auth.state !== 'ready' || !db || !auth.organizationId || !auth.user?.uid || !editable) return;
     const currentDb = db;
@@ -1265,7 +1357,7 @@ export function App() {
     <I18nProvider locale={locale}>
     <Shell locale={locale} setLocale={setLocale}>
       <Routes>
-        <Route path="/" element={<Today campaigns={store.campaigns} schedules={scheduleStore.schedules} />} />
+        <Route path="/" element={<Today campaigns={store.campaigns} schedules={scheduleStore.schedules} agentReport={dailyAgentReport} />} />
         <Route path="/radar" element={<Radar addCampaign={store.add} organizationId={org} editable={editable} />} />
         <Route path="/campaigns" element={<Campaigns campaigns={store.campaigns} />} />
         <Route path="/review/:id" element={<Review campaigns={store.campaigns} update={store.update} editable={editable} />} />
