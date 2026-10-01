@@ -88,3 +88,12 @@ The six 2026-09-30 master documents are the product source of truth and are vers
 - Integrations & Data Contracts
 - QA / Security / Release Playbook
 - Growth Operating Playbook
+
+
+## Public legal pages
+
+- Privacy Policy: https://nestaffiliate.millionsnest.com/privacy
+- Terms of Use: https://nestaffiliate.millionsnest.com/terms
+- Data deletion: https://nestaffiliate.millionsnest.com/data-deletion
+
+These routes are intentionally public and do not require MillionsNest authentication so external platform reviewers can validate compliance documents.
