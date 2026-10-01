@@ -25,6 +25,10 @@ import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
 import { ConnectionCenter } from './features/ConnectionCenter';
 import { ensureNestAffiliateWorkspace } from './services/workspaceBootstrap';
+import { defaultPreferences, loadUserPreferences, saveUserPreferences, type UserPreferences } from './services/preferencesRepository';
+import { recordRadarSignal } from './services/radarRepository';
+import { loadPublicationFrequency, type PublicationFrequencyState } from './services/publicationRepository';
+import { SettingsPanel } from './features/SettingsPanel';
 
 const marketplaceAdapter = new MercadoLivrePublicAdapter();
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
@@ -164,6 +168,59 @@ function usePerformanceStore(organizationId: string | null, actorId: string | nu
   return { rows, save };
 }
 
+function usePreferencesStore(
+  organizationId:string | null,
+  userId:string | null,
+  role:Role | null,
+  locale:Locale,
+){
+  const key=`nestaffiliate_preferences_v1:${organizationId ?? 'pending'}:${userId ?? 'anonymous'}`;
+  const fallback=defaultPreferences(organizationId ?? 'pending',userId ?? 'anonymous',locale);
+  const [preferences,setPreferences]=useState<UserPreferences>(()=>{
+    try{
+      const stored=localStorage.getItem(key);
+      return stored ? {...fallback,...JSON.parse(stored)} as UserPreferences : fallback;
+    }catch{
+      return fallback;
+    }
+  });
+
+  useEffect(()=>{
+    if(!organizationId || !userId) return;
+    let active=true;
+    const nextFallback=defaultPreferences(organizationId,userId,locale);
+    try{
+      const stored=localStorage.getItem(key);
+      setPreferences(stored ? {...nextFallback,...JSON.parse(stored)} as UserPreferences : nextFallback);
+    }catch{
+      localStorage.removeItem(key);
+      setPreferences(nextFallback);
+    }
+    if(db){
+      const currentDb=db;
+      void loadUserPreferences(currentDb,organizationId,userId,locale)
+        .then((remote)=>{ if(active) setPreferences(remote); })
+        .catch(()=>undefined);
+    }
+    return ()=>{active=false;};
+  },[organizationId,userId,locale,key]);
+
+  useEffect(()=>{
+    if(organizationId && userId) localStorage.setItem(key,JSON.stringify(preferences));
+  },[organizationId,userId,key,preferences]);
+
+  const update=(next:UserPreferences)=>{
+    if(!role || !canWrite(role)) return;
+    setPreferences(next);
+    if(db && organizationId && userId){
+      const currentDb=db;
+      void saveUserPreferences(currentDb,{...next,organizationId,userId}).catch(()=>undefined);
+    }
+  };
+
+  return {preferences,update};
+}
+
 function Login() {
   const { t } = useI18n();
   const { state, signIn, switchAccount, user } = useAuth();
@@ -226,7 +283,7 @@ function Shell({ children, locale, setLocale }: { children: React.ReactNode; loc
   ];
   const secondary: Array<[string, string]> = [
     ['/library', t('library')], ['/boards', t('boards')], ['/connections', t('connections')],
-    ['/prompt-studio', t('promptStudio')], ['/ai-cost', t('cost')], ['/workspace', t('workspace')], ['/help', t('help')],
+    ['/prompt-studio', t('promptStudio')], ['/ai-cost', t('cost')], ['/settings', t('settings')], ['/workspace', t('workspace')], ['/help', t('help')],
   ];
 
   return (
@@ -269,7 +326,7 @@ function CommandPalette({ close }: { close: () => void }) {
   const { t } = useI18n();
   const commands: Array<[string, string]> = [
     [t('today'), '/'], [t('showOpportunities'), '/radar'], [t('reviewCampaigns'), '/campaigns'],
-    [t('viewResults'), '/results'], [t('connectPinterest'), '/connections'], [t('promptStudio'), '/prompt-studio'], [t('aiCosts'), '/ai-cost'],
+    [t('viewResults'), '/results'], [t('connectPinterest'), '/connections'], [t('promptStudio'), '/prompt-studio'], [t('aiCosts'), '/ai-cost'], [t('settings'), '/settings'],
   ];
   return (
     <div className="modal-backdrop" onMouseDown={close}>
