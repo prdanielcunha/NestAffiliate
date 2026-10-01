@@ -871,14 +871,9 @@ export function App() {
   const [locale,setLocale] = useState<Locale>(() => (localStorage.getItem('na_locale') as Locale) || 'pt-BR');
   useEffect(() => localStorage.setItem('na_locale', locale), [locale]);
 
-  if (auth.state !== 'ready') {
-    return <I18nProvider locale={locale}><Login /></I18nProvider>;
-  }
-  const org = auth.organizationId ?? 'demo-org';
   const editable = auth.role ? canWrite(auth.role) : false;
-
   useEffect(() => {
-    if (!db || !auth.organizationId || !auth.user?.uid || !editable) return;
+    if (auth.state !== 'ready' || !db || !auth.organizationId || !auth.user?.uid || !editable) return;
     const currentDb = db;
     void ensureNestAffiliateWorkspace({
       db: currentDb,
@@ -888,7 +883,12 @@ export function App() {
       boards: initialBoards,
       templates: CREATIVE_TEMPLATES,
     }).catch(() => undefined);
-  }, [auth.organizationId, auth.user?.uid, editable, locale]);
+  }, [auth.state, auth.organizationId, auth.user?.uid, editable, locale]);
+
+  if (auth.state !== 'ready') {
+    return <I18nProvider locale={locale}><Login /></I18nProvider>;
+  }
+  const org = auth.organizationId ?? 'demo-org';
 
   return (
     <I18nProvider locale={locale}>
