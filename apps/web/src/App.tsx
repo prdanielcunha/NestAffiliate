@@ -1276,7 +1276,7 @@ function Publish({
     campaignId: activeCampaign.id, version: v.version, filename: campaignFilename(v), width: 1000, height: 1500,
     title: v.narrative.pinterestTitle, description: v.narrative.description, disclosure: v.narrative.disclosure,
     destinationUrl: destination, boardName: v.boardName, topics: [v.keyword, 'casa organizada', 'ideias para casa'],
-    altText: v.narrative.altText, compliance: guard.outcome,
+    altText: v.narrative.altText, trackingCode: activeCampaign.rankingContext?.trackingCode, compliance: guard.outcome,
   };
   const apiMode=preferences.publishingMode==='api_when_available' && canAttemptPinterestPublish();
   const manualFreshAllowed=!apiMode && ['manual','error'].includes(freshState) && manualFreshConfirmed;
