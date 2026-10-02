@@ -2,7 +2,7 @@ name: NestAffiliate Mercado Livre Signal Sync
 
 on:
   schedule:
-    - cron: '17 10 * * *'
+    - cron: '17 */4 * * *'
   workflow_dispatch:
 
 permissions:
