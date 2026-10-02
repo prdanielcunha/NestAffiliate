@@ -475,10 +475,10 @@ export function shortlist(
     }))
     .sort((a,b)=>b.score.score-a.score.score || b.confidence-a.confidence)
     .slice(0,limit)
-    .map((opportunity,index)=>({
+    .map((opportunity)=>({
       ...opportunity,
       rankingReasons:[
-        `Ranking #${index+1} entre as oportunidades analisadas`,
+        'Ordenação consolidada pelo NestScore 2.0',
         ...opportunity.rankingReasons,
       ],
     }));
