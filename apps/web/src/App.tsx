@@ -709,7 +709,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     return ()=>{active=false;};
   },[organizationId]);
 
-  async function search() {
+  async function search(signalOverride?:CommerceSignal[]) {
     setState('loading');
     try {
       const found = await marketplaceAdapter.search({ organizationId, query, limit: 25 });
@@ -718,7 +718,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         void recordRadarSignal({db:currentDb,organizationId,query,products:found}).catch(()=>undefined);
       }
       const ceiling=maxPrice.trim() ? Number(maxPrice.replace(',','.')) : null;
-      const snapshotResolver=signalResolverFromSnapshots(marketSignals);
+      const snapshotResolver=signalResolverFromSnapshots(signalOverride ?? marketSignals);
       const ranked=shortlist(found,query,20,(product)=>{
         const stored=snapshotResolver(product,query);
         return {
@@ -824,11 +824,12 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           <OfficialSignalImport onImported={async (signals)=>{
             if(!db) return;
             await saveMarketSignals(db,organizationId,signals);
-            setMarketSignals((items)=>[
-              ...items.filter((existing)=>!signals.some((signal)=>signal.id===existing.id)),
+            const merged=[
+              ...marketSignals.filter((existing)=>!signals.some((signal)=>signal.id===existing.id)),
               ...signals,
-            ]);
-            if(opportunities.length) void search();
+            ];
+            setMarketSignals(merged);
+            if(opportunities.length) void search(merged);
           }} />
           <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
         </>
