@@ -11,6 +11,15 @@ function envBoolean(name: string, fallback: boolean) {
   return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
 }
 
+function envString(name: string, fallback: string) {
+  const value = envSource()[name];
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+export const PUBLIC_LINKS = {
+  PINTEREST_PROFILE_URL: envString('VITE_PINTEREST_PROFILE_URL', 'https://br.pinterest.com/achadosdonest/'),
+} as const;
+
 export const FEATURE_FLAGS = {
   PINTEREST_API_ENABLED: envBoolean('VITE_PINTEREST_API_ENABLED', false),
   PINTEREST_STANDARD_ACCESS: envBoolean('VITE_PINTEREST_STANDARD_ACCESS', false),

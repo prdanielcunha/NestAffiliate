@@ -74,6 +74,7 @@ jobs:
             echo "VITE_FIREBASE_APP_ID=$(jq -r '.appId' <<<"$CONFIG")"
             echo "VITE_APP_URL=https://$LIVE_DOMAIN"
             echo "VITE_HUB_URL=https://www.millionsnest.com"
+            echo "VITE_PINTEREST_PROFILE_URL=https://br.pinterest.com/achadosdonest/"
             echo "VITE_DEMO_DATA_ENABLED=false"
             echo "VITE_E2E_MOCK_AUTH=false"
             echo "VITE_PAID_SERVICES_DISABLED=true"

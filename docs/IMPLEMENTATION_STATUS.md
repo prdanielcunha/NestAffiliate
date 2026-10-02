@@ -1,9 +1,19 @@
 # NestAffiliate — Implementation Status
 
-**Status date:** 2026-10-01  
+**Status date:** 2026-10-02  
 **Official domain:** https://nestaffiliate.millionsnest.com  
 **Firebase fallback:** https://mn-nestaffiliate-555464791734.web.app  
+**Official Pinterest:** https://br.pinterest.com/achadosdonest/  
 **Branches:** main = development/homologation; production = certified release.
+
+## Launch state
+
+- Official Pinterest profile is live as **@achadosdonest**.
+- Pinterest domain verification meta tag is installed in the web app and ready to be validated after deployment.
+- Guided Publisher is the active production path and can be used immediately.
+- API approval is no longer a blocker for starting business validation.
+- Trial Access is the next integration milestone for OAuth/Sandbox testing.
+- Standard Access remains the gate for public production publishing through the Pinterest API.
 
 ## Production baseline
 
@@ -216,10 +226,10 @@ The data model is multi-tenant from day one, but external billing/plans/onboardi
 
 ## External blockers only
 
-1. Pinterest app credentials / access tier for OAuth and live analytics.
+1. Pinterest Business/developer validation, Trial approval and credentials for OAuth/Sandbox/live analytics.
 2. Pinterest Standard Access for public API auto-publish.
 3. Gemini Free server-side secret path if we decide to activate that provider.
 4. Amazon/site expansion only when the roadmap business gate is intentionally opened.
 5. OpenAI paid providers only after explicit revenue/budget authorization.
 
-No external blocker prevents the current zero-cost guided operation from running.
+No external blocker prevents the current zero-cost guided operation from running. The launch profile is @achadosdonest and manual production publishing can begin immediately.
