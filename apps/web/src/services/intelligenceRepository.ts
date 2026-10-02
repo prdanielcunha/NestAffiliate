@@ -56,6 +56,10 @@ export async function persistCampaignIntelligence(db:Firestore,organizationId:st
     score:campaign.score.score,
     reasons:campaign.score.reasons,
     risks:campaign.score.risks,
+    rank:campaign.rankingContext?.rank ?? null,
+    trackingCode:campaign.rankingContext?.trackingCode ?? null,
+    rankingEvidence:campaign.rankingContext?.evidence ?? [],
+    signalSources:campaign.rankingContext?.signalSources ?? [],
     createdAt:serverTimestamp(),
   },{merge:true});
 
