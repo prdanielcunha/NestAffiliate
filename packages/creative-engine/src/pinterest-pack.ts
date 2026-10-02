@@ -18,6 +18,7 @@ export interface BuildPinterestCreativePackInput {
   existingNarrative?: CampaignVersion['narrative'];
   editorialContext?: string;
   createdAt?: string;
+  directionOffset?: number;
 }
 
 function cleanKeyword(value: string) {
@@ -147,6 +148,7 @@ export function buildPinterestCreativePack(input: BuildPinterestCreativePackInpu
     keyword,
     boardName: input.boardName,
     createdAt,
+    directionOffset:input.directionOffset,
   });
   const recommended = concepts[0]!;
   const copy = localizedCopy(locale, keyword, input.product.title.value, scene, input.existingNarrative);
@@ -229,5 +231,37 @@ export function buildPinterestCreativePack(input: BuildPinterestCreativePackInpu
       'Board e copy revisados antes da aprovação humana.',
     ],
     createdAt,
+  };
+}
+
+
+export function versionPinterestCreativePack(
+  pack:PinterestCreativePack,
+  campaignVersion:number,
+  selectedConceptId?:string,
+):PinterestCreativePack{
+  const selectedAngle=pack.imageConcepts.find((item)=>item.id===selectedConceptId)?.angle
+    ?? pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId)?.angle
+    ?? pack.imageConcepts[0]?.angle;
+  const imageConcepts=pack.imageConcepts.map((concept,index)=>{
+    const id=pack.campaignId+':v'+campaignVersion+':concept:'+(index+1)+':'+concept.angle;
+    return {
+      ...concept,
+      id,
+      imagePrompt:{
+        ...concept.imagePrompt,
+        id:id+':prompt',
+        campaignVersion,
+      },
+    };
+  });
+  const recommended=imageConcepts.find((item)=>item.angle===selectedAngle) ?? imageConcepts[0]!;
+  return {
+    ...pack,
+    id:pack.campaignId+':v'+campaignVersion+':pinterest-pack',
+    campaignVersion,
+    imageConcepts,
+    recommendedConceptId:recommended.id,
+    createdAt:new Date().toISOString(),
   };
 }
