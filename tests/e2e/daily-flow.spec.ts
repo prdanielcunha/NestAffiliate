@@ -92,3 +92,22 @@ test('scheduled publication returns to Today as an upcoming action', async ({ pa
   await expect(page.getByRole('heading', { name: 'Próximas publicações' })).toBeVisible();
   await expect(page.getByText(/2030/)).toBeVisible();
 });
+
+
+test('Review can prepare a full Pinterest Creative Pack and blocks approval until the generated image is validated', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: /Revisar 3 campanhas/i }).click();
+
+  await expect(page.getByRole('heading', { name: 'Preparar Pin completo' })).toBeVisible();
+  await page.getByRole('button', { name: 'Preparar Pin', exact: true }).click();
+
+  await expect(page.getByRole('heading', { name: 'Seu pacote criativo está pronto.' })).toBeVisible();
+  await expect(page.locator('.concept-card')).toHaveCount(3);
+  await expect(page.getByText('PROMPT DE IMAGEM')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copiar e abrir ChatGPT' })).toBeVisible();
+  await expect(page.getByText('1000 × 1500')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
+  await expect(page.getByText(/Importe e valide a imagem gerada antes de aprovar/i)).toBeVisible();
+  await expect(page).toHaveURL(/\/review\//);
+});
