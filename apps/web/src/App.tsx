@@ -25,6 +25,8 @@ import { ManualProductImport } from './features/ManualProductImport';
 import { OfficialSignalImport } from './features/OfficialSignalImport';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
+import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
+import { resolveCreativeAssetUrl } from './services/creativePackRepository';
 import { ConnectionCenter } from './features/ConnectionCenter';
 import { ensureNestAffiliateWorkspace } from './services/workspaceBootstrap';
 import { defaultPreferences, loadUserPreferences, saveUserPreferences, type UserPreferences } from './services/preferencesRepository';
@@ -406,7 +408,7 @@ function campaignFingerprint(campaign:Campaign):PublicationFingerprint{
   const version=campaign.currentVersion;
   return {
     productId:version.product.productId,
-    imageUrl:version.product.imageUrl?.value,
+    imageUrl:version.creativeAsset?.hash ?? version.product.imageUrl?.value,
     headline:version.narrative.headline,
     description:version.narrative.description,
     template:version.template,
@@ -882,6 +884,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   const [affiliateError, setAffiliateError] = useState('');
   const [swapOptions, setSwapOptions] = useState<ProductTruth[]>([]);
   const [swapLoading, setSwapLoading] = useState(false);
+  const [creativeApprovalError,setCreativeApprovalError]=useState(false);
   const approvingRef = useRef(false);
 
   useEffect(() => {
@@ -984,7 +987,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   function chooseSwap(product: ProductTruth) {
     const versioned = nextCampaignVersion(
       campaign,
-      { product: { ...product, organizationId: campaign.organizationId } },
+      {
+        product: { ...product, organizationId: campaign.organizationId },
+        creativePack: undefined,
+        creativeAsset: undefined,
+      },
       'product swap',
     );
     const next={ ...versioned, marketplace: product.marketplace };
@@ -997,6 +1004,12 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   function approve() {
     if (approvingRef.current) return;
     approvingRef.current = true;
+    if(v.creativePack && !v.creativeAsset){
+      setCreativeApprovalError(true);
+      approvingRef.current=false;
+      return;
+    }
+    setCreativeApprovalError(false);
     const destination = v.product.affiliateUrl?.value ?? v.product.url.value;
     const guard = runPublishingGuard({
       product: v.product,
@@ -1004,6 +1017,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       destinationUrl: destination,
       headline: v.narrative.headline,
       description: v.narrative.description,
+      creativeAsset:v.creativeAsset,
       duplicateSimilarity: campaignDuplicateSimilarity(campaign,campaigns),
     });
     const next: Campaign = {
@@ -1028,6 +1042,8 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
 
   return (
     <div className="review-page">
+      <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
+      {creativeApprovalError && <div className="notice danger creative-approval-error">{t('creativeImageRequired')}</div>}
       <div className="review-grid">
         <PinPreview campaign={activeCampaign} />
         <section className="decision-panel">
@@ -1160,8 +1176,31 @@ function PinPreview({ campaign }: { campaign: Campaign }) {
   const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    if (canvasRef.current) void renderPin(canvasRef.current, campaign.currentVersion);
-  }, [campaign.currentVersion]);
+    let disposed=false;
+    let objectUrl:string|undefined;
+    async function draw(){
+      if(!canvasRef.current) return;
+      let version=campaign.currentVersion;
+      const asset=version.creativeAsset;
+      if(asset && !asset.downloadUrl && db){
+        const resolved=await resolveCreativeAssetUrl(db,campaign.organizationId,asset).catch(()=>null);
+        if(disposed){
+          if(resolved?.revoke) URL.revokeObjectURL(resolved.url);
+          return;
+        }
+        if(resolved){
+          objectUrl=resolved.revoke ? resolved.url : undefined;
+          version={...version,creativeAsset:{...asset,downloadUrl:resolved.url}};
+        }
+      }
+      if(!disposed && canvasRef.current) await renderPin(canvasRef.current,version);
+    }
+    void draw();
+    return ()=>{
+      disposed=true;
+      if(objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [campaign.currentVersion,campaign.organizationId]);
   return (
     <section className="preview-panel">
       <div className="preview-toolbar"><span>{t('pinPreview')}</span><span>1000 × 1500 · 2:3</span></div>
@@ -1264,6 +1303,7 @@ function Publish({
   const guard = runPublishingGuard({
     product: v.product, disclosure: v.narrative.disclosure, destinationUrl: destination,
     headline: v.narrative.headline, description: v.narrative.description,
+    creativeAsset:v.creativeAsset,
     duplicateSimilarity:campaignDuplicateSimilarity(activeCampaign,campaigns),
     frequencyPolicy:hasFrequencyPolicy ? {
       maxPublications24h:preferences.maxPublications24h ?? undefined,
@@ -1272,11 +1312,23 @@ function Publish({
       minutesSinceLastPublication:frequency.minutesSinceLastPublication,
     } : undefined,
   });
+  const selectedConcept=v.creativePack?.imageConcepts.find((item)=>item.id===v.creativePack?.recommendedConceptId)
+    ?? v.creativePack?.imageConcepts[0];
   const pkg: PublicationPackage = {
     campaignId: activeCampaign.id, version: v.version, filename: campaignFilename(v), width: 1000, height: 1500,
     title: v.narrative.pinterestTitle, description: v.narrative.description, disclosure: v.narrative.disclosure,
-    destinationUrl: destination, boardName: v.boardName, topics: [v.keyword, 'casa organizada', 'ideias para casa'],
-    altText: v.narrative.altText, trackingCode: activeCampaign.rankingContext?.trackingCode, compliance: guard.outcome,
+    destinationUrl: destination, boardName: v.boardName,
+    topics: v.creativePack?.copy.keywords.slice(0,10) ?? [v.keyword, 'casa organizada', 'ideias para casa'],
+    altText: v.narrative.altText,
+    trackingCode: activeCampaign.rankingContext?.trackingCode,
+    compliance: guard.outcome,
+    keywords:v.creativePack?.copy.keywords,
+    creativePackId:v.creativePack?.id,
+    creativeAssetId:v.creativeAsset?.id,
+    conceptId:v.creativeAsset?.conceptId ?? selectedConcept?.id,
+    promptPackageId:v.creativeAsset?.promptPackageId ?? selectedConcept?.imagePrompt.id,
+    sceneType:selectedConcept?.sceneProfile.sceneType,
+    environment:selectedConcept?.sceneProfile.environment,
   };
   const apiMode=preferences.publishingMode==='api_when_available' && canAttemptPinterestPublish();
   const manualFreshAllowed=!apiMode && ['manual','error'].includes(freshState) && manualFreshConfirmed;
@@ -1350,7 +1402,17 @@ function Publish({
   async function downloadImage() {
     persistPackage();
     const canvas = document.createElement('canvas');
-    const dataUrl = await renderPin(canvas, v);
+    let version=v;
+    let objectUrl:string|undefined;
+    if(v.creativeAsset && !v.creativeAsset.downloadUrl && db){
+      const resolved=await resolveCreativeAssetUrl(db,activeCampaign.organizationId,v.creativeAsset).catch(()=>null);
+      if(resolved){
+        objectUrl=resolved.revoke ? resolved.url : undefined;
+        version={...v,creativeAsset:{...v.creativeAsset,downloadUrl:resolved.url}};
+      }
+    }
+    const dataUrl = await renderPin(canvas, version);
+    if(objectUrl) URL.revokeObjectURL(objectUrl);
     const link = document.createElement('a');
     link.href = dataUrl;
     link.download = pkg.filename;
@@ -1411,6 +1473,8 @@ function Publish({
           <Field label="Link" value={pkg.destinationUrl} onCopy={() => copy(pkg.destinationUrl)} />
           <Field label={t('saveTo')} value={pkg.boardName} onCopy={() => copy(pkg.boardName)} />
           <Field label={t('altText')} value={pkg.altText} onCopy={() => copy(pkg.altText)} />
+          {pkg.keywords?.length ? <Field label={t('keywords')} value={pkg.keywords.join(', ')} onCopy={() => copy(pkg.keywords!.join(', '))} /> : null}
+          {selectedConcept ? <Field label={t('recommendedAngle')} value={selectedConcept.title} onCopy={() => copy(selectedConcept.title)} /> : null}
           {activeCampaign.rankingContext?.trackingCode && <Field label={t('trackingCode')} value={activeCampaign.rankingContext.trackingCode} onCopy={() => copy(activeCampaign.rankingContext!.trackingCode!)} />}
         </section>
       </div>

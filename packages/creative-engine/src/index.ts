@@ -23,6 +23,7 @@ export interface CreativeTemplate {
   headlineMaxLines: number;
   align: 'left' | 'center';
   treatment: 'editorial' | 'minimal' | 'problem' | 'collection';
+  contextual?: boolean;
 }
 
 export const CREATIVE_TEMPLATES: CreativeTemplate[] = [
@@ -36,6 +37,14 @@ export const CREATIVE_TEMPLATES: CreativeTemplate[] = [
   { id:'routine-hack', label:'Routine Hack', eyebrow:'FACILITA A ROTINA', imageY:255, imageH:520, headlineY:885, headlineSize:78, headlineMaxLines:4, align:'left', treatment:'minimal' },
   { id:'collection', label:'Collection', eyebrow:'CURADORIA DO NEST', imageY:235, imageH:555, headlineY:910, headlineSize:70, headlineMaxLines:4, align:'left', treatment:'collection' },
   { id:'seasonal', label:'Seasonal', eyebrow:'AGORA FAZ SENTIDO', imageY:225, imageH:590, headlineY:930, headlineSize:72, headlineMaxLines:4, align:'left', treatment:'editorial' },
+  { id:'lifestyle-full-bleed', label:'Lifestyle Full Bleed', eyebrow:'ACHADOS DO NEST', imageY:0, imageH:1500, headlineY:1010, headlineSize:72, headlineMaxLines:4, align:'left', treatment:'editorial', contextual:true },
+  { id:'lifestyle-headline', label:'Lifestyle + Headline', eyebrow:'IDEIA PARA SALVAR', imageY:0, imageH:1500, headlineY:960, headlineSize:78, headlineMaxLines:4, align:'left', treatment:'editorial', contextual:true },
+  { id:'product-detail', label:'Product Detail', eyebrow:'DETALHE ÚTIL', imageY:0, imageH:1500, headlineY:1040, headlineSize:68, headlineMaxLines:4, align:'left', treatment:'minimal', contextual:true },
+  { id:'room-inspiration', label:'Room Inspiration', eyebrow:'INSPIRAÇÃO', imageY:0, imageH:1500, headlineY:1000, headlineSize:72, headlineMaxLines:4, align:'left', treatment:'editorial', contextual:true },
+  { id:'before-after-contextual', label:'Before / After Contextual', eyebrow:'TRANSFORMAÇÃO', imageY:0, imageH:1500, headlineY:990, headlineSize:72, headlineMaxLines:4, align:'left', treatment:'problem', contextual:true },
+  { id:'small-space-contextual', label:'Small Space Contextual', eyebrow:'PEQUENOS ESPAÇOS', imageY:0, imageH:1500, headlineY:995, headlineSize:72, headlineMaxLines:4, align:'left', treatment:'editorial', contextual:true },
+  { id:'utility-how-to', label:'Utility / How-to', eyebrow:'IDEIA PRÁTICA', imageY:0, imageH:1500, headlineY:1000, headlineSize:70, headlineMaxLines:4, align:'left', treatment:'collection', contextual:true },
+  { id:'editorial-clean', label:'Editorial Clean', eyebrow:'CURADORIA DO NEST', imageY:0, imageH:1500, headlineY:1015, headlineSize:70, headlineMaxLines:4, align:'left', treatment:'minimal', contextual:true },
 ];
 
 export const ACHADOS_DARK: CreativeTheme = {
@@ -124,6 +133,41 @@ function drawBackground(ctx:CanvasRenderingContext2D,template:CreativeTemplate,t
   }
 }
 
+
+async function loadCreativeImage(src:string){
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  await new Promise<void>((resolve,reject)=>{
+    img.onload=()=>resolve();
+    img.onerror=()=>reject(new Error('asset load failed'));
+    img.src=src;
+  });
+  return img;
+}
+
+function drawCoverImage(ctx:CanvasRenderingContext2D,img:HTMLImageElement){
+  const targetRatio=PIN_WIDTH/PIN_HEIGHT;
+  const sourceRatio=img.width/img.height;
+  let sx=0,sy=0,sw=img.width,sh=img.height;
+  if(sourceRatio>targetRatio){
+    sw=img.height*targetRatio;
+    sx=(img.width-sw)/2;
+  }else{
+    sh=img.width/targetRatio;
+    sy=(img.height-sh)/2;
+  }
+  ctx.drawImage(img,sx,sy,sw,sh,0,0,PIN_WIDTH,PIN_HEIGHT);
+}
+
+function drawContextOverlay(ctx:CanvasRenderingContext2D){
+  const gradient=ctx.createLinearGradient(0,300,0,PIN_HEIGHT);
+  gradient.addColorStop(0,'rgba(8,12,10,.05)');
+  gradient.addColorStop(.55,'rgba(8,12,10,.18)');
+  gradient.addColorStop(1,'rgba(8,12,10,.82)');
+  ctx.fillStyle=gradient;
+  ctx.fillRect(0,0,PIN_WIDTH,PIN_HEIGHT);
+}
+
 export async function renderPin(
   canvas: HTMLCanvasElement,
   version: CampaignVersion,
@@ -136,7 +180,20 @@ export async function renderPin(
 
   const template=templateFor(version.template);
   const theme=suppliedTheme ?? (version.template.toLowerCase().includes('light') ? ACHADOS_LIGHT : ACHADOS_DARK);
-  drawBackground(ctx,template,theme);
+  const contextualSrc=version.creativeAsset?.downloadUrl;
+  let contextualRendered=false;
+  if(template.contextual && contextualSrc && ['AUTHORIZED','USER_PROVIDED','GENERATED'].includes(version.creativeAsset?.rightsStatus ?? 'UNKNOWN')){
+    try{
+      const contextual=await loadCreativeImage(contextualSrc);
+      drawCoverImage(ctx,contextual);
+      drawContextOverlay(ctx);
+      contextualRendered=true;
+    }catch{
+      drawBackground(ctx,template,theme);
+    }
+  }else{
+    drawBackground(ctx,template,theme);
+  }
 
   ctx.fillStyle = theme.accent;
   ctx.fillRect(SAFE_MARGIN, 80, template.treatment==='minimal' ? 42 : 72, 8);
@@ -147,23 +204,19 @@ export async function renderPin(
 
   drawKeywordBadge(ctx,version.keyword,theme,template);
 
-  const image = version.product.imageUrl?.value;
-  const safeAsset = ['AUTHORIZED', 'USER_PROVIDED', 'GENERATED'].includes(version.product.assetRights);
-  if (image && safeAsset) {
-    try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error('asset load failed'));
-        img.src = image;
-      });
-      drawProductFrame(ctx,img,template,theme);
-    } catch {
+  if (!contextualRendered) {
+    const image = version.product.imageUrl?.value;
+    const safeAsset = ['AUTHORIZED', 'PLATFORM_PROVIDED', 'USER_PROVIDED', 'GENERATED'].includes(version.product.assetRights);
+    if (image && safeAsset) {
+      try {
+        const img = await loadCreativeImage(image);
+        drawProductFrame(ctx,img,template,theme);
+      } catch {
+        drawProductPlaceholder(ctx, theme, template);
+      }
+    } else {
       drawProductPlaceholder(ctx, theme, template);
     }
-  } else {
-    drawProductPlaceholder(ctx, theme, template);
   }
 
   const textX=SAFE_MARGIN;
@@ -239,3 +292,40 @@ function drawProductPlaceholder(ctx: CanvasRenderingContext2D, theme: CreativeTh
   const text='A imagem só entra quando o direito de uso estiver confirmado.';
   wrapText(ctx,text,720,2).forEach((line,index)=>ctx.fillText(line,SAFE_MARGIN+38,template.imageY+128+index*34));
 }
+
+
+export { buildSceneProfile, sceneIsCoherent } from './scene-engine/scene-rules';
+export { scoreScene } from './scene-engine/scene-score';
+export { buildCreativeConcepts } from './creative-director';
+export {
+  buildImagePrompt,
+  translateImagePromptToPortuguese,
+  IMAGE_PROMPT_TEMPLATE_ID,
+  IMAGE_PROMPT_TEMPLATE_VERSION,
+  SCENE_ENGINE_VERSION,
+  CREATIVE_DIRECTOR_VERSION,
+} from './prompt-builder';
+export {
+  validateScene,
+  validatePromptClaims,
+  validateProductFidelity,
+  validateReferenceRights,
+  validateEmbeddedTextPolicy,
+  validateCommercialClaims,
+  runVisualTruthGuard,
+  truthConstraints,
+} from './visual-truth';
+export { buildPinterestCreativePack, versionPinterestCreativePack } from './pinterest-pack';
+export {
+  validateImageMetadata,
+  detectImageMime,
+  computeCoverCrop,
+  sha256Hex,
+  SUPPORTED_IMAGE_MIME,
+  MAX_IMAGE_BYTES,
+  MIN_IMAGE_WIDTH,
+  MIN_IMAGE_HEIGHT,
+  TARGET_IMAGE_WIDTH,
+  TARGET_IMAGE_HEIGHT,
+  TARGET_RATIO,
+} from './image-processing';

@@ -39,6 +39,141 @@ export interface CreativeNarrative {
   cta: string;
 }
 
+
+export type CreativeOutputType = 'photorealistic' | 'editorial' | 'lifestyle';
+export type CreativeAssetOrigin = 'MANUAL_CHATGPT' | 'USER_UPLOAD' | 'MARKETPLACE' | 'GENERATED_LOCAL';
+export type CreativeAngle =
+  | 'problem_solution'
+  | 'transformation'
+  | 'discovery'
+  | 'inspiration'
+  | 'utility'
+  | 'organization'
+  | 'small_spaces'
+  | 'routine'
+  | 'aesthetics'
+  | 'how_to'
+  | 'curation'
+  | 'seasonal';
+
+export interface SceneProfile {
+  category: string;
+  useCase: string;
+  environment: string;
+  sceneType: string;
+  style: string;
+  lighting: string;
+  composition: string;
+  placement: string;
+  negativeSpace: string;
+  propsAllowed: string[];
+  forbiddenContext: string[];
+  confidence: number;
+  explanation: string;
+  version: string;
+}
+
+export interface ImagePromptSpec {
+  id: string;
+  templateId: string;
+  templateVersion: string;
+  sceneEngineVersion: string;
+  creativeDirectorVersion: string;
+  campaignId: string;
+  campaignVersion: number;
+  language: 'en' | 'pt-BR';
+  prompt: string;
+  factsUsed: string[];
+  restrictionsUsed: string[];
+  createdAt: string;
+}
+
+export interface ImageConcept {
+  id: string;
+  angle: CreativeAngle;
+  title: string;
+  rationale: string;
+  sceneProfile: SceneProfile;
+  imagePrompt: ImagePromptSpec;
+  score: number;
+  scoreExplanation: string[];
+}
+
+export interface PinterestCreativePack {
+  id: string;
+  organizationId: string;
+  campaignId: string;
+  campaignVersion: number;
+  productId: string;
+  locale: 'pt-BR' | 'en' | 'es';
+  copy: {
+    titles: string[];
+    descriptions: string[];
+    headline: string;
+    subheadline?: string;
+    cta: string;
+    disclosure: string;
+    altText: string;
+    keywords: string[];
+    primaryKeyword: string;
+    secondaryKeywords: string[];
+    longTailKeywords: string[];
+    recommendedBoardId?: string;
+    recommendedBoardName: string;
+    friendlyFilename: string;
+  };
+  creativeDirection: {
+    productCategory: string;
+    useCase: string;
+    sceneType: string;
+    roomOrEnvironment: string;
+    visualStyle: string;
+    lighting: string;
+    cameraAngle: string;
+    composition: string;
+    negativeSpace: string;
+    productPlacement: string;
+    colorDirection: string;
+    mood: string;
+  };
+  imageConcepts: ImageConcept[];
+  recommendedConceptId: string;
+  technical: {
+    width: 1000;
+    height: 1500;
+    ratio: '2:3';
+    embeddedText: false;
+    outputType: CreativeOutputType;
+  };
+  truthConstraints: string[];
+  promptTemplateVersion: string;
+  qualityScore: number;
+  qualityExplanation: string[];
+  publicationChecklist: string[];
+  createdAt: string;
+}
+
+export interface CreativeAsset {
+  id: string;
+  organizationId: string;
+  campaignId: string;
+  origin: CreativeAssetOrigin;
+  rightsStatus: AssetRightsStatus;
+  mimeType: 'image/png' | 'image/jpeg' | 'image/webp';
+  width: number;
+  height: number;
+  originalWidth: number;
+  originalHeight: number;
+  hash: string;
+  promptPackageId?: string;
+  conceptId?: string;
+  storagePath?: string;
+  downloadUrl?: string;
+  embeddedTextConfirmedAbsent: boolean;
+  productFidelityConfirmed: boolean;
+  createdAt: string;
+}
+
 export interface NestScoreDimensions {
   trend: number;
   intent: number;
@@ -80,6 +215,8 @@ export interface CampaignVersion {
   boardName: string;
   keyword: string;
   template: string;
+  creativePack?: PinterestCreativePack;
+  creativeAsset?: CreativeAsset;
 }
 
 export interface CampaignRankingContext {
@@ -116,6 +253,13 @@ export interface PublicationPackage {
   trackingCode?: string;
   suggestedPublishAt?: string;
   compliance: ComplianceOutcome;
+  keywords?: string[];
+  creativePackId?: string;
+  creativeAssetId?: string;
+  conceptId?: string;
+  promptPackageId?: string;
+  sceneType?: string;
+  environment?: string;
 }
 
 export function canWrite(role: Role) {
@@ -187,7 +331,7 @@ export interface Publication {
 
 export function nextCampaignVersion(
   campaign: Campaign,
-  patch: Partial<Pick<CampaignVersion, 'product' | 'narrative' | 'boardName' | 'keyword' | 'template'>>,
+  patch: Partial<Pick<CampaignVersion, 'product' | 'narrative' | 'boardName' | 'keyword' | 'template' | 'creativePack' | 'creativeAsset'>>,
   reason: string,
 ): Campaign {
   const previous = campaign.currentVersion;
@@ -223,6 +367,8 @@ export function restoreCampaignVersion(campaign: Campaign, version: number): Cam
       boardName: source.boardName,
       keyword: source.keyword,
       template: source.template,
+      creativePack: source.creativePack,
+      creativeAsset: source.creativeAsset,
     },
     `restore v${version}`,
   );

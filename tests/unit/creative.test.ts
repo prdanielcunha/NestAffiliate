@@ -10,8 +10,10 @@ describe('creative filename', () => {
 
 describe('creative template contracts', () => {
   it('ships ten deterministic 2:3 template definitions', () => {
-    expect(CREATIVE_TEMPLATES).toHaveLength(10);
-    expect(new Set(CREATIVE_TEMPLATES.map((template) => template.id)).size).toBe(10);
+    const legacy=['editorial-premium','problem-solution','minimal','hero-product','checklist','before-after','small-space','routine-hack','collection','seasonal'];
+    expect(CREATIVE_TEMPLATES.length).toBeGreaterThanOrEqual(18);
+    expect(legacy.every((id)=>CREATIVE_TEMPLATES.some((template)=>template.id===id))).toBe(true);
+    expect(new Set(CREATIVE_TEMPLATES.map((template) => template.id)).size).toBe(CREATIVE_TEMPLATES.length);
     expect(SAFE_MARGIN).toBeGreaterThanOrEqual(64);
   });
 

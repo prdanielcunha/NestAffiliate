@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { deriveLearning, historicalScoreAdjustment } from '../../packages/learning/src/index';
 import type { Campaign } from '../../packages/core/src/index';
 import type { PerformanceDaily } from '../../packages/analytics/src/index';
+import { buildPinterestCreativePack } from '../../packages/creative-engine/src/index';
+import { buildPinterestCreativePack } from '../../packages/creative-engine/src/index';
 
 const now=new Date().toISOString();
 
@@ -41,6 +43,34 @@ describe('learning engine', () => {
     expect(insights.some(i=>i.type==='PREFERENCE' && i.confidence==='established')).toBe(true);
   });
 
+  it('learns scene, angle and prompt performance only after enough comparable campaigns', () => {
+    const campaigns=Array.from({length:12},(_,i)=>{
+      const current=campaign('scene-'+i);
+      const pack=buildPinterestCreativePack({
+        organizationId:'o',
+        campaignId:current.id,
+        campaignVersion:1,
+        product:current.currentVersion.product,
+        keyword:current.currentVersion.keyword,
+        boardName:current.currentVersion.boardName,
+        locale:'pt-BR',
+        createdAt:now,
+      });
+      return {
+        ...current,
+        currentVersion:{...current.currentVersion,creativePack:pack,template:'Lifestyle + Headline'},
+      };
+    });
+    const metrics=campaigns.map((item)=>metric(item.id));
+    const insights=deriveLearning(campaigns,metrics);
+    const scene=insights.find((item)=>item.type==='CREATIVE_SCENE');
+    expect(scene?.confidence).toBe('established');
+    expect(scene?.dimensions?.sceneType).toBeTruthy();
+    expect(scene?.dimensions?.angle).toBeTruthy();
+    expect(scene?.dimensions?.promptVersion).toBe('1.0');
+    expect(scene?.dimensions?.outboundClicks).toBeGreaterThan(0);
+  });
+
   it('only adjusts score after a statistically safer minimum sample', () => {
     const campaigns=Array.from({length:12},(_,i)=>campaign(`c${i}`));
     const metrics=campaigns.map((c)=>metric(c.id));
@@ -49,5 +79,30 @@ describe('learning engine', () => {
     expect(adjustment.evidenceCount).toBe(12);
     expect(adjustment.adjustment).toBeGreaterThanOrEqual(-6);
     expect(adjustment.adjustment).toBeLessThanOrEqual(6);
+  });
+
+
+  it('learns scene type, environment and creative angle only after repeated evidence', () => {
+    const campaigns=Array.from({length:12},(_,i)=>{
+      const item=campaign('visual-'+i);
+      const pack=buildPinterestCreativePack({
+        organizationId:item.organizationId,
+        campaignId:item.id,
+        campaignVersion:item.currentVersion.version,
+        product:{...item.currentVersion.product,assetRights:'AUTHORIZED'},
+        keyword:item.currentVersion.keyword,
+        boardName:item.currentVersion.boardName,
+        locale:'pt-BR',
+        createdAt:now,
+      });
+      return {...item,currentVersion:{...item.currentVersion,creativePack:pack}};
+    });
+    const metrics=campaigns.map((item)=>metric(item.id));
+    const insights=deriveLearning(campaigns,metrics);
+    const contextual=insights.find((item)=>item.id.startsWith('creative-context:'));
+    expect(contextual?.confidence).toBe('established');
+    expect(contextual?.dimensions?.sceneType).toBeTruthy();
+    expect(contextual?.dimensions?.environment).toBeTruthy();
+    expect(contextual?.dimensions?.creativeAngle).toBeTruthy();
   });
 });

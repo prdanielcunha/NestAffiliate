@@ -1,0 +1,34 @@
+// NestAffiliate additive fragment for the canonical MillionsNest Cloud Storage ruleset.
+// DO NOT deploy this file by itself over the shared project rules.
+//
+// Integrate inside service firebase.storage { match /b/{bucket}/o { ... } }.
+// The canonical ruleset must provide membership/role helpers equivalent to Firestore.
+//
+// Conceptual helpers expected:
+// function nestAffiliateStorageCanRead(orgId) { ...authenticated membership... }
+// function nestAffiliateStorageCanEdit(orgId) { ...owner/admin/editor... }
+//
+// match /organizations/{orgId}/creative-assets/{assetFile} {
+//   allow read: if nestAffiliateStorageCanRead(orgId);
+//   allow write: if nestAffiliateStorageCanEdit(orgId)
+//                && request.resource.size <= 32 * 1024 * 1024
+//                && request.resource.contentType.matches('image/(png|jpeg|webp)')
+//                && request.resource.metadata.organizationId == orgId;
+// }
+//
+// match /organizations/{orgId}/imports/{importFile} {
+//   allow read: if nestAffiliateStorageCanRead(orgId);
+//   allow write: if nestAffiliateStorageCanEdit(orgId)
+//                && request.resource.size <= 32 * 1024 * 1024
+//                && request.resource.contentType.matches('image/(png|jpeg|webp)')
+//                && request.resource.metadata.organizationId == orgId;
+// }
+//
+// Required emulator tests before canonical integration:
+// - unauthenticated denied
+// - tenant A cannot read/write tenant B
+// - viewer read-only
+// - editor/admin/owner permitted according to canonical RBAC
+// - oversized file denied
+// - invalid MIME denied
+// - organizationId metadata mismatch denied

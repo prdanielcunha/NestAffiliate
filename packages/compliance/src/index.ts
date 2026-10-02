@@ -1,4 +1,4 @@
-import type { ComplianceOutcome, ProductTruth } from '@nestaffiliate/core';
+import type { ComplianceOutcome, CreativeAsset, ProductTruth } from '@nestaffiliate/core';
 
 export interface PublicationFingerprint {
   productId:string;
@@ -17,6 +17,7 @@ export interface GuardInput {
   destinationUrl: string;
   headline: string;
   description: string;
+  creativeAsset?: CreativeAsset;
   duplicateSimilarity?: number;
   priceMaxAgeMinutes?: number;
   frequencyPolicy?: {
@@ -188,6 +189,28 @@ export function runPublishingGuard(input: GuardInput): GuardResult {
         : 'BLOCK',
     'Direito de uso do asset verificado.',
   );
+
+  if(input.creativeAsset){
+    push(
+      'creative-asset-rights',
+      ['AUTHORIZED','PLATFORM_PROVIDED','USER_PROVIDED','GENERATED'].includes(input.creativeAsset.rightsStatus) ? 'PASS' : 'BLOCK',
+      'Direito de uso do asset criativo precisa estar confirmado.',
+    );
+    push(
+      'creative-fidelity',
+      input.creativeAsset.productFidelityConfirmed ? 'PASS' : 'BLOCK',
+      input.creativeAsset.productFidelityConfirmed
+        ? 'Fidelidade visual do produto confirmada por revisão humana.'
+        : 'Confirme forma, cor, proporção, detalhes e marca antes de publicar.',
+    );
+    push(
+      'creative-embedded-text',
+      input.creativeAsset.embeddedTextConfirmedAbsent ? 'PASS' : 'BLOCK',
+      input.creativeAsset.embeddedTextConfirmedAbsent
+        ? 'Imagem base sem texto rasterizado confirmado.'
+        : 'A imagem base contém ou pode conter texto gerado pela IA.',
+    );
+  }
 
   push(
     'disclosure',
