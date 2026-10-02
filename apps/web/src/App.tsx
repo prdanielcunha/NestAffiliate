@@ -3,7 +3,6 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
-import { MercadoLivrePublicAdapter } from '@nestaffiliate/integrations';
 import { buildOpportunity, buildSearchSignal, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
@@ -37,8 +36,8 @@ import { runDailyAgentCycle, type DailyAgentReport } from './services/dailyAgent
 import { freshValidateProduct } from './services/freshValidation';
 import { completePublicationSchedule, listPublicationSchedules, savePublicationSchedule } from './services/publicationScheduleRepository';
 import { listMarketSignals, saveMarketSignals } from './services/marketSignalRepository';
+import { searchMercadoLivreBroker } from './services/mercadoLivreBroker';
 
-const marketplaceAdapter = new MercadoLivrePublicAdapter();
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
 
 function useCampaignStore(organizationId: string | null, actorId: string | null, role: Role | null) {
@@ -714,7 +713,8 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   async function search(signalOverride?:CommerceSignal[]) {
     setState('loading');
     try {
-      const found = await marketplaceAdapter.search({ organizationId, query, limit: 25 });
+      if(!identity.user) throw new Error('UNAUTHENTICATED');
+      const found = await searchMercadoLivreBroker({ user:identity.user, organizationId, query, limit:20 });
       if(db && identity.user?.uid){
         const currentDb=db;
         void recordRadarSignal({db:currentDb,organizationId,query,products:found}).catch(()=>undefined);
@@ -971,7 +971,9 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     setSwapLoading(true);
     setSwapOptions([]);
     try {
-      const alternatives = await marketplaceAdapter.search({
+      if(!identity.user) throw new Error('UNAUTHENTICATED');
+      const alternatives = await searchMercadoLivreBroker({
+        user: identity.user,
         organizationId: campaign.organizationId,
         query: v.keyword,
         limit: 8,
