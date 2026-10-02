@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FEATURE_FLAGS,
   KILL_SWITCHES,
+  PUBLIC_LINKS,
   automationEnabled,
   canAttemptPinterestPublish,
   isMarketplaceEnabled,
@@ -17,6 +18,10 @@ describe('zero-cost feature controls', () => {
 
   it('does not allow Pinterest auto publish without all gates', () => {
     expect(canAttemptPinterestPublish()).toBe(false);
+  });
+
+  it('uses the official Achados do Nest profile by default', () => {
+    expect(PUBLIC_LINKS.PINTEREST_PROFILE_URL).toBe('https://br.pinterest.com/achadosdonest/');
   });
 
   it('keeps initial marketplaces explicit', () => {
