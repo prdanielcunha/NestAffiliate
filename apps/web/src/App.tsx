@@ -35,7 +35,7 @@ import { loadLatestDailyAgentReport, type DailyAgentReport } from './services/da
 import { freshValidateProduct } from './services/freshValidation';
 import { completePublicationSchedule, listPublicationSchedules, savePublicationSchedule } from './services/publicationScheduleRepository';
 import { listMarketSignals, saveMarketSignals } from './services/marketSignalRepository';
-import { searchMercadoLivreBroker } from './services/mercadoLivreBroker';
+import { searchMercadoLivreBroker, searchMercadoLivreBrokerDetailed } from './services/mercadoLivreBroker';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
 
@@ -664,6 +664,15 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [requireImage,setRequireImage]=useState(false);
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
   const [errorCode,setErrorCode]=useState('');
+  const [hasSearched,setHasSearched]=useState(false);
+  const [searchMeta,setSearchMeta]=useState<{
+    query:string;
+    catalogTotal:number;
+    candidates:number;
+    usable:number;
+    visible:number;
+    observedAt:string;
+  }|null>(null);
 
   useEffect(()=>{
     if(!db || !organizationId) return;
@@ -676,9 +685,31 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   },[organizationId]);
 
   const suggestedQueries=useMemo(()=>{
+    const current=query.trim();
+    const normalized=current
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase();
+    const currentTokens=new Set(normalized.split(/\s+/).filter((token)=>token.length>3));
     const official=marketSignals
       .map((signal)=>signal.keyword?.trim())
-      .filter((value):value is string=>Boolean(value && value.length>5));
+      .filter((value):value is string=>Boolean(value && value.length>5))
+      .filter((value)=>{
+        const signalTokens=value
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g,'')
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((token)=>token.length>3);
+        return signalTokens.some((token)=>currentTokens.has(token));
+      });
+    const related=current ? [
+      t('radarRelatedCompact',{q:current}),
+      t('radarRelatedSmall',{q:current}),
+      t('radarRelatedKit',{q:current}),
+      t('radarRelatedNoDrill',{q:current}),
+      t('radarRelatedMultiuse',{q:current}),
+    ] : [];
     const fallbacks=[
       t('radarSuggestion1'),
       t('radarSuggestion2'),
@@ -687,8 +718,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       t('radarSuggestion5'),
       t('radarSuggestion6'),
     ];
-    return [...new Set([...official,...fallbacks])].slice(0,6);
-  },[marketSignals,t]);
+    return [...new Set([...official,...related,...fallbacks])]
+      .filter((value)=>value.toLowerCase()!==current.toLowerCase())
+      .slice(0,6);
+  },[marketSignals,query,t]);
 
   const latestSignalAt=useMemo(()=>{
     const values=marketSignals
@@ -705,7 +738,8 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     setState('loading');
     try {
       if(!identity.user) throw new Error('UNAUTHENTICATED');
-      const found = await searchMercadoLivreBroker({ user:identity.user, organizationId, query:effectiveQuery, limit:20 });
+      const result = await searchMercadoLivreBrokerDetailed({ user:identity.user, organizationId, query:effectiveQuery, limit:20 });
+      const found=result.products;
       if(db && identity.user?.uid){
         const currentDb=db;
         void recordRadarSignal({db:currentDb,organizationId,query:effectiveQuery,products:found}).catch(()=>undefined);
@@ -729,9 +763,20 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       })
         .filter((opportunity)=>ceiling===null || !opportunity.product.price || opportunity.product.price.value<=ceiling)
         .filter((opportunity)=>!requireImage || Boolean(opportunity.product.imageUrl));
-      setOpportunities(ranked.slice(0,12));
+      const visible=ranked.slice(0,12);
+      setOpportunities(visible);
+      setSearchMeta({
+        query:effectiveQuery,
+        catalogTotal:result.meta.catalogTotal,
+        candidates:result.meta.candidates,
+        usable:result.meta.usable,
+        visible:visible.length,
+        observedAt:result.observedAt,
+      });
+      setHasSearched(true);
       setState('idle');
     } catch (error) {
+      setHasSearched(true);
       setErrorCode(error instanceof Error ? error.message : 'UNKNOWN');
       setState('error');
     }
@@ -812,7 +857,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           <span className="health-dot" />
           <div>
             <strong>{t('officialAutomationOn')}</strong>
-            <span>{t('officialAutomationBody',{n:marketSignals.length})}{latestSignalAt ? ` · ${new Intl.DateTimeFormat(locale,{dateStyle:'short',timeStyle:'short'}).format(latestSignalAt)}` : ''}</span>
+            <span>{t('officialAutomationBody')}{latestSignalAt ? ` · ${t('updatedAt')} ${new Intl.DateTimeFormat(locale,{dateStyle:'short',timeStyle:'short'}).format(latestSignalAt)}` : ''}</span>
           </div>
         </div>
         <div className="chips compact"><span>{t('noDuplicates')}</span><span>{t('seasonalityOn')}</span></div>
@@ -840,7 +885,32 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         </div>
         <button className="button secondary" type="button" onClick={()=>void search()}>{t('radarRetry')}</button>
       </div>}
-      {!opportunities.length && state === 'idle' && <Empty title={t('radarEmpty')} body={t('radarEmptyBody')} />}
+      {searchMeta && state==='idle' && <section className="radar-search-summary">
+        <div>
+          <span className="eyebrow">{t('radarSearchResult')}</span>
+          <strong>{searchMeta.visible>0
+            ? t('radarProductsShown',{n:searchMeta.visible})
+            : t('radarNoProductsShown')}</strong>
+          <p>{t('radarSearchStats',{
+            catalog:searchMeta.catalogTotal,
+            analyzed:searchMeta.candidates,
+            usable:searchMeta.usable,
+          })}</p>
+        </div>
+        <span className="search-source">Mercado Livre · {new Intl.DateTimeFormat(locale,{timeStyle:'short'}).format(Date.parse(searchMeta.observedAt))}</span>
+      </section>}
+      {!hasSearched && !opportunities.length && state === 'idle' && <Empty title={t('radarEmpty')} body={t('radarEmptyBody')} />}
+      {hasSearched && !opportunities.length && state==='idle' && <section className="radar-zero-results">
+        <strong>{searchMeta?.usable
+          ? t('radarFilteredEmptyTitle')
+          : t('radarNoProductsTitle')}</strong>
+        <p>{searchMeta?.usable
+          ? t('radarFilteredEmptyBody')
+          : t('radarNoProductsBody')}</p>
+        <div className="suggestion-buttons">
+          {suggestedQueries.slice(0,4).map((suggestion)=><button key={`empty-${suggestion}`} type="button" onClick={()=>void search(suggestion)}>{suggestion}</button>)}
+        </div>
+      </section>}
       {editable ? (
         <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
       ) : (
