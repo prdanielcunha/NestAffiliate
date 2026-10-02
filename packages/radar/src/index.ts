@@ -173,6 +173,157 @@ export function buildSearchSignal(input:{
   };
 }
 
+
+export function buildMeliTrendSignal(input:{
+  position:number;
+  keyword:string;
+  observedAt?:string;
+}):CommerceSignal{
+  const position=Math.max(1,Math.min(50,Math.round(input.position)));
+  const segment=position<=10
+    ? {source:'MELI_TREND_GROWTH' as const,label:'Mercado Livre · maior crescimento semanal',base:1,span:10}
+    : position<=30
+      ? {source:'MELI_TREND_DESIRED' as const,label:'Mercado Livre · buscas mais desejadas',base:0.86,span:20}
+      : {source:'MELI_TREND_POPULAR' as const,label:'Mercado Livre · tendência popular',base:0.75,span:20};
+  const segmentPosition=position<=10 ? position : position<=30 ? position-10 : position-30;
+  const decay=(segmentPosition-1)/Math.max(1,segment.span-1);
+  const floor=segment.source==='MELI_TREND_GROWTH' ? 0.78 : segment.source==='MELI_TREND_DESIRED' ? 0.66 : 0.56;
+  const strength=clamp01(segment.base-(segment.base-floor)*decay);
+  return {
+    id:`meli-trend:${position}:${normalizeSearchText(input.keyword)}`,
+    source:segment.source,
+    kind:'DEMAND',
+    strength,
+    confidence:0.96,
+    observedAt:input.observedAt ?? new Date().toISOString(),
+    label:segment.label,
+    rank:position,
+    keyword:input.keyword,
+    evidence:[`posição geral:${position}`,segment.label],
+  };
+}
+
+export function buildMeliBestSellerSignal(input:{
+  position:number;
+  productExternalId:string;
+  observedAt?:string;
+}):CommerceSignal{
+  const position=Math.max(1,Math.min(20,Math.round(input.position)));
+  const strength=clamp01(1-((position-1)/19)*0.35);
+  return {
+    id:`meli-best:${input.productExternalId}:${position}`,
+    source:'MELI_BEST_SELLER',
+    kind:'BEST_SELLER',
+    strength,
+    confidence:0.98,
+    observedAt:input.observedAt ?? new Date().toISOString(),
+    label:'Mercado Livre · mais vendido na categoria',
+    rank:position,
+    productExternalId:input.productExternalId,
+    evidence:[`bestseller #${position}`],
+  };
+}
+
+export type ShopeeManualSignalType =
+  | 'SHOPEE_RECOMMENDATION'
+  | 'SHOPEE_EXTRA_COMMISSION'
+  | 'SHOPEE_TOP_SALES';
+
+export function buildShopeeManualSignals(input:{
+  type:ShopeeManualSignalType;
+  keyword:string;
+  productExternalId:string;
+  commissionRate?:number;
+  rank?:number;
+  observedAt?:string;
+}):CommerceSignal[]{
+  const observedAt=input.observedAt ?? new Date().toISOString();
+  const signals:CommerceSignal[]=[];
+  if(input.type==='SHOPEE_TOP_SALES'){
+    const rank=Math.max(1,Math.min(100,Math.round(input.rank ?? 20)));
+    signals.push({
+      id:`shopee-sales:${input.productExternalId}:${rank}`,
+      source:'SHOPEE_TOP_SALES',
+      kind:'BEST_SELLER',
+      strength:clamp01(0.9-((rank-1)/99)*0.35),
+      confidence:input.rank ? 0.82 : 0.62,
+      observedAt,
+      label:'Shopee · Vendas Principais',
+      rank:input.rank ? rank : undefined,
+      keyword:input.keyword,
+      productExternalId:input.productExternalId,
+      evidence:[input.rank ? `posição informada:${rank}` : 'sinal manual: Vendas Principais'],
+    });
+  } else if(input.type==='SHOPEE_EXTRA_COMMISSION'){
+    signals.push({
+      id:`shopee-extra:${input.productExternalId}`,
+      source:'SHOPEE_EXTRA_COMMISSION',
+      kind:'YIELD',
+      strength:typeof input.commissionRate==='number'
+        ? clamp01(input.commissionRate/0.2)
+        : 0.74,
+      confidence:typeof input.commissionRate==='number' ? 0.9 : 0.7,
+      observedAt,
+      label:'Shopee · Comissão Extra',
+      keyword:input.keyword,
+      productExternalId:input.productExternalId,
+      commissionRate:input.commissionRate,
+      evidence:[typeof input.commissionRate==='number'
+        ? `comissão informada:${(input.commissionRate*100).toFixed(2)}%`
+        : 'selo Comissão Extra confirmado manualmente'],
+    });
+  } else {
+    signals.push({
+      id:`shopee-rec:${input.productExternalId}`,
+      source:'SHOPEE_RECOMMENDATION',
+      kind:'DEMAND',
+      strength:0.62,
+      confidence:0.66,
+      observedAt,
+      label:'Shopee · produto recomendado no programa de afiliados',
+      keyword:input.keyword,
+      productExternalId:input.productExternalId,
+      evidence:['sinal manual: Recomendação da Shopee'],
+    });
+  }
+  if(typeof input.commissionRate==='number' && input.type!=='SHOPEE_EXTRA_COMMISSION'){
+    signals.push({
+      id:`shopee-commission:${input.productExternalId}`,
+      source:'SHOPEE_EXTRA_COMMISSION',
+      kind:'YIELD',
+      strength:clamp01(input.commissionRate/0.2),
+      confidence:0.88,
+      observedAt,
+      label:'Shopee · taxa de comissão confirmada',
+      keyword:input.keyword,
+      productExternalId:input.productExternalId,
+      commissionRate:input.commissionRate,
+      evidence:[`comissão informada:${(input.commissionRate*100).toFixed(2)}%`],
+    });
+  }
+  return signals;
+}
+
+export function buildPinterestTrendSignal(input:{
+  keyword:string;
+  strength:number;
+  confidence:number;
+  evidence:string[];
+  observedAt?:string;
+}):CommerceSignal{
+  return {
+    id:`pinterest-trend:${normalizeSearchText(input.keyword)}`,
+    source:'PINTEREST_TRENDS',
+    kind:'PINTEREST_DEMAND',
+    strength:clamp01(input.strength),
+    confidence:clamp01(input.confidence),
+    observedAt:input.observedAt ?? new Date().toISOString(),
+    label:'Pinterest Trends',
+    keyword:input.keyword,
+    evidence:input.evidence,
+  };
+}
+
 function weightedSignalStrength(signals:CommerceSignal[], kinds:CommerceSignalKind[]){
   const relevant=signals.filter((signal)=>kinds.includes(signal.kind) && !signal.futureProvider);
   if(!relevant.length) return null;
