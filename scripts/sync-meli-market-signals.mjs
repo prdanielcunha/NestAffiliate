@@ -96,12 +96,28 @@ async function refreshMeliToken(refreshToken){
   return response.json();
 }
 
+function sleep(ms){
+  return new Promise((resolve)=>setTimeout(resolve,ms));
+}
+
 async function meliGet(path,accessToken){
-  const response=await fetch(`https://api.mercadolibre.com${path}`,{
-    headers:{Authorization:`Bearer ${accessToken}`},
-  });
-  if(!response.ok) throw new Error(`MELI_GET_${response.status}:${path}`);
-  return response.json();
+  let lastStatus=0;
+  for(let attempt=0;attempt<4;attempt+=1){
+    const response=await fetch(`https://api.mercadolibre.com${path}`,{
+      headers:{Authorization:`Bearer ${accessToken}`,Accept:'application/json'},
+    });
+    if(response.ok) return response.json();
+
+    lastStatus=response.status;
+    const retryable=response.status===429 || response.status>=500;
+    if(!retryable || attempt===3) break;
+
+    const retryAfter=Number(response.headers.get('retry-after') || 0);
+    const backoff=Math.max(retryAfter*1000,Math.min(8000,1000*(2**attempt)));
+    console.warn('MELI_RETRY',JSON.stringify({path,status:response.status,attempt:attempt+1,backoff}));
+    await sleep(backoff);
+  }
+  throw new Error(`MELI_GET_${lastStatus}:${path}`);
 }
 
 function trendSignal(entry,index,observedAt){
@@ -238,9 +254,19 @@ async function readDoc(url){
 }
 
 async function meliMaybeGet(path,accessToken){
-  const response=await fetch('https://api.mercadolibre.com'+path,{headers:{Authorization:'Bearer '+accessToken,Accept:'application/json'}});
-  if(!response.ok) return null;
-  return response.json();
+  for(let attempt=0;attempt<4;attempt+=1){
+    const response=await fetch('https://api.mercadolibre.com'+path,{headers:{Authorization:'Bearer '+accessToken,Accept:'application/json'}});
+    if(response.ok) return response.json();
+
+    const retryable=response.status===429 || response.status>=500;
+    if(!retryable || attempt===3) return null;
+
+    const retryAfter=Number(response.headers.get('retry-after') || 0);
+    const backoff=Math.max(retryAfter*1000,Math.min(8000,1000*(2**attempt)));
+    console.warn('MELI_MAYBE_RETRY',JSON.stringify({path,status:response.status,attempt:attempt+1,backoff}));
+    await sleep(backoff);
+  }
+  return null;
 }
 
 function dailyNormalize(value){
@@ -795,9 +821,9 @@ async function main(){
   const trends=await meliGet('/trends/MLB',token.access_token);
   if(!Array.isArray(trends)) throw new Error('MELI_TRENDS_INVALID_RESPONSE');
 
-  const searchProbe=await meliGet('/products/search?status=active&site_id=MLB&q=organizador%20cozinha%20pequena&limit=3',token.access_token);
+  const searchProbe=await meliMaybeGet('/sites/MLB/search?q=organizador%20cozinha%20pequena&limit=3',token.access_token);
   const searchProbeCount=Array.isArray(searchProbe?.results) ? searchProbe.results.length : 0;
-  if(searchProbeCount<1) throw new Error('MELI_SEARCH_PROBE_EMPTY');
+  if(searchProbeCount<1) console.warn('MELI_SEARCH_PROBE_EMPTY');
 
   const trendSignals=trends
     .map((entry,index)=>trendSignal(entry,index,now))
