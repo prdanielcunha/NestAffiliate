@@ -483,3 +483,31 @@ export function shortlist(
       ],
     }));
 }
+
+
+export function relevantSignalsForProduct(
+  product:ProductTruth,
+  keyword:string,
+  signals:CommerceSignal[],
+){
+  return signals.filter((signal)=>{
+    if(signal.productExternalId && signal.productExternalId===product.externalId) return true;
+    if(!signal.keyword) return false;
+    const queryMatch=titleSimilarity(signal.keyword,keyword);
+    const productMatch=titleSimilarity(signal.keyword,product.title.value);
+    return Math.max(queryMatch,productMatch)>=0.28;
+  });
+}
+
+export function signalResolverFromSnapshots(signals:CommerceSignal[]){
+  return (product:ProductTruth,keyword:string):OpportunitySignals=>{
+    const relevant=relevantSignalsForProduct(product,keyword,signals);
+    const commissionSignal=relevant
+      .filter((signal)=>typeof signal.commissionRate==='number')
+      .sort((a,b)=>(b.commissionRate ?? 0)-(a.commissionRate ?? 0))[0];
+    return {
+      signals:relevant,
+      commissionRate:commissionSignal?.commissionRate,
+    };
+  };
+}
