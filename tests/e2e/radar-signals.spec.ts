@@ -1,19 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-test('Radar 2.0 imports official Mercado Livre signals without exposing credentials', async ({ page }) => {
+test('Radar keeps official Mercado Livre signals automatic and user-facing', async ({ page }) => {
   await page.goto('/radar');
 
-  await expect(page.getByText('SINAIS OFICIAIS',{exact:true})).toBeVisible();
+  await expect(page.getByText('Mercado Livre conectado',{exact:true})).toBeVisible();
+  await expect(page.getByText('Sugestões que valem testar',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'organizador de gavetas para cozinha'})).toBeVisible();
 
-  const payload=[
-    {keyword:'organizador cozinha',url:'https://lista.mercadolivre.com.br/organizador-cozinha'},
-    {keyword:'prateleira cozinha',url:'https://lista.mercadolivre.com.br/prateleira-cozinha'},
-  ];
+  await expect(page.getByText('JSON oficial do Mercado Livre',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('SINAIS OFICIAIS',{exact:true})).toHaveCount(0);
 
-  await page.getByLabel('JSON oficial do Mercado Livre').fill(JSON.stringify(payload));
-  await page.getByRole('button',{name:'Importar sinais'}).click();
-
-  await expect(page.getByText('2 sinais oficiais importados.')).toBeVisible();
-  await expect(page.getByText('2 sinais oficiais', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Nunca cole access token/i)).toBeVisible();
+  await expect(page.getByText('ADICIONAR PRODUTO (OPCIONAL)',{exact:true})).toBeVisible();
 });
