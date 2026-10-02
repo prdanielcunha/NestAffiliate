@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ProductTruth } from '../../packages/core/src/index';
-import { buildOpportunity, dedupeProducts, keywordCluster, normalizeSearchText, shortlist } from '../../packages/radar/src/index';
+import { affiliateTrackingCode, buildMeliBestSellerSignal, buildMeliTrendSignal, buildOpportunity, buildShopeeManualSignals, dedupeProducts, keywordCluster, normalizeSearchText, shortlist } from '../../packages/radar/src/index';
 
 const now = new Date().toISOString();
 function product(id:string,title:string): ProductTruth {
@@ -37,4 +37,44 @@ describe('radar engine', () => {
     expect(result[0]!.score.score).toBeGreaterThan(0);
     expect(buildOpportunity(product('1','Organizador cozinha'),'organizador cozinha').reasons.length).toBeGreaterThan(1);
   });
+});
+
+
+it('turns official Mercado Livre positions into stronger demand signals',()=>{
+  const growth=buildMeliTrendSignal({position:1,keyword:'organizador cozinha'});
+  const desired=buildMeliTrendSignal({position:15,keyword:'organizador cozinha'});
+  const popular=buildMeliTrendSignal({position:45,keyword:'organizador cozinha'});
+  expect(growth.source).toBe('MELI_TREND_GROWTH');
+  expect(growth.strength).toBeGreaterThan(desired.strength);
+  expect(desired.strength).toBeGreaterThan(popular.strength);
+});
+
+it('boosts a bestseller opportunity without changing the 100 point ceiling',()=>{
+  const item=product('MLB1','Organizador cozinha');
+  const baseline=buildOpportunity(item,'organizador cozinha');
+  const ranked=buildOpportunity(item,'organizador cozinha',{
+    signals:[buildMeliBestSellerSignal({position:1,productExternalId:'MLB1'})],
+  });
+  expect(ranked.score.score).toBeGreaterThanOrEqual(baseline.score.score);
+  expect(ranked.score.score).toBeLessThanOrEqual(100);
+  expect(ranked.rankingReasons.some((reason)=>reason.includes('#1'))).toBe(true);
+});
+
+it('captures Shopee commission as commercial yield evidence',()=>{
+  const signals=buildShopeeManualSignals({
+    type:'SHOPEE_EXTRA_COMMISSION',
+    keyword:'organizador cozinha',
+    productExternalId:'SHP1',
+    commissionRate:0.15,
+  });
+  expect(signals.some((signal)=>signal.kind==='YIELD')).toBe(true);
+  expect(signals[0]?.commissionRate).toBe(0.15);
+});
+
+it('creates stable affiliate tracking labels',()=>{
+  expect(affiliateTrackingCode({
+    marketplace:'MELI',
+    keyword:'organizador cozinha pequena',
+    seed:'MLB-123456',
+  })).toBe('NA_ML_ORGANIZADOR_COZINHA_PEQUENA_123456');
 });
