@@ -38,10 +38,17 @@ async function loadImage(file:File){
   }
 }
 
-async function canvasBlob(canvas:HTMLCanvasElement){
-  return await new Promise<Blob>((resolve,reject)=>{
-    canvas.toBlob((blob)=>blob ? resolve(blob) : reject(new Error('IMAGE_ENCODE_FAILED')),'image/png',0.94);
+async function encodeCanvas(canvas:HTMLCanvasElement,maxBytes=620_000){
+  const encode=(type:string,quality:number)=>new Promise<Blob>((resolve,reject)=>{
+    canvas.toBlob((blob)=>blob ? resolve(blob) : reject(new Error('IMAGE_ENCODE_FAILED')),type,quality);
   });
+  for(const quality of [0.9,0.82,0.74,0.66,0.58]){
+    const blob=await encode('image/webp',quality);
+    if(blob.size<=maxBytes) return blob;
+  }
+  const jpeg=await encode('image/jpeg',0.72);
+  if(jpeg.size<=700_000) return jpeg;
+  throw new Error('NORMALIZED_IMAGE_TOO_LARGE');
 }
 
 export function AIImageImport({
@@ -96,7 +103,7 @@ export function AIImageImport({
       const crop=computeCoverCrop({width:loaded.width,height:loaded.height},{width:1000,height:1500},nextBias);
       ctx.drawImage(loaded.image,crop.sx,crop.sy,crop.sw,crop.sh,0,0,1000,1500);
       URL.revokeObjectURL(loaded.url);
-      const blob=await canvasBlob(canvas);
+      const blob=await encodeCanvas(canvas);
       const normalizedBuffer=await blob.arrayBuffer();
       const hash=await sha256Hex(normalizedBuffer);
       const previewUrl=URL.createObjectURL(blob);
@@ -145,7 +152,7 @@ export function AIImageImport({
         campaignId,
         origin:'MANUAL_CHATGPT',
         rightsStatus:'GENERATED',
-        mimeType:'image/png',
+        mimeType:(prepared.blob.type==='image/jpeg'?'image/jpeg':prepared.blob.type==='image/png'?'image/png':'image/webp'),
         width:1000,
         height:1500,
         originalWidth:prepared.originalWidth,
@@ -157,7 +164,7 @@ export function AIImageImport({
         productFidelityConfirmed:true,
         createdAt:new Date().toISOString(),
       };
-      const asset=db && firebaseStorage
+      const asset=db
         ? await uploadCreativeAsset({db,storage:firebaseStorage,organizationId,asset:base,blob:prepared.blob})
         : {...base,downloadUrl:prepared.previewUrl};
       onImported(asset);
