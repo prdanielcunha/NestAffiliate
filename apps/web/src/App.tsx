@@ -1399,6 +1399,7 @@ function Publish({
           <Field label="Link" value={pkg.destinationUrl} onCopy={() => copy(pkg.destinationUrl)} />
           <Field label={t('saveTo')} value={pkg.boardName} onCopy={() => copy(pkg.boardName)} />
           <Field label={t('altText')} value={pkg.altText} onCopy={() => copy(pkg.altText)} />
+          {activeCampaign.rankingContext?.trackingCode && <Field label={t('trackingCode')} value={activeCampaign.rankingContext.trackingCode} onCopy={() => copy(activeCampaign.rankingContext!.trackingCode!)} />}
         </section>
       </div>
       <section className="schedule-panel">
