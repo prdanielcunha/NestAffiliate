@@ -89,7 +89,23 @@ export async function uploadCreativeAsset(input:{
 }):Promise<CreativeAsset>{
   if(input.asset.organizationId!==input.organizationId) throw new Error('TENANT_MISMATCH');
   const duplicate=await findCreativeAssetByHash(input.db,input.organizationId,input.asset.hash);
-  if(duplicate?.downloadUrl) return duplicate;
+  if(duplicate?.downloadUrl){
+    const reused:CreativeAsset={
+      ...input.asset,
+      mimeType:'image/png',
+      width:1000,
+      height:1500,
+      storagePath:duplicate.storagePath,
+      downloadUrl:duplicate.downloadUrl,
+    };
+    await setDoc(doc(input.db,...root(input.organizationId),'creativeAssets',reused.id),{
+      ...reused,
+      organizationId:input.organizationId,
+      deduplicatedFrom:duplicate.id,
+      updatedAt:serverTimestamp(),
+    },{merge:true});
+    return reused;
+  }
 
   const path='organizations/'+input.organizationId+'/creative-assets/'+input.asset.id+'.png';
   const objectRef=ref(input.storage,path);
