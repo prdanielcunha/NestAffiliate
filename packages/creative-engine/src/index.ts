@@ -315,9 +315,10 @@ export {
   runVisualTruthGuard,
   truthConstraints,
 } from './visual-truth';
-export { buildPinterestCreativePack } from './pinterest-pack';
+export { buildPinterestCreativePack, versionPinterestCreativePack } from './pinterest-pack';
 export {
   validateImageMetadata,
+  detectImageMime,
   computeCoverCrop,
   sha256Hex,
   SUPPORTED_IMAGE_MIME,
