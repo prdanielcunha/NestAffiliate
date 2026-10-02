@@ -193,15 +193,24 @@ async function main(){
   required('MELI_REFRESH_TOKEN_RESPONSE',token.refresh_token);
 
   const now=new Date().toISOString();
+  const expiresIn=Math.max(60,Number(token.expires_in || 0));
+  const accessTokenExpiresAt=new Date(Date.now()+expiresIn*1000).toISOString();
+
   await writeDoc(secretDoc,{
     organizationId:ORG_ID,
     provider:'MELI',
     refreshToken:String(token.refresh_token),
+    accessToken:String(token.access_token),
+    accessTokenExpiresAt,
     rotatedAt:now,
   });
 
   const trends=await meliGet('/trends/MLB',token.access_token);
   if(!Array.isArray(trends)) throw new Error('MELI_TRENDS_INVALID_RESPONSE');
+
+  const searchProbe=await meliGet('/sites/MLB/search?q=organizador%20cozinha%20pequena&limit=3',token.access_token);
+  const searchProbeCount=Array.isArray(searchProbe?.results) ? searchProbe.results.length : 0;
+  if(searchProbeCount<1) throw new Error('MELI_SEARCH_PROBE_EMPTY');
 
   const trendSignals=trends
     .map((entry,index)=>trendSignal(entry,index,now))
@@ -237,6 +246,8 @@ async function main(){
     status:'connected',
     capability:'market-signals',
     lastSyncedAt:now,
+    accessTokenExpiresAt,
+    searchProbeCount,
     trendSignals:trendSignals.length,
     highlightSignals:highlightSignals.length,
     categories:categories.map((category)=>category.id),
@@ -247,6 +258,8 @@ async function main(){
     trends:trendSignals.length,
     highlights:highlightSignals.length,
     categories,
+    searchProbeCount,
+    accessTokenExpiresAt,
     observedAt:now,
   }));
 }
