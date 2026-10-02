@@ -105,7 +105,7 @@ test('Review can prepare a full Pinterest Creative Pack and blocks approval unti
   await expect(page.locator('.concept-card')).toHaveCount(3);
   await expect(page.getByText('PROMPT DE IMAGEM')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copiar para ChatGPT' })).toBeVisible();
-  await expect(page.getByText('1000 × 1500')).toBeVisible();
+  await expect(page.getByText('1000 × 1500', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
   await expect(page.getByText(/Importe e revise a imagem gerada antes de aprovar/i)).toBeVisible();
