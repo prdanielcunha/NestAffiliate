@@ -27,16 +27,18 @@ export function ImagePromptPanel({
   },[concept,language,pack.creativeDirection.cameraAngle,product]);
 
   if(!concept || !prompt) return null;
+  const activeConcept=concept;
+  const activePrompt=prompt;
 
   async function copyPrompt(){
-    await navigator.clipboard.writeText(prompt.prompt);
+    await navigator.clipboard.writeText(activePrompt.prompt);
     setCopied(true);
     window.setTimeout(()=>setCopied(false),1400);
   }
 
   async function copyToChatGPT(){
     const opened=window.open('https://chatgpt.com/','_blank','noopener,noreferrer');
-    await navigator.clipboard.writeText(prompt.prompt);
+    await navigator.clipboard.writeText(activePrompt.prompt);
     if(!opened) setCopied(true);
   }
 
@@ -49,7 +51,7 @@ export function ImagePromptPanel({
     <div className="prompt-panel-head">
       <div>
         <p className="eyebrow">{t('imagePrompt')}</p>
-        <h3>{concept.title}</h3>
+        <h3>{activeConcept.title}</h3>
       </div>
       <div className="prompt-language" role="group" aria-label={t('promptLanguage')}>
         <button className={language==='en'?'active':''} onClick={()=>setLanguage('en')}>EN</button>
@@ -71,7 +73,7 @@ export function ImagePromptPanel({
       </div>
     </div>
 
-    <pre className="prompt-box image-prompt-box">{prompt.prompt}</pre>
+    <pre className="prompt-box image-prompt-box">{activePrompt.prompt}</pre>
     <div className="prompt-actions">
       <button className="button primary" onClick={()=>void copyToChatGPT()}>{t('copyToChatGPT')}</button>
       <button className="button secondary" onClick={()=>void copyPrompt()}>{copied?t('copied'):t('copyPrompt')}</button>
