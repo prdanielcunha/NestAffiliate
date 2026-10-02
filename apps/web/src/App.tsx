@@ -692,10 +692,21 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const identity=useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('organizador cozinha pequena');
-  const [items, setItems] = useState<ProductTruth[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [marketSignals,setMarketSignals]=useState<CommerceSignal[]>([]);
   const [maxPrice,setMaxPrice]=useState('');
   const [requireImage,setRequireImage]=useState(false);
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
+
+  useEffect(()=>{
+    if(!db || !organizationId) return;
+    let active=true;
+    const currentDb=db;
+    void listMarketSignals(currentDb,organizationId)
+      .then((signals)=>{if(active)setMarketSignals(signals);})
+      .catch(()=>undefined);
+    return ()=>{active=false;};
+  },[organizationId]);
 
   async function search() {
     setState('loading');
@@ -706,25 +717,50 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         void recordRadarSignal({db:currentDb,organizationId,query,products:found}).catch(()=>undefined);
       }
       const ceiling=maxPrice.trim() ? Number(maxPrice.replace(',','.')) : null;
-      const filtered=shortlist(found, query, 20)
-        .map((opportunity) => opportunity.product)
-        .filter((product)=>ceiling===null || !product.price || product.price.value<=ceiling)
-        .filter((product)=>!requireImage || Boolean(product.imageUrl));
-      setItems(filtered.slice(0,12));
+      const snapshotResolver=signalResolverFromSnapshots(marketSignals);
+      const ranked=shortlist(found,query,20,(product)=>{
+        const stored=snapshotResolver(product,query);
+        return {
+          ...stored,
+          signals:[
+            ...stored.signals,
+            buildSearchSignal({
+              marketplace:product.marketplace,
+              keyword:query,
+              resultCount:found.length,
+              confidence:0.76,
+            }),
+          ],
+        };
+      })
+        .filter((opportunity)=>ceiling===null || !opportunity.product.price || opportunity.product.price.value<=ceiling)
+        .filter((opportunity)=>!requireImage || Boolean(opportunity.product.imageUrl));
+      setOpportunities(ranked.slice(0,12));
       setState('idle');
     } catch {
       setState('error');
     }
   }
 
-  function create(product: ProductTruth, keywordOverride?: string) {
+  function create(
+    product: ProductTruth,
+    keywordOverride?: string,
+    signalInput?:OpportunitySignals,
+    rank?:number,
+  ) {
     if (!editable) return;
     const campaignKeyword = keywordOverride?.trim() || query;
-    const opportunity = buildOpportunity(product, campaignKeyword);
+    const opportunity = buildOpportunity(product, campaignKeyword, signalInput ?? {signals:[]});
     const score = opportunity.score;
     const id = `campaign-${Date.now()}`;
     const campaign: Campaign = {
       id, organizationId, status: 'READY', marketplace: product.marketplace, score,
+      rankingContext:{
+        rank,
+        trackingCode:opportunity.trackingCode,
+        evidence:opportunity.rankingReasons,
+        signalSources:opportunity.commercialSignals.map((signal)=>signal.source),
+      },
       currentVersion: {
         id: `${id}-v1`, campaignId: id, version: 1, createdAt: new Date().toISOString(), reason: 'radar',
         product,
@@ -744,7 +780,21 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       history: [],
     };
     addCampaign(campaign);
+    if(db && signalInput?.signals.length){
+      const currentDb=db;
+      void saveMarketSignals(currentDb,organizationId,signalInput.signals)
+        .then(()=>setMarketSignals((items)=>[
+          ...items.filter((existing)=>!signalInput.signals.some((signal)=>signal.id===existing.id)),
+          ...signalInput.signals,
+        ]))
+        .catch(()=>undefined);
+    }
     navigate(`/review/${id}`);
+  }
+
+  function prepareAffiliate(opportunity:Opportunity){
+    window.open(opportunity.product.url.value,'_blank','noopener,noreferrer');
+    void navigator.clipboard.writeText(opportunity.product.url.value).catch(()=>undefined);
   }
 
   return (
