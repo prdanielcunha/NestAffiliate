@@ -1017,6 +1017,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       destinationUrl: destination,
       headline: v.narrative.headline,
       description: v.narrative.description,
+      creativeAsset:v.creativeAsset,
       duplicateSimilarity: campaignDuplicateSimilarity(campaign,campaigns),
     });
     const next: Campaign = {
@@ -1162,7 +1163,6 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           )}
         </section>
       </div>
-      <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
       <div className="ai-bar">
         <span className="spark">✦</span>
         <input id="ai-edit" disabled={!editable} value={command} onChange={(e) => { setSaved(false); setCommand(e.target.value); }} onKeyDown={(e) => e.key === 'Enter' && applyEdit(command)} placeholder={editable ? t('askChange') : t('readOnly')} />
@@ -1280,6 +1280,7 @@ function Publish({
   const guard = runPublishingGuard({
     product: v.product, disclosure: v.narrative.disclosure, destinationUrl: destination,
     headline: v.narrative.headline, description: v.narrative.description,
+    creativeAsset:v.creativeAsset,
     duplicateSimilarity:campaignDuplicateSimilarity(activeCampaign,campaigns),
     frequencyPolicy:hasFrequencyPolicy ? {
       maxPublications24h:preferences.maxPublications24h ?? undefined,
