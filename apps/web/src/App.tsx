@@ -653,8 +653,9 @@ function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; s
               changed:agentReport.changed ?? 0,
               blocked:agentReport.blocked ?? 0,
               expired:agentReport.opportunitiesExpired ?? 0,
+              revalidated:agentReport.campaignsRevalidated ?? 0,
             })}</small>}
-            {agentReport && <small>{t('queueDecision')}: {queueStateLabel} · {t('categoriesCovered')}: {agentReport.categoriesCovered ?? 0}</small>}
+            {agentReport && <small>{t('queueDecision')}: {queueStateLabel} · {t('categoriesCovered')}: {agentReport.categoriesCovered ?? 0} · {t('themesCovered')}: {agentReport.themesCovered ?? 0}</small>}
             {agentReport?.topOpportunityScore != null && <small>NestScore {agentReport.topOpportunityScore} · {agentReport.topOpportunityKeyword ?? '—'}</small>}
             {agentReport?.completedAt && <small>{t('lastSync')}: {new Date(agentReport.completedAt).toLocaleString(locale)} · {t('cloudAgent')}</small>}
             {agentHealth.nextExpectedAt && <small>{t('nextCycle')}: {new Date(agentHealth.nextExpectedAt).toLocaleString(locale)}</small>}

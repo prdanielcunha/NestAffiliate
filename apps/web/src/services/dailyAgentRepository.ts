@@ -18,7 +18,9 @@ export interface DailyAgentReport {
   campaignsWaiting?: number;
   fallbackQueries?: number;
   opportunitiesExpired?: number;
+  campaignsRevalidated?: number;
   categoriesCovered?: number;
+  themesCovered?: number;
   topOpportunityScore?: number;
   topOpportunityKeyword?: string;
   queueMin?: number;
