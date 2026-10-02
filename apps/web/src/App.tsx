@@ -1325,8 +1325,8 @@ function Publish({
     keywords:v.creativePack?.copy.keywords,
     creativePackId:v.creativePack?.id,
     creativeAssetId:v.creativeAsset?.id,
-    conceptId:selectedConcept?.id,
-    promptPackageId:selectedConcept?.imagePrompt.id,
+    conceptId:v.creativeAsset?.conceptId ?? selectedConcept?.id,
+    promptPackageId:v.creativeAsset?.promptPackageId ?? selectedConcept?.imagePrompt.id,
     sceneType:selectedConcept?.sceneProfile.sceneType,
     environment:selectedConcept?.sceneProfile.environment,
   };
