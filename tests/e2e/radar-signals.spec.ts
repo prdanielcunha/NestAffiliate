@@ -1,22 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-function product(id:string,title:string,price:number,image:string){
-  const observedAt='2026-10-02T20:10:00.000Z';
-  return {
-    productId:`meli:${id}`,
-    organizationId:'demo-org',
-    marketplace:'MELI',
-    externalId:id,
-    title:{value:title,source:'mercadolivre-catalog-api',observedAt},
-    url:{value:`https://www.mercadolivre.com.br/p/${id}`,source:'mercadolivre-catalog-api',observedAt},
-    price:{value:price,source:'mercadolivre-buy-box',observedAt},
-    currency:{value:'BRL',source:'mercadolivre-buy-box',observedAt},
-    availability:{value:'available',source:'mercadolivre-catalog-api',observedAt},
-    imageUrl:{value:image,source:'mercadolivre-catalog-api',observedAt},
-    assetRights:'UNKNOWN',
-  };
-}
-
 test('Radar shows automatic market status, useful suggestions and real product cards', async ({ page }) => {
   await page.goto('/radar');
 
