@@ -730,6 +730,27 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     return values.length ? Math.max(...values) : null;
   },[marketSignals]);
 
+  const marketInsights=useMemo(()=>{
+    const seen=new Set<string>();
+    return [...marketSignals]
+      .filter((signal)=>Boolean(signal.keyword?.trim()))
+      .sort((a,b)=>(b.strength*b.confidence)-(a.strength*a.confidence))
+      .filter((signal)=>{
+        const key=signal.keyword!.trim().toLowerCase();
+        if(seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0,8);
+  },[marketSignals]);
+
+  function marketSignalLabel(signal:CommerceSignal){
+    if(signal.source==='MELI_BEST_SELLER') return t('marketBestSeller');
+    if(signal.source==='MELI_TREND_GROWTH') return t('marketGrowing');
+    if(signal.source==='MELI_TREND_DESIRED') return t('marketHighlySearched');
+    return t('marketPopular');
+  }
+
   async function search(queryOverride?:string,signalOverride?:CommerceSignal[]) {
     const effectiveQuery=(queryOverride ?? query).trim();
     if(!effectiveQuery) return;
@@ -853,13 +874,33 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       </div>
 
       <div className="radar-status-row">
-        <div className="signal-health">
-          <span className="health-dot" />
-          <div>
-            <strong>{t('officialAutomationOn')}</strong>
-            <span>{t('officialAutomationBody')}{latestSignalAt ? ` · ${t('updatedAt')} ${new Intl.DateTimeFormat(locale,{dateStyle:'short',timeStyle:'short'}).format(latestSignalAt)}` : ''}</span>
+        <details className="market-intelligence">
+          <summary>
+            <span className="health-dot" />
+            <div>
+              <strong>{t('officialAutomationOn')}</strong>
+              <span>{t('officialAutomationBody')}{latestSignalAt ? ` · ${t('updatedAt')} ${new Intl.DateTimeFormat(locale,{dateStyle:'short',timeStyle:'short'}).format(latestSignalAt)}` : ''}</span>
+            </div>
+            <b>{t('viewMarketIntelligence')}</b>
+          </summary>
+          <div className="market-intelligence-body">
+            <div className="market-intelligence-head">
+              <div>
+                <strong>{t('marketIntelligenceTitle')}</strong>
+                <span>{t('marketIntelligenceBody',{n:marketSignals.length})}</span>
+              </div>
+            </div>
+            <div className="market-insight-grid">
+              {marketInsights.length ? marketInsights.map((signal)=>(
+                <button key={signal.id} type="button" onClick={()=>signal.keyword && void search(signal.keyword)}>
+                  <span>{marketSignalLabel(signal)}</span>
+                  <strong>{signal.keyword}</strong>
+                  {signal.rank ? <small>#{signal.rank}</small> : null}
+                </button>
+              )) : <p>{t('marketIntelligencePending')}</p>}
+            </div>
           </div>
-        </div>
+        </details>
         <div className="chips compact"><span>{t('noDuplicates')}</span><span>{t('seasonalityOn')}</span></div>
       </div>
       <div className="radar-filters">
