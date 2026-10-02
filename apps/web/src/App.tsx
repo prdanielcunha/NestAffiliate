@@ -26,6 +26,7 @@ import { OfficialSignalImport } from './features/OfficialSignalImport';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
 import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
+import { resolveCreativeAssetUrl } from './services/creativePackRepository';
 import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
 import { ConnectionCenter } from './features/ConnectionCenter';
 import { ensureNestAffiliateWorkspace } from './services/workspaceBootstrap';
@@ -408,7 +409,7 @@ function campaignFingerprint(campaign:Campaign):PublicationFingerprint{
   const version=campaign.currentVersion;
   return {
     productId:version.product.productId,
-    imageUrl:version.product.imageUrl?.value,
+    imageUrl:version.creativeAsset?.hash ?? version.product.imageUrl?.value,
     headline:version.narrative.headline,
     description:version.narrative.description,
     template:version.template,
@@ -1176,8 +1177,31 @@ function PinPreview({ campaign }: { campaign: Campaign }) {
   const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    if (canvasRef.current) void renderPin(canvasRef.current, campaign.currentVersion);
-  }, [campaign.currentVersion]);
+    let disposed=false;
+    let objectUrl:string|undefined;
+    async function draw(){
+      if(!canvasRef.current) return;
+      let version=campaign.currentVersion;
+      const asset=version.creativeAsset;
+      if(asset && !asset.downloadUrl && db){
+        const resolved=await resolveCreativeAssetUrl(db,campaign.organizationId,asset).catch(()=>null);
+        if(disposed){
+          if(resolved?.revoke) URL.revokeObjectURL(resolved.url);
+          return;
+        }
+        if(resolved){
+          objectUrl=resolved.revoke ? resolved.url : undefined;
+          version={...version,creativeAsset:{...asset,downloadUrl:resolved.url}};
+        }
+      }
+      if(!disposed && canvasRef.current) await renderPin(canvasRef.current,version);
+    }
+    void draw();
+    return ()=>{
+      disposed=true;
+      if(objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [campaign.currentVersion,campaign.organizationId]);
   return (
     <section className="preview-panel">
       <div className="preview-toolbar"><span>{t('pinPreview')}</span><span>1000 × 1500 · 2:3</span></div>
@@ -1386,7 +1410,17 @@ function Publish({
   async function downloadImage() {
     persistPackage();
     const canvas = document.createElement('canvas');
-    const dataUrl = await renderPin(canvas, v);
+    let version=v;
+    let objectUrl:string|undefined;
+    if(v.creativeAsset && !v.creativeAsset.downloadUrl && db){
+      const resolved=await resolveCreativeAssetUrl(db,activeCampaign.organizationId,v.creativeAsset).catch(()=>null);
+      if(resolved){
+        objectUrl=resolved.revoke ? resolved.url : undefined;
+        version={...v,creativeAsset:{...v.creativeAsset,downloadUrl:resolved.url}};
+      }
+    }
+    const dataUrl = await renderPin(canvas, version);
+    if(objectUrl) URL.revokeObjectURL(objectUrl);
     const link = document.createElement('a');
     link.href = dataUrl;
     link.download = pkg.filename;
