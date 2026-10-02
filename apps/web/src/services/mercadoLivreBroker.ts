@@ -26,6 +26,37 @@ export async function searchMercadoLivreBrokerDetailed(input:{
   limit?:number;
 }):Promise<MercadoLivreSearchResult>{
   const query=input.query.trim();
+
+  if(import.meta.env.VITE_E2E_MOCK_AUTH==='true'){
+    const observedAt='2026-10-02T20:10:00.000Z';
+    const mock=(id:string,title:string,price:number):ProductTruth=>({
+      productId:`meli:${id}`,
+      organizationId:input.organizationId,
+      marketplace:'MELI',
+      externalId:id,
+      title:{value:title,source:'mercadolivre-catalog-api',observedAt},
+      url:{value:`https://www.mercadolivre.com.br/p/${id}`,source:'mercadolivre-catalog-api',observedAt},
+      price:{value:price,source:'mercadolivre-buy-box',observedAt},
+      currency:{value:'BRL',source:'mercadolivre-buy-box',observedAt},
+      availability:{value:'available',source:'mercadolivre-catalog-api',observedAt},
+      imageUrl:{value:`https://http2.mlstatic.com/D_${id}.jpg`,source:'mercadolivre-catalog-api',observedAt},
+      assetRights:'UNKNOWN',
+    });
+    const products=[
+      mock('MLB-A1','Organizador de Gavetas Ajustável',49.9),
+      mock('MLB-B2','Prateleira Extensível para Armário',79.9),
+      mock('MLB-C3','Kit de Potes Herméticos para Mantimentos',119.9),
+    ];
+    return {
+      products,
+      query,
+      provider:'MELI',
+      source:'mercadolivre-catalog-api',
+      observedAt,
+      meta:{catalogTotal:143,candidates:20,detailed:18,usable:3},
+    };
+  }
+
   if(!query){
     return {
       products:[],
