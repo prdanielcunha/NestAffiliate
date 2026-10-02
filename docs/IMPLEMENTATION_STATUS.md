@@ -211,6 +211,17 @@ The data model is multi-tenant from day one, but external billing/plans/onboardi
 
 ## Operational automation
 
+### Daily Agent 2.0 — cloud operator
+- runs in GitHub Actions every 3 hours and on relevant production integration changes;
+- persists server-side cycle reports and a backend health/watchdog snapshot;
+- analyzes live Mercado Livre signals/products, resolving official bestseller entities across ITEM, PRODUCT and USER_PRODUCT when the provider exposes a verifiable sale condition; catalog research candidates can enter the human review queue when needed, but are explicitly marked unverified and require manual fresh confirmation plus the normal affiliate-link/publishing guards before publication; expires stale opportunities after 24 hours and maintains a diversified review queue;
+- keeps a 3–5 campaign operating band, refilling toward 5 without flooding the human review queue;
+- avoids exact/near-duplicate products already represented in campaign history and diversifies persisted opportunities/campaigns by commercial theme;
+- revalidates legacy/catalog-based READY campaigns through item lookup with a conservative catalog/title fallback;
+- surfaces health, next expected cycle, market signals, analyzed opportunities, queue state, category/theme coverage, revalidation and errors in Today;
+- browser campaign state refreshes on focus/visibility and every 5 minutes so cloud work appears without a hard reload;
+- failures create an explicit FAILED server report when Firestore remains reachable.
+
 - Daily Agent runs in the zero-cost cloud path through the scheduled Mercado Livre GitHub Actions cycle, every four hours and on integration changes/manual dispatch.
 - Each cycle refreshes official Mercado Livre signals, searches and enriches product candidates, computes NestScore 2.0, persists the best opportunities and can prepare READY campaigns without requiring the browser to be open.
 - The review queue is intentionally bounded: the agent targets up to 3 READY campaigns awaiting human decision and pauses new campaign creation while the queue is already full.

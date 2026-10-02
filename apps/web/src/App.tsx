@@ -31,7 +31,7 @@ import { defaultPreferences, loadUserPreferences, saveUserPreferences, type User
 import { recordRadarSignal } from './services/radarRepository';
 import { loadPublicationFrequency, type PublicationFrequencyState } from './services/publicationRepository';
 import { SettingsPanel } from './features/SettingsPanel';
-import { loadLatestDailyAgentReport, type DailyAgentReport } from './services/dailyAgentRepository';
+import { deriveDailyAgentHealth, loadLatestDailyAgentReport, type DailyAgentReport } from './services/dailyAgentRepository';
 import { freshValidateProduct } from './services/freshValidation';
 import { completePublicationSchedule, listPublicationSchedules, savePublicationSchedule } from './services/publicationScheduleRepository';
 import { listMarketSignals, saveMarketSignals } from './services/marketSignalRepository';
@@ -65,15 +65,34 @@ function useCampaignStore(organizationId: string | null, actorId: string | null,
       localStorage.removeItem(storageKey);
     }
 
+    let stopCloudRefresh = () => undefined;
     if (db && !demoEnabled) {
-      void listCampaigns(db, organizationId)
-        .then((remote) => {
-          if (active && remote.length) setCampaigns(remote);
-        })
-        .catch(() => undefined);
+      const currentDb = db;
+      const refreshCloud = () => {
+        void listCampaigns(currentDb, organizationId)
+          .then((remote) => {
+            if (active) setCampaigns(remote);
+          })
+          .catch(() => undefined);
+      };
+      const onFocus = () => refreshCloud();
+      const onVisibility = () => {
+        if (document.visibilityState === 'visible') refreshCloud();
+      };
+
+      refreshCloud();
+      const timer = window.setInterval(refreshCloud, 5 * 60_000);
+      window.addEventListener('focus', onFocus);
+      document.addEventListener('visibilitychange', onVisibility);
+      stopCloudRefresh = () => {
+        window.clearInterval(timer);
+        window.removeEventListener('focus', onFocus);
+        document.removeEventListener('visibilitychange', onVisibility);
+      };
     }
     return () => {
       active = false;
+      stopCloudRefresh();
     };
   }, [organizationId, storageKey, demoEnabled]);
 
@@ -556,6 +575,17 @@ function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; s
   const due=liveSchedules.filter((item)=>item.status==='DUE');
   const upcoming=liveSchedules.filter((item)=>item.status==='SCHEDULED').slice(0,3);
   const productCount = new Set(campaigns.map((c) => c.currentVersion.product.productId)).size;
+  const agentHealth = deriveDailyAgentHealth(agentReport);
+  const agentHealthLabel =
+    agentHealth.status === 'HEALTHY' ? t('agentHealthy') :
+    agentHealth.status === 'DEGRADED' ? t('agentDegraded') :
+    agentHealth.status === 'STALE' ? t('agentStale') :
+    t('agentUnknown');
+  const queueStateLabel =
+    agentReport?.queueState === 'FULL' ? t('queueFull') :
+    agentReport?.queueState === 'REFILLED' ? t('queueRefilled') :
+    agentReport?.queueState === 'NO_ELIGIBLE' ? t('queueNoEligible') :
+    t('queueStable');
   return (
     <div className="page">
       <section className="hero">
@@ -613,12 +643,23 @@ function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; s
         <div className="surface">
           <p className="eyebrow">{t('whileAway')}</p>
           <div className="timeline">
+            <span><b>{agentHealthLabel}</b> {t('agentHealth')}</span>
             <span><b>{agentReport?.checked ?? 0}</b> {t('productsChecked')}</span>
-            <span><b>{agentReport?.changed ?? 0}</b> {t('productsChanged')}</span>
-            <span><b>{agentReport?.blocked ?? 0}</b> {t('complianceBlocks')}</span>
-            <span><b>{ready.length}</b> {t('campaignsWaiting')}</span>
-            {agentReport && <small>{agentReport.opportunitiesAnalyzed ?? 0} {t('opportunitiesAnalyzed')} · {agentReport.campaignsCreated ?? 0} {t('campaignsPrepared')}</small>}
+            <span><b>{agentReport?.opportunitiesAnalyzed ?? 0}</b> {t('opportunitiesAnalyzed')}</span>
+            <span><b>{agentReport?.campaignsCreated ?? 0}</b> {t('campaignsPrepared')}</span>
+            <span><b>{agentReport?.campaignsWaiting ?? ready.length}</b> {t('campaignsWaiting')}</span>
+            <span><b>{agentReport?.signals ?? 0}</b> {t('signalsProcessed')}</span>
+            <span><b>{agentReport?.verifiedBestSellerProducts ?? 0}</b> {t('verifiedBestSellers')}</span>
+            {agentReport && <small>{t('agentCycleDetails',{
+              changed:agentReport.changed ?? 0,
+              blocked:agentReport.blocked ?? 0,
+              expired:agentReport.opportunitiesExpired ?? 0,
+              revalidated:agentReport.campaignsRevalidated ?? 0,
+            })}</small>}
+            {agentReport && <small>{t('queueDecision')}: {queueStateLabel} · {t('categoriesCovered')}: {agentReport.categoriesCovered ?? 0} · {t('themesCovered')}: {agentReport.themesCovered ?? 0}</small>}
+            {agentReport?.topOpportunityScore != null && <small>NestScore {agentReport.topOpportunityScore} · {agentReport.topOpportunityKeyword ?? '—'}</small>}
             {agentReport?.completedAt && <small>{t('lastSync')}: {new Date(agentReport.completedAt).toLocaleString(locale)} · {t('cloudAgent')}</small>}
+            {agentHealth.nextExpectedAt && <small>{t('nextCycle')}: {new Date(agentHealth.nextExpectedAt).toLocaleString(locale)}</small>}
           </div>
         </div>
         <div className="surface">
@@ -1386,7 +1427,7 @@ function Publish({
       setFreshState('idle');
       return;
     }
-    if(campaign.marketplace!=='MELI'){
+    if(campaign.marketplace!=='MELI' || campaign.currentVersion.product.listingVerified===false){
       setFreshState('manual');
       return;
     }

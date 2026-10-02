@@ -17,6 +17,17 @@ export interface DailyAgentReport {
   campaignsCreated?: number;
   campaignsWaiting?: number;
   fallbackQueries?: number;
+  opportunitiesExpired?: number;
+  campaignsRevalidated?: number;
+  verifiedBestSellerProducts?: number;
+  categoriesCovered?: number;
+  themesCovered?: number;
+  topOpportunityScore?: number;
+  topOpportunityKeyword?: string;
+  queueMin?: number;
+  queueTarget?: number;
+  queueState?: 'FULL' | 'REFILLED' | 'NO_ELIGIBLE' | 'STABLE';
+  nextExpectedAt?: string;
   messages: string[];
 }
 
@@ -35,4 +46,34 @@ export async function loadLatestDailyAgentReport(
     .filter((report) => Boolean(report.completedAt))
     .sort((a, b) => b.completedAt.localeCompare(a.completedAt));
   return reports[0] ?? null;
+}
+
+
+export type DailyAgentHealth = 'HEALTHY' | 'DEGRADED' | 'STALE' | 'UNKNOWN';
+
+export interface DailyAgentHealthState {
+  status: DailyAgentHealth;
+  ageMinutes: number | null;
+  nextExpectedAt: string | null;
+}
+
+export function deriveDailyAgentHealth(
+  report: DailyAgentReport | null,
+  now = new Date(),
+): DailyAgentHealthState {
+  if (!report?.completedAt) return { status: 'UNKNOWN', ageMinutes: null, nextExpectedAt: null };
+
+  const completedAt = new Date(report.completedAt).getTime();
+  if (!Number.isFinite(completedAt)) return { status: 'UNKNOWN', ageMinutes: null, nextExpectedAt: null };
+
+  const ageMinutes = Math.max(0, Math.round((now.getTime() - completedAt) / 60_000));
+  const explicitNext = report.nextExpectedAt ? new Date(report.nextExpectedAt).getTime() : NaN;
+  const nextExpectedMs = Number.isFinite(explicitNext) ? explicitNext : completedAt + 3 * 60 * 60_000;
+  const nextExpectedAt = new Date(nextExpectedMs).toISOString();
+
+  if (ageMinutes > 5 * 60) return { status: 'STALE', ageMinutes, nextExpectedAt };
+  if (report.status === 'FAILED' || report.status === 'PARTIAL' || report.errors > 0) {
+    return { status: 'DEGRADED', ageMinutes, nextExpectedAt };
+  }
+  return { status: 'HEALTHY', ageMinutes, nextExpectedAt };
 }

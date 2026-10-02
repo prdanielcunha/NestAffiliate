@@ -7,7 +7,7 @@ on:
       - ".github/workflows/meli-market-signal-sync.yml"
       - "scripts/sync-meli-market-signals.mjs"
   schedule:
-    - cron: '17 */4 * * *'
+    - cron: '17 */3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -24,6 +24,7 @@ env:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 

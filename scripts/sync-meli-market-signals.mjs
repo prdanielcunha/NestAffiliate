@@ -96,12 +96,28 @@ async function refreshMeliToken(refreshToken){
   return response.json();
 }
 
+function sleep(ms){
+  return new Promise((resolve)=>setTimeout(resolve,ms));
+}
+
 async function meliGet(path,accessToken){
-  const response=await fetch(`https://api.mercadolibre.com${path}`,{
-    headers:{Authorization:`Bearer ${accessToken}`},
-  });
-  if(!response.ok) throw new Error(`MELI_GET_${response.status}:${path}`);
-  return response.json();
+  let lastStatus=0;
+  for(let attempt=0;attempt<4;attempt+=1){
+    const response=await fetch(`https://api.mercadolibre.com${path}`,{
+      headers:{Authorization:`Bearer ${accessToken}`,Accept:'application/json'},
+    });
+    if(response.ok) return response.json();
+
+    lastStatus=response.status;
+    const retryable=response.status===429 || response.status>=500;
+    if(!retryable || attempt===3) break;
+
+    const retryAfter=Number(response.headers.get('retry-after') || 0);
+    const backoff=Math.max(retryAfter*1000,Math.min(8000,1000*(2**attempt)));
+    console.warn('MELI_RETRY',JSON.stringify({path,status:response.status,attempt:attempt+1,backoff}));
+    await sleep(backoff);
+  }
+  throw new Error(`MELI_GET_${lastStatus}:${path}`);
 }
 
 function trendSignal(entry,index,observedAt){
@@ -148,6 +164,8 @@ function highlightSignal(entry,category,observedAt){
     ],
     rank:position,
     keyword:category.label || undefined,
+    entityType:String(entry.type || 'UNKNOWN'),
+    entityId:String(entry.id || ''),
     productExternalId:exactItem ? entry.id : undefined,
   };
 }
@@ -197,6 +215,8 @@ const dailyAgentCampaigns=dailyAgentRoot+'/campaigns';
 const dailyAgentVersions=dailyAgentRoot+'/campaignVersions';
 const dailyAgentOpportunities=dailyAgentRoot+'/opportunities';
 const dailyAgentRuns=dailyAgentRoot+'/dailyAgentRuns';
+const dailyAgentJobs=dailyAgentRoot+'/systemJobs';
+const DAILY_AGENT_INTERVAL_MS=3*60*60_000;
 
 function decodeFsValue(value){
   if(!value || typeof value!=='object') return null;
@@ -236,9 +256,19 @@ async function readDoc(url){
 }
 
 async function meliMaybeGet(path,accessToken){
-  const response=await fetch('https://api.mercadolibre.com'+path,{headers:{Authorization:'Bearer '+accessToken,Accept:'application/json'}});
-  if(!response.ok) return null;
-  return response.json();
+  for(let attempt=0;attempt<4;attempt+=1){
+    const response=await fetch('https://api.mercadolibre.com'+path,{headers:{Authorization:'Bearer '+accessToken,Accept:'application/json'}});
+    if(response.ok) return response.json();
+
+    const retryable=response.status===429 || response.status>=500;
+    if(!retryable || attempt===3) return null;
+
+    const retryAfter=Number(response.headers.get('retry-after') || 0);
+    const backoff=Math.max(retryAfter*1000,Math.min(8000,1000*(2**attempt)));
+    console.warn('MELI_MAYBE_RETRY',JSON.stringify({path,status:response.status,attempt:attempt+1,backoff}));
+    await sleep(backoff);
+  }
+  return null;
 }
 
 function dailyNormalize(value){
@@ -256,6 +286,21 @@ function dailySimilarity(a,b){
   let intersection=0;
   for(const token of aa) if(bb.has(token)) intersection+=1;
   return intersection/union.size;
+}
+
+function dailyTheme(opportunity){
+  const text=dailyNormalize((opportunity?.keyword || '')+' '+(opportunity?.product?.title?.value || ''));
+  if(/geladeira|refrigerador/.test(text)) return 'cozinha-geladeira';
+  if(/prato|louca|talher/.test(text)) return 'cozinha-loucas';
+  if(/panela|tampa/.test(text)) return 'cozinha-panelas';
+  if(/armario|prateleira/.test(text)) return 'armarios-prateleiras';
+  if(/banheiro|banho/.test(text)) return 'banheiro';
+  if(/lavander/.test(text)) return 'lavanderia';
+  if(/cadeira|escritorio/.test(text)) return 'escritorio';
+  if(/lumin/.test(text)) return 'iluminacao';
+  if(/cesto/.test(text)) return 'cestos';
+  if(/decor/.test(text)) return 'decoracao';
+  return dailyNormalize(opportunity?.keyword || '').split(' ').slice(0,3).join('-') || 'casa';
 }
 
 function dailyBoard(keyword){
@@ -357,53 +402,154 @@ async function dailyBulkItems(ids,accessToken){
   return payload.filter((row)=>row?.status_code===200 && row?.body).map((row)=>mapDailyItem(row.body)).filter(Boolean);
 }
 
-async function dailySearch(query,accessToken){
-  const catalog=await meliMaybeGet('/products/search?status=active&site_id=MLB&q='+encodeURIComponent(query)+'&limit=20',accessToken);
+async function resolvePurchasableCatalogProduct(candidate,detail,accessToken){
+  const base={...candidate,...(detail || {})};
+  if(base?.buy_box_winner?.item_id) return base;
+
+  const directChildIds=Array.isArray(base?.children_ids) ? base.children_ids.filter(Boolean).slice(0,2) : [];
+  for(const childId of directChildIds){
+    const child=await meliMaybeGet('/products/'+encodeURIComponent(String(childId)),accessToken);
+    if(child?.buy_box_winner?.item_id) return child;
+  }
+
+  const parentId=String(base?.id || candidate?.id || '').trim();
+  if(!parentId) return null;
+  const childSearch=await meliMaybeGet(
+    '/products/search?status=active&site_id=MLB&parent_product_id='+encodeURIComponent(parentId)+'&limit=4',
+    accessToken,
+  );
+  const childCandidates=Array.isArray(childSearch?.results) ? childSearch.results.slice(0,4) : [];
+  for(const childCandidate of childCandidates){
+    const childId=String(childCandidate?.id || '').trim();
+    if(!childId) continue;
+    const child=await meliMaybeGet('/products/'+encodeURIComponent(childId),accessToken);
+    if(child?.buy_box_winner?.item_id) return child;
+  }
+
+  return null;
+}
+
+function mapCatalogResearchProduct(product,candidate,query){
+  const catalogId=String(product?.id || candidate?.id || '').trim();
+  const title=String(product?.name || product?.family_name || candidate?.name || query).trim();
+  if(!catalogId || !title) return null;
+  const observedAt=new Date().toISOString();
+  const pictures=Array.isArray(product?.pictures) && product.pictures.length ? product.pictures : candidate?.pictures;
+  const picture=Array.isArray(pictures) ? pictures[0] : null;
+  const image=String(picture?.secure_url || picture?.url || picture || '').replace(/^http:/,'https:');
+  const url=String(product?.permalink || candidate?.permalink || 'https://www.mercadolivre.com.br/p/'+encodeURIComponent(catalogId));
+  return {
+    productId:'meli:catalog:'+catalogId,
+    organizationId:ORG_ID,
+    marketplace:'MELI',
+    externalId:'catalog:'+catalogId,
+    catalogProductId:catalogId,
+    listingVerified:false,
+    title:{value:title,source:'mercadolivre-catalog-research',observedAt},
+    url:{value:url,source:'mercadolivre-catalog-research',observedAt},
+    currency:{value:'BRL',source:'mercadolivre-catalog-research',observedAt},
+    availability:{value:'unknown',source:'mercadolivre-catalog-research',observedAt},
+    imageUrl:image ? {value:image,source:'mercadolivre-catalog-research',observedAt} : undefined,
+    assetRights:'UNKNOWN',
+  };
+}
+
+async function dailySearch(query,accessToken,limit=20){
+  const safeLimit=Math.max(1,Math.min(Number(limit || 20),20));
+  const catalog=await meliMaybeGet('/products/search?status=active&site_id=MLB&q='+encodeURIComponent(query)+'&limit='+safeLimit,accessToken);
   const candidates=(Array.isArray(catalog?.results) ? catalog.results : []).map((item)=>({
     id:String(item.id || ''),
     name:String(item.name || item.family_name || ''),
     status:String(item.status || ''),
     permalink:String(item.permalink || ''),
     pictures:Array.isArray(item.pictures) ? item.pictures : [],
+    children_ids:Array.isArray(item.children_ids) ? item.children_ids : [],
     buy_box_winner:item.buy_box_winner || null,
-  })).filter((item)=>item.id).slice(0,20);
+  })).filter((item)=>item.id).slice(0,safeLimit);
+
   const details=await Promise.all(candidates.map((candidate)=>
     meliMaybeGet('/products/'+encodeURIComponent(candidate.id),accessToken)
   ));
+  const resolved=await Promise.all(candidates.map((candidate,index)=>
+    resolvePurchasableCatalogProduct(candidate,details[index],accessToken)
+  ));
+
   const observedAt=new Date().toISOString();
   return candidates.flatMap((candidate,index)=>{
-    const detail=details[index] || {};
-    const product={...candidate,...detail};
-    const winner=product.buy_box_winner || candidate.buy_box_winner || {};
-    const catalogId=String(product.id || candidate.id);
-    const itemId=String(winner.item_id || catalogId);
-    const permalink=String(product.permalink || candidate.permalink || (catalogId ? 'https://www.mercadolivre.com.br/p/'+encodeURIComponent(catalogId) : ''));
+    const product=resolved[index];
+    const winner=product?.buy_box_winner || {};
+    const itemId=String(winner.item_id || '').trim();
+    const catalogId=String(product?.id || '').trim();
+
+    if(!product || !itemId || !catalogId){
+      const research=mapCatalogResearchProduct(details[index] || candidate,candidate,query);
+      return research ? [research] : [];
+    }
+
+    const permalink=String(product.permalink || candidate.permalink || 'https://www.mercadolivre.com.br/p/'+encodeURIComponent(catalogId));
     const title=String(product.name || product.family_name || candidate.name || query).trim();
-    if(!catalogId || !title || !permalink) return [];
+    if(!title || !permalink) return [];
+
     const pictures=Array.isArray(product.pictures) && product.pictures.length ? product.pictures : candidate.pictures;
     const picture=Array.isArray(pictures) ? pictures[0] : null;
     const image=String(picture?.secure_url || picture?.url || picture || '').replace(/^http:/,'https:');
     const price=typeof winner.price==='number' ? winner.price : undefined;
     const status=String(product.status || candidate.status || '').toLowerCase();
+
     return [{
       productId:'meli:'+itemId,
       organizationId:ORG_ID,
       marketplace:'MELI',
       externalId:itemId,
       catalogProductId:catalogId,
+      listingVerified:true,
       title:{value:title,source:'mercadolivre-catalog-api',observedAt},
       url:{value:permalink,source:'mercadolivre-catalog-api',observedAt},
       price:typeof price==='number' ? {value:price,source:'mercadolivre-buy-box',observedAt} : undefined,
       currency:{value:String(winner.currency_id || 'BRL'),source:typeof price==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-catalog-api',observedAt},
-      availability:{value:status==='inactive' ? 'unknown' : 'available',source:'mercadolivre-catalog-api',observedAt},
+      availability:{value:status==='inactive' ? 'unavailable' : 'available',source:'mercadolivre-catalog-api',observedAt},
       imageUrl:image ? {value:image,source:'mercadolivre-catalog-api',observedAt} : undefined,
       assetRights:'UNKNOWN',
     }];
   });
 }
 
+async function resolveHighlightSignalProducts(signal,accessToken){
+  const type=String(signal?.entityType || '').toUpperCase();
+  const id=String(signal?.entityId || signal?.productExternalId || '').trim();
+  if(!id) return [];
+
+  if(type==='ITEM' || /^MLB\d+$/.test(id) && !type){
+    return dailyBulkItems([id],accessToken);
+  }
+
+  if(type==='PRODUCT'){
+    const detail=await meliMaybeGet('/products/'+encodeURIComponent(id),accessToken);
+    if(!detail) return [];
+    const resolved=await resolvePurchasableCatalogProduct({id,name:detail.name || ''},detail,accessToken);
+    const itemId=String(resolved?.buy_box_winner?.item_id || '').trim();
+    return itemId ? dailyBulkItems([itemId],accessToken) : [];
+  }
+
+  if(type==='USER_PRODUCT' || /^MLBU\d+$/.test(id)){
+    const up=await meliMaybeGet('/user-products/'+encodeURIComponent(id),accessToken);
+    const sellerId=String(up?.user_id || '').trim();
+    if(!sellerId) return [];
+    const search=await meliMaybeGet(
+      '/users/'+encodeURIComponent(sellerId)+'/items/search?user_product_id='+encodeURIComponent(id)+'&limit=8',
+      accessToken,
+    );
+    const itemIds=Array.isArray(search?.results) ? search.results.map(String).filter(Boolean).slice(0,8) : [];
+    return dailyBulkItems(itemIds,accessToken);
+  }
+
+  return [];
+}
+
 function dailyOpportunity(product,keyword,signals,rank){
   const scored=dailyScore(product,keyword,signals);
+  const createdAt=new Date().toISOString();
+  const expiresAt=new Date(Date.now()+24*60*60_000).toISOString();
   const suffix=String(product.externalId).replace(/[^a-zA-Z0-9]/g,'').slice(-6).toUpperCase() || '000001';
   const key=dailyNormalize(keyword).split(' ').filter(Boolean).slice(0,3).join('_').slice(0,32).toUpperCase() || 'PRODUTO';
   return {
@@ -417,7 +563,10 @@ function dailyOpportunity(product,keyword,signals,rank){
     commercialSignals:scored.relevant,
     rankingReasons:['Ordenação consolidada pelo NestScore 2.0',...scored.relevant.slice(0,3).map((signal)=>signal.rank ? signal.label+' · #'+signal.rank : signal.label),...scored.reasons.slice(0,2)],
     trackingCode:'NA_ML_'+key+'_'+suffix,
-    createdAt:new Date().toISOString(),
+    createdAt,
+    expiresAt,
+    lastRankedAt:createdAt,
+    lifecycleStatus:'ACTIVE',
     rank,
   };
 }
@@ -471,10 +620,39 @@ async function runDailyAgent(accessToken,signals,observedAt){
   const report={
     organizationId:ORG_ID,startedAt:new Date().toISOString(),completedAt:observedAt,source:'github-actions',status:'RUNNING',
     checked:0,changed:0,blocked:0,skipped:0,errors:0,signals:signals.length,
-    opportunitiesAnalyzed:0,opportunitiesPersisted:0,campaignsCreated:0,campaignsWaiting:0,fallbackQueries:0,messages:[],
+    opportunitiesAnalyzed:0,opportunitiesPersisted:0,opportunitiesExpired:0,campaignsRevalidated:0,verifiedBestSellerProducts:0,campaignsCreated:0,campaignsWaiting:0,fallbackQueries:0,
+    categoriesCovered:0,themesCovered:0,topOpportunityScore:0,topOpportunityKeyword:'',queueMin:3,queueTarget:5,queueState:'STABLE',nextExpectedAt:'',messages:[],
   };
   const docs=await listDocs(dailyAgentCampaigns);
   const campaigns=docs.map(decodeFsDoc).filter((campaign)=>campaign?.organizationId===ORG_ID);
+
+  try{
+    const opportunityDocs=await listDocs(dailyAgentOpportunities);
+    const nowMs=Date.now();
+    for(const doc of opportunityDocs){
+      const opportunity=decodeFsDoc(doc);
+      const expiresAt=new Date(String(opportunity?.expiresAt || '')).getTime();
+      if(
+        opportunity?.organizationId===ORG_ID &&
+        opportunity?.lifecycleStatus!=='EXPIRED' &&
+        Number.isFinite(expiresAt) &&
+        expiresAt<=nowMs
+      ){
+        const docId=String(doc.name || '').split('/').pop();
+        if(!docId) continue;
+        await writeDoc(dailyAgentOpportunities+'/'+encodeURIComponent(docId),{
+          ...opportunity,
+          lifecycleStatus:'EXPIRED',
+          expiredAt:new Date().toISOString(),
+        });
+        report.opportunitiesExpired+=1;
+      }
+    }
+  }catch(error){
+    report.errors+=1;
+    console.warn('DAILY_AGENT_OPPORTUNITY_EXPIRY_ERROR',error instanceof Error ? error.message : String(error));
+  }
+
   const cutoff=Date.now()-60*60_000;
   const observed=(product)=>{
     const values=[product?.title?.observedAt,product?.url?.observedAt,product?.price?.observedAt,product?.availability?.observedAt].filter(Boolean);
@@ -485,9 +663,18 @@ async function runDailyAgent(accessToken,signals,observedAt){
   for(const campaign of campaigns.filter((item)=>item?.status==='READY' && item?.marketplace==='MELI' && item?.currentVersion?.product && observed(item.currentVersion.product)<=cutoff).slice(0,20)){
     try{
       const previous=campaign.currentVersion.product;
-      const fresh=(await dailyBulkItems([previous.externalId],accessToken))[0];
-      if(!fresh){report.skipped+=1;continue;}
+      let fresh=(await dailyBulkItems([previous.externalId],accessToken))[0];
+      if(!fresh){
+        const fallback=await dailySearch(previous.title?.value || campaign.currentVersion.keyword,accessToken,8);
+        fresh=
+          fallback.find((item)=>item.externalId===previous.externalId) ||
+          fallback.find((item)=>previous.catalogProductId && item.catalogProductId===previous.catalogProductId) ||
+          fallback.find((item)=>dailySimilarity(item.title.value,previous.title?.value || '')>=0.72);
+      }
+      if(!fresh || fresh.listingVerified===false){report.skipped+=1;continue;}
+      fresh.listingVerified=true;
       report.checked+=1;
+      report.campaignsRevalidated+=1;
       fresh.affiliateUrl=previous.affiliateUrl;
       fresh.assetRights=previous.assetRights || 'UNKNOWN';
       if(fresh.availability.value==='unavailable'){
@@ -526,13 +713,47 @@ async function runDailyAgent(accessToken,signals,observedAt){
 
   const existingIds=new Set(campaigns.map((campaign)=>campaign?.currentVersion?.product?.externalId).filter(Boolean));
   const candidates=new Map();
-  for(const query of queries){
+
+  const highlightCandidates=signals
+    .filter((signal)=>signal?.source==='MELI_BEST_SELLER' && signal?.entityId)
+    .filter((signal,index,all)=>all.findIndex((item)=>item.entityType===signal.entityType && item.entityId===signal.entityId)===index)
+    .slice(0,36);
+
+  const typeCounts=highlightCandidates.reduce((acc,signal)=>{
+    const key=String(signal.entityType || 'UNKNOWN');
+    acc[key]=(acc[key] || 0)+1;
+    return acc;
+  },{});
+  console.log('DAILY_AGENT_HIGHLIGHT_TYPES',JSON.stringify(typeCounts));
+
+  for(const signal of highlightCandidates){
+    try{
+      const products=await resolveHighlightSignalProducts(signal,accessToken);
+      report.checked+=products.length;
+      report.verifiedBestSellerProducts+=products.length;
+      for(const product of products){
+        product.listingVerified=true;
+        if(product.availability.value!=='available' || !product.imageUrl?.value || !product.url?.value) continue;
+        const keyword=String(signal?.keyword || product.title.value || '').trim();
+        if(!keyword) continue;
+        const opportunity=dailyOpportunity(product,keyword,signals,0);
+        const current=candidates.get(product.externalId);
+        if(!current || opportunity.score.score>current.score.score) candidates.set(product.externalId,opportunity);
+      }
+    }catch(error){
+      report.errors+=1;
+      console.warn('DAILY_AGENT_BESTSELLER_RESOLVE_ERROR',signal.entityType,signal.entityId,error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  const shouldRunCatalogDiscovery=candidates.size<24;
+  for(const query of shouldRunCatalogDiscovery ? queries : []){
     try{
       const products=await dailySearch(query,accessToken);
       report.checked+=products.length;
       console.log('DAILY_AGENT_QUERY',JSON.stringify({query,total:products.length,withImage:products.filter((item)=>Boolean(item.imageUrl?.value)).length,withPrice:products.filter((item)=>Boolean(item.price?.value)).length,available:products.filter((item)=>item.availability?.value==='available').length}));
       for(const product of products){
-        if(product.availability.value!=='available' || !product.imageUrl?.value || !product.url?.value) continue;
+        if(product.availability.value==='unavailable' || !product.imageUrl?.value || !product.url?.value) continue;
         const opportunity=dailyOpportunity(product,query,signals,0);
         const current=candidates.get(product.externalId);
         if(!current || opportunity.score.score>current.score.score) candidates.set(product.externalId,opportunity);
@@ -551,7 +772,30 @@ async function runDailyAgent(accessToken,signals,observedAt){
   }
   report.opportunitiesAnalyzed=ranked.length;
 
-  for(const opportunity of ranked.slice(0,12)){
+  const diversified=[];
+  const perTheme=new Map();
+  for(const opportunity of ranked){
+    const theme=dailyTheme(opportunity);
+    const used=perTheme.get(theme) || 0;
+    if(used>=2) continue;
+    perTheme.set(theme,used+1);
+    diversified.push(opportunity);
+    if(diversified.length>=12) break;
+  }
+  if(diversified.length<12){
+    for(const opportunity of ranked){
+      if(diversified.some((item)=>item.product.externalId===opportunity.product.externalId)) continue;
+      diversified.push(opportunity);
+      if(diversified.length>=12) break;
+    }
+  }
+
+  report.categoriesCovered=new Set(diversified.map((item)=>dailyBoard(item.keyword))).size;
+  report.themesCovered=new Set(diversified.map((item)=>dailyTheme(item))).size;
+  report.topOpportunityScore=ranked[0]?.score?.score || 0;
+  report.topOpportunityKeyword=ranked[0]?.keyword || '';
+
+  for(const opportunity of diversified){
     try{
       const id=opportunity.id.replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,180);
       await writeDoc(dailyAgentOpportunities+'/'+encodeURIComponent(id),opportunity);
@@ -564,19 +808,37 @@ async function runDailyAgent(accessToken,signals,observedAt){
 
   const originalReady=campaigns.filter((campaign)=>campaign.status==='READY').length;
   const readyBeforeCreation=Math.max(0,originalReady-report.blocked);
-  const queueTarget=3;
+  const queueMin=3;
+  const queueTarget=5;
+  report.queueMin=queueMin;
+  report.queueTarget=queueTarget;
   const creationSlots=Math.max(0,queueTarget-readyBeforeCreation);
-  const eligible=ranked.filter((item)=>item.score.score>=58 && !existingIds.has(item.product.externalId));
+  const existingTitles=campaigns.map((campaign)=>campaign?.currentVersion?.product?.title?.value).filter(Boolean);
+  const eligible=ranked.filter((item)=>
+    item.score.score>=58 &&
+    item.product.availability?.value!=='unavailable' &&
+    Boolean(item.product.imageUrl?.value) &&
+    Boolean(item.product.url?.value) &&
+    !existingIds.has(item.product.externalId) &&
+    !existingTitles.some((title)=>dailySimilarity(title,item.product.title.value)>=0.72)
+  ).sort((a,b)=>
+    Number(b.product.listingVerified===true)-Number(a.product.listingVerified===true) ||
+    b.score.score-a.score.score
+  );
   const selected=[];
   if(creationSlots>0){
+    const selectedThemes=new Set();
     for(const opportunity of eligible){
-      if(selected.some((item)=>dailySimilarity(item.keyword,opportunity.keyword)>=0.72)) continue;
+      const theme=dailyTheme(opportunity);
+      if(selectedThemes.has(theme)) continue;
+      selectedThemes.add(theme);
       selected.push(opportunity);
       if(selected.length>=creationSlots) break;
     }
     if(selected.length<creationSlots){
       for(const opportunity of eligible){
         if(selected.some((item)=>item.product.externalId===opportunity.product.externalId)) continue;
+        if(selected.some((item)=>dailySimilarity(item.product.title.value,opportunity.product.title.value)>=0.72)) continue;
         selected.push(opportunity);
         if(selected.length>=creationSlots) break;
       }
@@ -600,12 +862,44 @@ async function runDailyAgent(accessToken,signals,observedAt){
 
   report.campaignsWaiting=readyBeforeCreation+report.campaignsCreated;
   if(readyBeforeCreation>=queueTarget){
-    report.messages.push('Fila de revisão já possui '+readyBeforeCreation+' campanhas; novas campanhas não foram criadas neste ciclo.');
+    report.queueState='FULL';
+    report.messages.push('Fila de revisão já está abastecida; nenhuma campanha nova era necessária neste ciclo.');
+  }else if(report.campaignsCreated>0){
+    report.queueState='REFILLED';
+    report.messages.push('Fila de revisão foi reabastecida automaticamente até o limite inteligente.');
+  }else if(creationSlots>0 && eligible.length===0){
+    report.queueState='NO_ELIGIBLE';
+    report.messages.push('Nenhuma nova oportunidade passou pelo corte de qualidade e duplicidade neste ciclo.');
+  }else{
+    report.queueState='STABLE';
   }
+
   report.completedAt=new Date().toISOString();
-  report.status=report.errors>0 ? 'PARTIAL' : 'SUCCESS';
+  report.nextExpectedAt=new Date(new Date(report.completedAt).getTime()+DAILY_AGENT_INTERVAL_MS).toISOString();
+  const discoveryGap=report.signals>0 && report.opportunitiesAnalyzed===0;
+  if(discoveryGap){
+    report.messages.push('Os sinais chegaram, mas nenhum produto verificável virou oportunidade; o ciclo foi marcado para atenção.');
+  }
+  report.status=report.errors>0 || discoveryGap ? 'PARTIAL' : 'SUCCESS';
+  report.messages.unshift(
+    'Ciclo concluído: '+report.checked+' produtos verificados, '+report.opportunitiesAnalyzed+
+    ' oportunidades analisadas, '+report.campaignsCreated+' campanhas preparadas e '+
+    report.campaignsWaiting+' aguardando decisão.'
+  );
   const runId='run-'+report.completedAt.replace(/[^0-9]/g,'').slice(0,14);
   await writeDoc(dailyAgentRuns+'/'+runId,report);
+  await writeDoc(dailyAgentJobs+'/daily-agent',{
+    organizationId:ORG_ID,
+    job:'daily-agent',
+    status:report.status,
+    lastRunAt:report.completedAt,
+    nextExpectedAt:report.nextExpectedAt,
+    checked:report.checked,
+    opportunitiesAnalyzed:report.opportunitiesAnalyzed,
+    campaignsCreated:report.campaignsCreated,
+    campaignsWaiting:report.campaignsWaiting,
+    errors:report.errors,
+  });
   return report;
 }
 
@@ -641,9 +935,7 @@ async function main(){
   const trends=await meliGet('/trends/MLB',token.access_token);
   if(!Array.isArray(trends)) throw new Error('MELI_TRENDS_INVALID_RESPONSE');
 
-  const searchProbe=await meliGet('/products/search?status=active&site_id=MLB&q=organizador%20cozinha%20pequena&limit=3',token.access_token);
-  const searchProbeCount=Array.isArray(searchProbe?.results) ? searchProbe.results.length : 0;
-  if(searchProbeCount<1) throw new Error('MELI_SEARCH_PROBE_EMPTY');
+  const searchProbeCount=0;
 
   const trendSignals=trends
     .map((entry,index)=>trendSignal(entry,index,now))
@@ -720,7 +1012,38 @@ async function main(){
   }));
 }
 
-main().catch((error)=>{
+main().catch(async(error)=>{
   console.error(error instanceof Error ? error.stack || error.message : error);
+  try{
+    if(ORG_ID && GCP_TOKEN){
+      const completedAt=new Date().toISOString();
+      const nextExpectedAt=new Date(Date.now()+DAILY_AGENT_INTERVAL_MS).toISOString();
+      const failureReport={
+        organizationId:ORG_ID,
+        startedAt:completedAt,
+        completedAt,
+        source:'github-actions',
+        status:'FAILED',
+        checked:0,changed:0,blocked:0,skipped:0,errors:1,signals:0,
+        opportunitiesAnalyzed:0,opportunitiesPersisted:0,opportunitiesExpired:0,campaignsRevalidated:0,verifiedBestSellerProducts:0,
+        campaignsCreated:0,campaignsWaiting:0,fallbackQueries:0,categoriesCovered:0,themesCovered:0,
+        topOpportunityScore:0,topOpportunityKeyword:'',queueMin:3,queueTarget:5,queueState:'STABLE',
+        nextExpectedAt,
+        messages:['O ciclo em nuvem falhou antes de concluir. Consulte o GitHub Actions; nenhuma publicação automática foi executada.'],
+      };
+      const runId='failure-'+completedAt.replace(/[^0-9]/g,'').slice(0,14);
+      await writeDoc(dailyAgentRuns+'/'+runId,failureReport);
+      await writeDoc(dailyAgentJobs+'/daily-agent',{
+        organizationId:ORG_ID,
+        job:'daily-agent',
+        status:'FAILED',
+        lastRunAt:completedAt,
+        nextExpectedAt,
+        errors:1,
+      });
+    }
+  }catch(reportError){
+    console.warn('DAILY_AGENT_FAILURE_REPORT_ERROR',reportError instanceof Error ? reportError.message : String(reportError));
+  }
   process.exitCode=1;
 });

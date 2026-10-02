@@ -1,6 +1,7 @@
 import { describe,expect,it,vi } from 'vitest';
 import type { Campaign, ProductTruth } from '../../packages/core/src/index';
 import { runDailyAgentCycle } from '../../apps/web/src/services/dailyAgent';
+import { deriveDailyAgentHealth, type DailyAgentReport } from '../../apps/web/src/services/dailyAgentRepository';
 
 const old='2026-09-30T00:00:00.000Z';
 const now=new Date('2026-10-01T12:00:00.000Z');
@@ -61,5 +62,38 @@ describe('Daily Agent zero-cost cycle',()=>{
     });
     expect(result.blocked).toBe(1);
     expect((update.mock.calls[0]![0] as Campaign).status).toBe('BLOCKED');
+  });
+});
+
+
+describe('Daily Agent cloud health',()=>{
+  const baseReport:DailyAgentReport={
+    organizationId:'o',
+    startedAt:'2026-10-01T08:00:00.000Z',
+    completedAt:'2026-10-01T09:00:00.000Z',
+    source:'github-actions',
+    status:'SUCCESS',
+    checked:120,
+    changed:0,
+    blocked:0,
+    skipped:0,
+    errors:0,
+    messages:[],
+  };
+
+  it('reports a recent successful cloud cycle as healthy',()=>{
+    const health=deriveDailyAgentHealth(baseReport,new Date('2026-10-01T10:00:00.000Z'));
+    expect(health.status).toBe('HEALTHY');
+    expect(health.nextExpectedAt).toBe('2026-10-01T12:00:00.000Z');
+  });
+
+  it('reports partial cycles as degraded',()=>{
+    const health=deriveDailyAgentHealth({...baseReport,status:'PARTIAL',errors:1},new Date('2026-10-01T10:00:00.000Z'));
+    expect(health.status).toBe('DEGRADED');
+  });
+
+  it('reports a cycle older than five hours as stale',()=>{
+    const health=deriveDailyAgentHealth(baseReport,new Date('2026-10-01T15:30:00.000Z'));
+    expect(health.status).toBe('STALE');
   });
 });
