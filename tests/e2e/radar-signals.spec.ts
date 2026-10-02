@@ -14,6 +14,6 @@ test('Radar 2.0 imports official Mercado Livre signals without exposing credenti
   await page.getByRole('button',{name:'Importar sinais'}).click();
 
   await expect(page.getByText('2 sinais oficiais importados.')).toBeVisible();
-  await expect(page.getByText('2 sinais oficiais')).toBeVisible();
+  await expect(page.getByText('2 sinais oficiais', { exact: true })).toBeVisible();
   await expect(page.getByText(/Nunca cole access token/i)).toBeVisible();
 });
