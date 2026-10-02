@@ -46,7 +46,7 @@ export function calculateNestScore(input: NestScoreDimensions): NestScoreResult 
     .slice(0, 2)
     .map((entry) => `${labels[entry.key]} ainda precisa de evidência`);
 
-  return { score, confidence, reasons, risks, version: '1.0', dimensions };
+  return { score, confidence, reasons, risks, version: '2.0', dimensions };
 }
 
 export { maxima as NEST_SCORE_MAXIMA };
