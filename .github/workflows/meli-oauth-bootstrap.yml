@@ -1,10 +1,6 @@
 name: NestAffiliate Mercado Livre OAuth Bootstrap
 
 on:
-  push:
-    branches: [production]
-    paths:
-      - ".github/workflows/meli-oauth-bootstrap.yml"
   workflow_dispatch:
 
 permissions:
