@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { deriveLearning, historicalScoreAdjustment } from '../../packages/learning/src/index';
 import type { Campaign } from '../../packages/core/src/index';
 import type { PerformanceDaily } from '../../packages/analytics/src/index';
+import { buildPinterestCreativePack } from '../../packages/creative-engine/src/index';
 
 const now=new Date().toISOString();
 
@@ -39,6 +40,34 @@ describe('learning engine', () => {
     expect(insights.some(i=>i.type==='PRODUCT_DNA' && i.confidence==='established')).toBe(true);
     expect(insights.some(i=>i.type==='AUDIENCE_DNA' && i.confidence==='established')).toBe(true);
     expect(insights.some(i=>i.type==='PREFERENCE' && i.confidence==='established')).toBe(true);
+  });
+
+  it('learns scene, angle and prompt performance only after enough comparable campaigns', () => {
+    const campaigns=Array.from({length:12},(_,i)=>{
+      const current=campaign('scene-'+i);
+      const pack=buildPinterestCreativePack({
+        organizationId:'o',
+        campaignId:current.id,
+        campaignVersion:1,
+        product:current.currentVersion.product,
+        keyword:current.currentVersion.keyword,
+        boardName:current.currentVersion.boardName,
+        locale:'pt-BR',
+        createdAt:now,
+      });
+      return {
+        ...current,
+        currentVersion:{...current.currentVersion,creativePack:pack,template:'Lifestyle + Headline'},
+      };
+    });
+    const metrics=campaigns.map((item)=>metric(item.id));
+    const insights=deriveLearning(campaigns,metrics);
+    const scene=insights.find((item)=>item.type==='CREATIVE_SCENE');
+    expect(scene?.confidence).toBe('established');
+    expect(scene?.dimensions?.sceneType).toBeTruthy();
+    expect(scene?.dimensions?.angle).toBeTruthy();
+    expect(scene?.dimensions?.promptVersion).toBe('1.0');
+    expect(scene?.dimensions?.outboundClicks).toBeGreaterThan(0);
   });
 
   it('only adjusts score after a statistically safer minimum sample', () => {
