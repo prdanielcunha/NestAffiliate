@@ -228,3 +228,43 @@ export interface PinterestBackendBroker {
     mediaUrl: string;
   }): Promise<{ pinId: string; url?: string }>;
 }
+
+
+export interface MercadoLivreTrendEntry {
+  keyword:string;
+  url:string;
+}
+
+export type MercadoLivreHighlightEntityType='ITEM'|'PRODUCT'|'USER_PRODUCT';
+
+export interface MercadoLivreHighlightEntry {
+  id:string;
+  position:number;
+  type:MercadoLivreHighlightEntityType;
+}
+
+export interface MercadoLivreHighlightResponse {
+  query_data?:{
+    highlight_type?:string;
+    criteria?:string;
+    id?:string;
+  };
+  content:MercadoLivreHighlightEntry[];
+}
+
+export interface MercadoLivreSignalsBroker {
+  listTrends(input:{siteId?:string;categoryId?:string}):Promise<MercadoLivreTrendEntry[]>;
+  listHighlights(input:{siteId?:string;categoryId:string}):Promise<MercadoLivreHighlightResponse>;
+}
+
+export interface PinterestTrendRecord {
+  keyword:string;
+  strength:number;
+  confidence:number;
+  evidence:string[];
+}
+
+export interface PinterestTrendsProvider {
+  available():Promise<boolean>;
+  search(input:{keywords:string[];region?:string}):Promise<PinterestTrendRecord[]>;
+}
