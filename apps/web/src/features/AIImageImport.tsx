@@ -154,6 +154,7 @@ export function AIImageImport({
         promptPackageId:concept?.imagePrompt.id,
         conceptId:concept?.id,
         embeddedTextConfirmedAbsent:true,
+        productFidelityConfirmed:true,
         createdAt:new Date().toISOString(),
       };
       const asset=db && firebaseStorage
