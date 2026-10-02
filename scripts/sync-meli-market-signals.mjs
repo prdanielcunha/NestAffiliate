@@ -155,27 +155,458 @@ function highlightSignal(entry,category,observedAt){
 async function inferRelevantCategories(trends,accessToken){
   const selected=[];
   const seen=new Set();
-  const sample=trends.slice(0,30);
-  for(const trend of sample){
-    if(!homeRelevant(trend.keyword)) continue;
+  const seeds=[
+    'organizador cozinha',
+    'potes hermeticos',
+    'prateleira organizadora',
+    'organizador banheiro',
+    'organizador lavanderia',
+    'cadeira escritorio',
+    'luminaria casa',
+    'cesto organizador',
+  ];
+  const trendSeeds=trends
+    .map((trend)=>String(trend.keyword || '').trim())
+    .filter((keyword)=>keyword && homeRelevant(keyword))
+    .slice(0,20);
+  const queries=[...new Set([...seeds,...trendSeeds])];
+
+  for(const query of queries){
     try{
-      const discovery=await meliGet(`/sites/MLB/domain_discovery/search?limit=3&q=${encodeURIComponent(trend.keyword)}`,accessToken);
+      const discovery=await meliGet(`/sites/MLB/domain_discovery/search?limit=3&q=${encodeURIComponent(query)}`,accessToken);
       const predicted=Array.isArray(discovery) ? discovery[0] : null;
       const categoryId=predicted?.category_id;
       if(!categoryId || seen.has(categoryId)) continue;
       const category=await meliGet(`/categories/${encodeURIComponent(categoryId)}`,accessToken);
       const path=(category?.path_from_root || []).map((item)=>item.name).join(' ');
-      const label=predicted?.category_name || category?.name || trend.keyword;
-      if(!homeRelevant(path || label || trend.keyword)) continue;
+      const label=predicted?.category_name || category?.name || query;
+      if(!homeRelevant(path || label || query)) continue;
       seen.add(categoryId);
-      selected.push({id:categoryId,label});
-      if(selected.length>=8) break;
+      selected.push({id:categoryId,label,seed:query});
+      if(selected.length>=10) break;
     }catch(error){
-      console.warn('CATEGORY_DISCOVERY_SKIP',trend.keyword,error instanceof Error ? error.message : String(error));
+      console.warn('CATEGORY_DISCOVERY_SKIP',query,error instanceof Error ? error.message : String(error));
     }
   }
   return selected;
 }
+
+
+const dailyAgentRoot=firestoreBase+'/organizations/'+encodeURIComponent(ORG_ID)+'/products/nestaffiliate';
+const dailyAgentCampaigns=dailyAgentRoot+'/campaigns';
+const dailyAgentVersions=dailyAgentRoot+'/campaignVersions';
+const dailyAgentOpportunities=dailyAgentRoot+'/opportunities';
+const dailyAgentRuns=dailyAgentRoot+'/dailyAgentRuns';
+
+function decodeFsValue(value){
+  if(!value || typeof value!=='object') return null;
+  if('stringValue' in value) return value.stringValue;
+  if('integerValue' in value) return Number(value.integerValue);
+  if('doubleValue' in value) return Number(value.doubleValue);
+  if('booleanValue' in value) return Boolean(value.booleanValue);
+  if('timestampValue' in value) return String(value.timestampValue);
+  if('nullValue' in value) return null;
+  if('arrayValue' in value) return (value.arrayValue?.values || []).map(decodeFsValue);
+  if('mapValue' in value){
+    return Object.fromEntries(Object.entries(value.mapValue?.fields || {}).map(([key,nested])=>[key,decodeFsValue(nested)]));
+  }
+  return null;
+}
+
+function decodeFsDoc(doc){
+  return Object.fromEntries(Object.entries(doc?.fields || {}).map(([key,value])=>[key,decodeFsValue(value)]));
+}
+
+async function listDocs(url){
+  const response=await gcpFetch(url+'?pageSize=500');
+  if(response.status===404) return [];
+  if(!response.ok){
+    const body=await response.text();
+    throw new Error('FIRESTORE_LIST_'+response.status+':'+body.slice(0,180));
+  }
+  const payload=await response.json();
+  return Array.isArray(payload.documents) ? payload.documents : [];
+}
+
+async function readDoc(url){
+  const response=await gcpFetch(url);
+  if(response.status===404) return null;
+  if(!response.ok) throw new Error('FIRESTORE_READ_'+response.status);
+  return response.json();
+}
+
+async function meliMaybeGet(path,accessToken){
+  const response=await fetch('https://api.mercadolibre.com'+path,{headers:{Authorization:'Bearer '+accessToken,Accept:'application/json'}});
+  if(!response.ok) return null;
+  return response.json();
+}
+
+function dailyNormalize(value){
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+
+function dailyTokens(value){
+  return new Set(dailyNormalize(value).split(' ').filter((token)=>token.length>2));
+}
+
+function dailySimilarity(a,b){
+  const aa=dailyTokens(a),bb=dailyTokens(b);
+  const union=new Set([...aa,...bb]);
+  if(!union.size) return 0;
+  let intersection=0;
+  for(const token of aa) if(bb.has(token)) intersection+=1;
+  return intersection/union.size;
+}
+
+function dailyBoard(keyword){
+  const text=dailyNormalize(keyword);
+  if(text.includes('cozinha')) return 'Cozinha Pequena e Organizada';
+  if(text.includes('banheiro')) return 'Organização de Banheiro';
+  if(text.includes('lavander')) return 'Lavanderia Pequena e Funcional';
+  if(text.includes('quarto')) return 'Quarto Organizado e Aconchegante';
+  if(text.includes('apartamento') || text.includes('pequeno')) return 'Ideias para Apartamento Pequeno';
+  if(text.includes('decor')) return 'Decoração Simples e Bonita';
+  if(text.includes('organiz')) return 'Achados Inteligentes para Casa';
+  return 'Produtos que Facilitam a Rotina';
+}
+
+function dailyDataConfidence(product){
+  let points=0;
+  if(product.title?.value) points+=1;
+  if(product.price?.value) points+=1;
+  if(product.sellerName?.value) points+=1;
+  if(product.rating?.value || product.sellerReputation?.value) points+=1;
+  if(product.imageUrl?.value) points+=1;
+  if(product.availability?.value==='available') points+=1;
+  return Math.min(1,points/6);
+}
+
+function dailyScore(product,keyword,signals){
+  const relevant=(signals || []).filter((signal)=>{
+    if(signal.productExternalId && signal.productExternalId===product.externalId) return true;
+    if(!signal.keyword) return false;
+    return Math.max(dailySimilarity(signal.keyword,keyword),dailySimilarity(signal.keyword,product.title.value))>=0.28;
+  }).sort((a,b)=>(Number(b.strength||0)*Number(b.confidence||0))-(Number(a.strength||0)*Number(a.confidence||0)));
+  const strongest=relevant[0];
+  const support=relevant.slice(1,3).reduce((sum,signal)=>sum+(Number(signal.strength||0)*Number(signal.confidence||0)*0.12),0);
+  const demand=strongest ? Math.min(1,Number(strongest.strength||0)*Number(strongest.confidence||0)+support) : 0.55;
+  const factual=dailyDataConfidence(product);
+  const signalConfidence=relevant.length ? relevant.reduce((sum,signal)=>sum+Number(signal.confidence||0),0)/relevant.length : 0;
+  const combined=Math.min(1,factual*0.72+signalConfidence*0.28);
+  const intent=/compr|kit|organizador|suporte|dispens|prateleira|luminaria|tapete|cesto|armario|gancho|pote/.test(dailyNormalize(keyword)) ? 0.94 : 0.74;
+  const price=Number(product.price?.value || 0);
+  const yieldStrength=!price ? 0.48 : price>=35 && price<=140 ? 0.76 : price<=250 ? 0.64 : price<35 ? 0.58 : 0.46;
+  const quality=typeof product.rating?.value==='number' ? Math.min(1,product.rating.value/5) : typeof product.sellerReputation?.value==='number' ? Math.min(1,product.sellerReputation.value) : 0.58;
+  const dimensions={
+    trend:Math.round(18*demand),
+    intent:Math.round(16*intent),
+    visual:Math.round(14*(product.imageUrl?.value ? 0.82 : 0.5)),
+    yield:Math.round(14*yieldStrength),
+    quality:Math.round(12*quality),
+    competition:7,
+    creative:Math.round(8*(product.imageUrl?.value ? 0.88 : 0.6)),
+    seasonality:2,
+    dataConfidence:Math.max(1,Math.round(combined*4)),
+  };
+  const maxima={trend:18,intent:16,visual:14,yield:14,quality:12,competition:10,creative:8,seasonality:4,dataConfidence:4};
+  const labels={trend:'Demanda em movimento',intent:'Intenção de compra',visual:'Potencial visual',yield:'Retorno comercial',quality:'Qualidade do produto',competition:'Espaço competitivo',creative:'Superfície criativa',seasonality:'Sazonalidade',dataConfidence:'Confiança dos dados'};
+  const score=Object.values(dimensions).reduce((sum,value)=>sum+value,0);
+  const ranked=Object.keys(dimensions).map((key)=>({key,ratio:dimensions[key]/maxima[key],value:dimensions[key],max:maxima[key]})).sort((a,b)=>b.ratio-a.ratio);
+  return {
+    score,
+    confidence:dimensions.dataConfidence>=4 ? 'high' : dimensions.dataConfidence>=2 ? 'medium' : 'low',
+    dimensions,
+    reasons:ranked.slice(0,3).map((entry)=>labels[entry.key]+': '+entry.value+'/'+entry.max),
+    risks:ranked.filter((entry)=>entry.ratio<0.55).slice(0,2).map((entry)=>labels[entry.key]+' ainda precisa de evidência'),
+    relevant,
+  };
+}
+
+function mapDailyItem(item){
+  const id=String(item?.id || '').trim();
+  const title=String(item?.title || item?.name || '').trim();
+  const permalink=String(item?.permalink || '').trim();
+  if(!id || !title || !permalink) return null;
+  const observedAt=new Date().toISOString();
+  const price=Number(item.price);
+  const quantity=typeof item.available_quantity==='number' ? item.available_quantity : undefined;
+  const active=item.status ? item.status==='active' : true;
+  const image=String(item.thumbnail || item.secure_thumbnail || item.pictures?.[0]?.secure_url || item.pictures?.[0]?.url || '').replace(/^http:/,'https:');
+  return {
+    productId:'meli:'+id,
+    organizationId:ORG_ID,
+    marketplace:'MELI',
+    externalId:id,
+    title:{value:title,source:'mercadolivre-daily-agent',observedAt},
+    url:{value:permalink,source:'mercadolivre-daily-agent',observedAt},
+    price:Number.isFinite(price) && price>0 ? {value:price,source:'mercadolivre-daily-agent',observedAt} : undefined,
+    currency:{value:String(item.currency_id || 'BRL'),source:'mercadolivre-daily-agent',observedAt},
+    sellerName:item.seller?.nickname ? {value:String(item.seller.nickname),source:'mercadolivre-daily-agent',observedAt} : undefined,
+    availability:{value:active && quantity!==0 ? 'available' : 'unavailable',source:'mercadolivre-daily-agent',observedAt},
+    imageUrl:image ? {value:image,source:'mercadolivre-daily-agent',observedAt} : undefined,
+    assetRights:'UNKNOWN',
+  };
+}
+
+async function dailyBulkItems(ids,accessToken){
+  const unique=[...new Set(ids.filter(Boolean))].slice(0,20);
+  if(!unique.length) return [];
+  const fields=['body.id','body.title','body.permalink','body.price','body.currency_id','body.available_quantity','body.thumbnail','body.status'].join(',');
+  const payload=await meliMaybeGet('/items/bulk?ids='+encodeURIComponent(unique.join(','))+'&attributes='+encodeURIComponent(fields),accessToken);
+  if(!Array.isArray(payload)) return [];
+  return payload.filter((row)=>row?.status_code===200 && row?.body).map((row)=>mapDailyItem(row.body)).filter(Boolean);
+}
+
+async function dailySearch(query,accessToken){
+  const catalog=await meliMaybeGet('/products/search?status=active&site_id=MLB&q='+encodeURIComponent(query)+'&limit=20',accessToken);
+  const candidates=(Array.isArray(catalog?.results) ? catalog.results : []).map((item)=>({
+    id:String(item.id || ''),
+    name:String(item.name || item.family_name || ''),
+    status:String(item.status || ''),
+    permalink:String(item.permalink || ''),
+    pictures:Array.isArray(item.pictures) ? item.pictures : [],
+    buy_box_winner:item.buy_box_winner || null,
+  })).filter((item)=>item.id).slice(0,20);
+  const details=await Promise.all(candidates.map((candidate)=>
+    meliMaybeGet('/products/'+encodeURIComponent(candidate.id),accessToken)
+  ));
+  const observedAt=new Date().toISOString();
+  return candidates.flatMap((candidate,index)=>{
+    const detail=details[index] || {};
+    const product={...candidate,...detail};
+    const winner=product.buy_box_winner || candidate.buy_box_winner || {};
+    const catalogId=String(product.id || candidate.id);
+    const itemId=String(winner.item_id || catalogId);
+    const permalink=String(product.permalink || candidate.permalink || (catalogId ? 'https://www.mercadolivre.com.br/p/'+encodeURIComponent(catalogId) : ''));
+    const title=String(product.name || product.family_name || candidate.name || query).trim();
+    if(!catalogId || !title || !permalink) return [];
+    const pictures=Array.isArray(product.pictures) && product.pictures.length ? product.pictures : candidate.pictures;
+    const picture=Array.isArray(pictures) ? pictures[0] : null;
+    const image=String(picture?.secure_url || picture?.url || picture || '').replace(/^http:/,'https:');
+    const price=typeof winner.price==='number' ? winner.price : undefined;
+    const status=String(product.status || candidate.status || '').toLowerCase();
+    return [{
+      productId:'meli:'+itemId,
+      organizationId:ORG_ID,
+      marketplace:'MELI',
+      externalId:itemId,
+      catalogProductId:catalogId,
+      title:{value:title,source:'mercadolivre-catalog-api',observedAt},
+      url:{value:permalink,source:'mercadolivre-catalog-api',observedAt},
+      price:typeof price==='number' ? {value:price,source:'mercadolivre-buy-box',observedAt} : undefined,
+      currency:{value:String(winner.currency_id || 'BRL'),source:typeof price==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-catalog-api',observedAt},
+      availability:{value:status==='inactive' ? 'unknown' : 'available',source:'mercadolivre-catalog-api',observedAt},
+      imageUrl:image ? {value:image,source:'mercadolivre-catalog-api',observedAt} : undefined,
+      assetRights:'UNKNOWN',
+    }];
+  });
+}
+
+function dailyOpportunity(product,keyword,signals,rank){
+  const scored=dailyScore(product,keyword,signals);
+  const suffix=String(product.externalId).replace(/[^a-zA-Z0-9]/g,'').slice(-6).toUpperCase() || '000001';
+  const key=dailyNormalize(keyword).split(' ').filter(Boolean).slice(0,3).join('_').slice(0,32).toUpperCase() || 'PRODUTO';
+  return {
+    id:'opp:MELI:'+product.externalId,
+    organizationId:ORG_ID,
+    keyword,
+    product,
+    score:{score:scored.score,confidence:scored.confidence,dimensions:scored.dimensions,reasons:scored.reasons,risks:scored.risks,version:'2.0'},
+    confidence:dailyDataConfidence(product),
+    cluster:[...dailyTokens(keyword)].slice(0,12),
+    commercialSignals:scored.relevant,
+    rankingReasons:['Ordenação consolidada pelo NestScore 2.0',...scored.relevant.slice(0,3).map((signal)=>signal.rank ? signal.label+' · #'+signal.rank : signal.label),...scored.reasons.slice(0,2)],
+    trackingCode:'NA_ML_'+key+'_'+suffix,
+    createdAt:new Date().toISOString(),
+    rank,
+  };
+}
+
+function dailyCampaign(opportunity){
+  const safeId=String(opportunity.product.externalId).replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,80);
+  const id='agent-meli-'+safeId;
+  const now=new Date().toISOString();
+  return {
+    id,
+    organizationId:ORG_ID,
+    status:'READY',
+    marketplace:'MELI',
+    score:opportunity.score,
+    rankingContext:{rank:opportunity.rank,trackingCode:opportunity.trackingCode,evidence:opportunity.rankingReasons,signalSources:(opportunity.commercialSignals || []).map((signal)=>signal.source)},
+    currentVersion:{
+      id:id+'-v1',
+      campaignId:id,
+      version:1,
+      createdAt:now,
+      reason:'daily agent autonomous opportunity',
+      product:opportunity.product,
+      narrative:{
+        headline:'Uma ideia prática para '+opportunity.keyword.toLowerCase(),
+        subheadline:'Curadoria inteligente para uma casa mais funcional.',
+        pinterestTitle:opportunity.keyword+': uma solução prática para o dia a dia',
+        description:'Uma curadoria do Achados do Nest baseada em sinais reais do marketplace. Antes de publicar, confirme o link afiliado e revise a imagem final.',
+        disclosure:'Conteúdo com link de afiliado. Posso receber comissão por compras qualificadas, sem custo adicional para você.',
+        altText:'Produto selecionado para '+opportunity.keyword.toLowerCase()+', apresentado em composição editorial para Pinterest.',
+        cta:'Ver produto',
+      },
+      boardName:dailyBoard(opportunity.keyword),
+      keyword:opportunity.keyword,
+      template:'editorial-premium',
+    },
+    history:[],
+  };
+}
+
+async function persistDailyCampaign(campaign){
+  await writeDoc(dailyAgentCampaigns+'/'+encodeURIComponent(campaign.id),campaign);
+  await writeDoc(dailyAgentVersions+'/'+encodeURIComponent(campaign.currentVersion.id),{
+    ...campaign.currentVersion,
+    organizationId:campaign.organizationId,
+    marketplace:campaign.marketplace,
+    status:campaign.status,
+  });
+}
+
+async function runDailyAgent(accessToken,signals,observedAt){
+  const report={
+    organizationId:ORG_ID,startedAt:new Date().toISOString(),completedAt:observedAt,source:'github-actions',status:'RUNNING',
+    checked:0,changed:0,blocked:0,skipped:0,errors:0,signals:signals.length,
+    opportunitiesAnalyzed:0,opportunitiesPersisted:0,campaignsCreated:0,campaignsWaiting:0,fallbackQueries:0,messages:[],
+  };
+  const docs=await listDocs(dailyAgentCampaigns);
+  const campaigns=docs.map(decodeFsDoc).filter((campaign)=>campaign?.organizationId===ORG_ID);
+  const cutoff=Date.now()-60*60_000;
+  const observed=(product)=>{
+    const values=[product?.title?.observedAt,product?.url?.observedAt,product?.price?.observedAt,product?.availability?.observedAt].filter(Boolean);
+    const times=values.map((value)=>new Date(value).getTime()).filter(Number.isFinite);
+    return times.length ? Math.min(...times) : 0;
+  };
+
+  for(const campaign of campaigns.filter((item)=>item?.status==='READY' && item?.marketplace==='MELI' && item?.currentVersion?.product && observed(item.currentVersion.product)<=cutoff).slice(0,20)){
+    try{
+      const previous=campaign.currentVersion.product;
+      const fresh=(await dailyBulkItems([previous.externalId],accessToken))[0];
+      if(!fresh){report.skipped+=1;continue;}
+      report.checked+=1;
+      fresh.affiliateUrl=previous.affiliateUrl;
+      fresh.assetRights=previous.assetRights || 'UNKNOWN';
+      if(fresh.availability.value==='unavailable'){
+        await writeDoc(dailyAgentCampaigns+'/'+encodeURIComponent(campaign.id),{...campaign,status:'BLOCKED'});
+        report.blocked+=1;
+        continue;
+      }
+      const changed=previous.title?.value!==fresh.title?.value || previous.url?.value!==fresh.url?.value || previous.price?.value!==fresh.price?.value || previous.availability?.value!==fresh.availability?.value;
+      if(!changed){report.skipped+=1;continue;}
+      const scored=dailyScore(fresh,campaign.currentVersion.keyword,signals);
+      const score={score:scored.score,confidence:scored.confidence,dimensions:scored.dimensions,reasons:scored.reasons,risks:scored.risks,version:'2.0'};
+      const previousVersion=campaign.currentVersion;
+      const versionNumber=Number(previousVersion.version || 0)+1;
+      const nextVersion={...previousVersion,id:campaign.id+'-v'+versionNumber+'-agent',parentVersionId:previousVersion.id,version:versionNumber,createdAt:new Date().toISOString(),reason:'daily agent refresh',product:fresh};
+      const history=Array.isArray(campaign.history) ? campaign.history : [];
+      const versioned={...campaign,score,currentVersion:nextVersion,history:history.some((item)=>item?.id===previousVersion.id) ? history : [...history,previousVersion]};
+      await persistDailyCampaign(versioned);
+      report.changed+=1;
+    }catch(error){
+      report.errors+=1;
+      console.warn('DAILY_AGENT_REFRESH_ERROR',campaign.id,error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  const queries=[];
+  for(const signal of signals){
+    const keyword=typeof signal?.keyword==='string' ? signal.keyword.trim() : '';
+    if(keyword && homeRelevant(keyword) && !queries.some((existing)=>dailySimilarity(existing,keyword)>=0.72)) queries.push(keyword);
+    if(queries.length>=6) break;
+  }
+  const fallbacks=['organizador cozinha pequena','organizador banheiro pequeno','organizador lavanderia pequena','organizador armario cozinha','produto que facilita a rotina da casa','organizacao apartamento pequeno'];
+  for(const query of fallbacks){
+    if(queries.length>=6) break;
+    if(!queries.some((existing)=>dailySimilarity(existing,query)>=0.72)){queries.push(query);report.fallbackQueries+=1;}
+  }
+
+  const existingIds=new Set(campaigns.map((campaign)=>campaign?.currentVersion?.product?.externalId).filter(Boolean));
+  const candidates=new Map();
+  for(const query of queries){
+    try{
+      const products=await dailySearch(query,accessToken);
+      report.checked+=products.length;
+      console.log('DAILY_AGENT_QUERY',JSON.stringify({query,total:products.length,withImage:products.filter((item)=>Boolean(item.imageUrl?.value)).length,withPrice:products.filter((item)=>Boolean(item.price?.value)).length,available:products.filter((item)=>item.availability?.value==='available').length}));
+      for(const product of products){
+        if(product.availability.value!=='available' || !product.imageUrl?.value || !product.url?.value) continue;
+        const opportunity=dailyOpportunity(product,query,signals,0);
+        const current=candidates.get(product.externalId);
+        if(!current || opportunity.score.score>current.score.score) candidates.set(product.externalId,opportunity);
+      }
+    }catch(error){
+      report.errors+=1;
+      console.warn('DAILY_AGENT_SEARCH_ERROR',query,error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  const ranked=[];
+  for(const opportunity of [...candidates.values()].sort((a,b)=>b.score.score-a.score.score || b.confidence-a.confidence)){
+    if(ranked.some((item)=>dailySimilarity(item.product.title.value,opportunity.product.title.value)>=0.72)) continue;
+    opportunity.rank=ranked.length+1;
+    ranked.push(opportunity);
+  }
+  report.opportunitiesAnalyzed=ranked.length;
+
+  for(const opportunity of ranked.slice(0,12)){
+    try{
+      const id=opportunity.id.replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,180);
+      await writeDoc(dailyAgentOpportunities+'/'+encodeURIComponent(id),opportunity);
+      report.opportunitiesPersisted+=1;
+    }catch(error){
+      report.errors+=1;
+      console.warn('DAILY_AGENT_OPPORTUNITY_WRITE_ERROR',opportunity.id,error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  const originalReady=campaigns.filter((campaign)=>campaign.status==='READY').length;
+  const readyBeforeCreation=Math.max(0,originalReady-report.blocked);
+  const queueTarget=3;
+  const creationSlots=Math.max(0,queueTarget-readyBeforeCreation);
+  const eligible=ranked.filter((item)=>item.score.score>=58 && !existingIds.has(item.product.externalId));
+  const selected=[];
+  for(const opportunity of eligible){
+    if(selected.some((item)=>dailySimilarity(item.keyword,opportunity.keyword)>=0.72)) continue;
+    selected.push(opportunity);
+    if(selected.length>=creationSlots) break;
+  }
+  if(selected.length<creationSlots){
+    for(const opportunity of eligible){
+      if(selected.some((item)=>item.product.externalId===opportunity.product.externalId)) continue;
+      selected.push(opportunity);
+      if(selected.length>=creationSlots) break;
+    }
+  }
+
+  for(const opportunity of selected){
+    try{
+      const campaign=dailyCampaign(opportunity);
+      const exists=await readDoc(dailyAgentCampaigns+'/'+encodeURIComponent(campaign.id));
+      if(exists){report.skipped+=1;continue;}
+      await persistDailyCampaign(campaign);
+      existingIds.add(opportunity.product.externalId);
+      report.campaignsCreated+=1;
+      report.messages.push(opportunity.keyword+': campanha preparada automaticamente com NestScore '+opportunity.score.score+'.');
+    }catch(error){
+      report.errors+=1;
+      console.warn('DAILY_AGENT_CAMPAIGN_WRITE_ERROR',opportunity.id,error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  report.campaignsWaiting=readyBeforeCreation+report.campaignsCreated;
+  if(readyBeforeCreation>=queueTarget){
+    report.messages.push('Fila de revisão já possui '+readyBeforeCreation+' campanhas; novas campanhas não foram criadas neste ciclo.');
+  }
+  report.completedAt=new Date().toISOString();
+  report.status=report.errors>0 ? 'PARTIAL' : 'SUCCESS';
+  const runId='run-'+report.completedAt.replace(/[^0-9]/g,'').slice(0,14);
+  await writeDoc(dailyAgentRuns+'/'+runId,report);
+  return report;
+}
+
 
 async function main(){
   required('NESTAFFILIATE_SIGNAL_ORG_ID',ORG_ID);
@@ -217,8 +648,26 @@ async function main(){
     .filter((signal)=>homeRelevant(signal.keyword));
 
   const categories=await inferRelevantCategories(trends,token.access_token);
+  const categoryTrendSignals=[];
   const highlightSignals=[];
   for(const category of categories){
+    try{
+      const categoryTrends=await meliGet(`/trends/MLB/${encodeURIComponent(category.id)}`,token.access_token);
+      if(Array.isArray(categoryTrends)){
+        categoryTrends.slice(0,12).forEach((entry,index)=>{
+          const base=trendSignal(entry,index,now);
+          categoryTrendSignals.push({
+            ...base,
+            id:`${base.id}-${category.id}`,
+            label:`${base.label} · ${category.label}`,
+            evidence:[...base.evidence,`categoria:${category.label}`,`seed:${category.seed}`],
+          });
+        });
+      }
+    }catch(error){
+      console.warn('CATEGORY_TRENDS_SKIP',category.id,error instanceof Error ? error.message : String(error));
+    }
+
     try{
       const highlights=await meliGet(`/highlights/MLB/category/${encodeURIComponent(category.id)}`,token.access_token);
       for(const entry of highlights?.content || []){
@@ -229,7 +678,7 @@ async function main(){
     }
   }
 
-  const all=[...trendSignals,...highlightSignals];
+  const all=[...trendSignals,...categoryTrendSignals,...highlightSignals];
   for(const signal of all){
     const docId=signal.id.replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,180);
     await writeDoc(`${signalBase}/${docId}`,{
@@ -249,18 +698,23 @@ async function main(){
     accessTokenExpiresAt,
     searchProbeCount,
     trendSignals:trendSignals.length,
+    categoryTrendSignals:categoryTrendSignals.length,
     highlightSignals:highlightSignals.length,
     categories:categories.map((category)=>category.id),
   });
 
+  const dailyAgent=await runDailyAgent(token.access_token,all,now);
+
   console.log(JSON.stringify({
     ok:true,
     trends:trendSignals.length,
+    categoryTrends:categoryTrendSignals.length,
     highlights:highlightSignals.length,
     categories,
     searchProbeCount,
     accessTokenExpiresAt,
     observedAt:now,
+    dailyAgent,
   }));
 }
 
