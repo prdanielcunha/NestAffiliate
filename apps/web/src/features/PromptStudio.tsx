@@ -1,9 +1,16 @@
 import { useMemo, useState } from 'react';
-import type { Campaign } from '@nestaffiliate/core';
+import type { Campaign, CreativeAsset, PinterestCreativePack } from '@nestaffiliate/core';
 import { nextCampaignVersion } from '@nestaffiliate/core';
-import { buildPromptPackage, routeAI } from '@nestaffiliate/ai-router';
+import {
+  buildPinterestCreativePack,
+  versionPinterestCreativePack,
+} from '@nestaffiliate/creative-engine';
 import { CREATIVE_TEMPLATES } from '@nestaffiliate/creative-engine';
+import { buildPromptPackage, routeAI } from '@nestaffiliate/ai-router';
 import { useI18n } from '../lib/i18n-context';
+import { AIImageImport } from './AIImageImport';
+import { CreativeConceptPicker } from './CreativeConceptPicker';
+import { ImagePromptPanel } from './ImagePromptPanel';
 
 interface AIEditorialResult {
   headline?:string;
@@ -17,8 +24,14 @@ interface AIEditorialResult {
 }
 
 function parseEditorialResult(raw:string):AIEditorialResult{
-  const cleaned=raw.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
-  const parsed=JSON.parse(cleaned) as Record<string,unknown>;
+  let cleaned=raw.trim();
+  const fence=String.fromCharCode(96).repeat(3);
+  if(cleaned.startsWith(fence)){
+    const firstBreak=cleaned.indexOf('\n');
+    cleaned=firstBreak>=0 ? cleaned.slice(firstBreak+1) : cleaned.slice(3);
+    if(cleaned.trimEnd().endsWith(fence)) cleaned=cleaned.trimEnd().slice(0,-3);
+  }
+  const parsed=JSON.parse(cleaned.trim()) as Record<string,unknown>;
   const text=(key:string)=>typeof parsed[key]==='string' ? String(parsed[key]).trim() : undefined;
   return {
     headline:text('headline'),
@@ -32,6 +45,20 @@ function parseEditorialResult(raw:string):AIEditorialResult{
   };
 }
 
+function ephemeralPack(campaign:Campaign,locale:'pt-BR'|'en'|'es'){
+  return campaign.currentVersion.creativePack ?? buildPinterestCreativePack({
+    organizationId:campaign.organizationId,
+    campaignId:campaign.id,
+    campaignVersion:campaign.currentVersion.version,
+    product:campaign.currentVersion.product,
+    keyword:campaign.currentVersion.keyword,
+    boardName:campaign.currentVersion.boardName,
+    locale,
+    existingNarrative:campaign.currentVersion.narrative,
+    editorialContext:'Prompt Studio 2.0',
+  });
+}
+
 export function PromptStudio({
   campaigns,
   editable,
@@ -41,15 +68,18 @@ export function PromptStudio({
   editable:boolean;
   onUpdate:(campaign:Campaign)=>void;
 }){
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [campaignId,setCampaignId]=useState(campaigns[0]?.id ?? '');
+  const [tab,setTab]=useState<'image'|'copy'|'analysis'>('image');
   const [instruction,setInstruction]=useState('Crie três ângulos de campanha Pinterest, mantendo linguagem premium e prática.');
   const [copied,setCopied]=useState(false);
   const [aiResult,setAiResult]=useState('');
   const [importState,setImportState]=useState<'idle'|'ok'|'error'>('idle');
   const campaign=campaigns.find((item)=>item.id===campaignId) ?? campaigns[0];
 
-  const pkg=useMemo(()=>{
+  const pack=useMemo(()=>campaign?ephemeralPack(campaign,locale):null,[campaign,locale]);
+
+  const copyPkg=useMemo(()=>{
     if(!campaign) return null;
     const p=campaign.currentVersion.product;
     const provider=routeAI('copy_generation');
@@ -69,9 +99,35 @@ export function PromptStudio({
     });
   },[campaign,instruction]);
 
-  async function copy(){
-    if(!pkg) return;
-    await navigator.clipboard.writeText(`${pkg.system}\n\n${pkg.prompt}`);
+  function ensureVersionedPack(source:PinterestCreativePack,nextVersion:number,conceptId?:string){
+    return versionPinterestCreativePack(source,nextVersion,conceptId);
+  }
+
+  function selectConcept(conceptId:string){
+    if(!campaign || !pack || !editable) return;
+    const nextPack=ensureVersionedPack(pack,campaign.currentVersion.version+1,conceptId);
+    const next=nextCampaignVersion(campaign,{creativePack:nextPack},'Prompt Studio concept changed');
+    onUpdate(next);
+    setCampaignId(next.id);
+  }
+
+  function importImage(asset:CreativeAsset){
+    if(!campaign || !pack || !editable) return;
+    const nextPack=ensureVersionedPack(pack,campaign.currentVersion.version+1);
+    const selected=nextPack.imageConcepts.find((item)=>item.id===nextPack.recommendedConceptId) ?? nextPack.imageConcepts[0];
+    const nextAsset={...asset,conceptId:selected?.id,promptPackageId:selected?.imagePrompt.id};
+    const next=nextCampaignVersion(campaign,{
+      creativePack:nextPack,
+      creativeAsset:nextAsset,
+      template:'Lifestyle + Headline',
+    },'Prompt Studio generated image imported');
+    onUpdate(next);
+    setCampaignId(next.id);
+  }
+
+  async function copyPackage(){
+    if(!copyPkg) return;
+    await navigator.clipboard.writeText(copyPkg.system+'\n\n'+copyPkg.prompt);
     setCopied(true);
     window.setTimeout(()=>setCopied(false),1500);
   }
@@ -95,11 +151,15 @@ export function PromptStudio({
         template.label.toLowerCase()===result.template?.toLowerCase() ||
         template.id===result.template?.toLowerCase().replace(/[^a-z0-9]+/g,'-')
       );
+      const patchPack=current.creativePack
+        ? ensureVersionedPack(current.creativePack,current.version+1)
+        : undefined;
       const next=nextCampaignVersion(
         campaign,
         {
           narrative,
           template:allowedTemplate?.label ?? current.template,
+          ...(patchPack?{creativePack:patchPack}:{}),
         },
         'manual AI result import',
       );
@@ -112,37 +172,81 @@ export function PromptStudio({
   }
 
   return <div className="page">
-    <header className="page-title"><p className="eyebrow">PROMPT STUDIO</p><h1>{t('promptTitle')}</h1><p>{t('promptSub')}</p></header>
+    <header className="page-title"><p className="eyebrow">PROMPT STUDIO 2.0</p><h1>{t('promptTitle')}</h1><p>{t('promptSub')}</p></header>
     <section className="surface">
       <div className="form-grid">
         <label className="span-2">{t('campaign')}<select value={campaignId} onChange={(e)=>setCampaignId(e.target.value)}>{campaigns.map((c)=><option value={c.id} key={c.id}>{c.currentVersion.keyword} · v{c.currentVersion.version}</option>)}</select></label>
-        <label className="span-2">{t('whatChange')}<textarea value={instruction} onChange={(e)=>setInstruction(e.target.value)} rows={4}/></label>
       </div>
       {!campaign && <p className="muted">{t('promptEmpty')}</p>}
-      {pkg && <>
-        <div className="prompt-meta"><span>{t('providerSuggested')}: {pkg.provider}</span><span>{t('privacyRedactions')}: {pkg.privacyRedactions.length}</span><span>{t('requiredCost')}: R$ 0</span></div>
-        <pre className="prompt-box">{pkg.system}{'\n\n'}{pkg.prompt}</pre>
-        <button className="button primary" onClick={()=>void copy()}>{copied?t('copied'):t('copyPackage')}</button>
-      </>}
-    </section>
+      {campaign && pack && <>
+        <div className="tabs prompt-studio-tabs">
+          <button className={tab==='image'?'active':''} onClick={()=>setTab('image')}>{t('image')}</button>
+          <button className={tab==='copy'?'active':''} onClick={()=>setTab('copy')}>{t('copy')}</button>
+          <button className={tab==='analysis'?'active':''} onClick={()=>setTab('analysis')}>{t('analysis')}</button>
+        </div>
 
-    <section className="surface">
-      <p className="eyebrow">IMPORT AI RESULT</p>
-      <h2>{t('aiResult')}</h2>
-      <p className="muted">{t('truthSafeImport')}</p>
-      <textarea
-        className="ai-result-input"
-        disabled={!editable || !campaign}
-        rows={10}
-        value={aiResult}
-        onChange={(e)=>{setAiResult(e.target.value);setImportState('idle');}}
-        placeholder={'{"headline":"...","pinterestTitle":"...","description":"...","altText":"...","cta":"...","template":"Minimal"}'}
-      />
-      <div className="import-result-row">
-        <button className="button secondary" disabled={!editable || !campaign || !aiResult.trim()} onClick={importResult}>{t('importAiResult')}</button>
-        {importState==='ok' && <span className="success-text">{t('importedAiResult')}</span>}
-        {importState==='error' && <span className="field-error">{t('invalidAiResult')}</span>}
-      </div>
+        {tab==='image' && <div className="prompt-studio-pane">
+          <div className="prompt-studio-product">
+            <div>
+              <p className="eyebrow">{t('product')}</p>
+              <h2>{campaign.currentVersion.product.title.value}</h2>
+              <p>{pack.creativeDirection.roomOrEnvironment}</p>
+            </div>
+            <strong>1000 × 1500 · 2:3</strong>
+          </div>
+          <CreativeConceptPicker pack={pack} disabled={!editable} onSelect={selectConcept} />
+          <ImagePromptPanel pack={pack} product={campaign.currentVersion.product} />
+          <AIImageImport
+            organizationId={campaign.organizationId}
+            campaignId={campaign.id}
+            pack={pack}
+            disabled={!editable}
+            onImported={importImage}
+          />
+        </div>}
+
+        {tab==='copy' && <div className="prompt-studio-pane">
+          <div className="copy-option-grid prompt-copy-grid">
+            <div><h3>{t('pinTitles')}</h3>{pack.copy.titles.map((value)=><p className="copy-readonly" key={value}>{value}</p>)}</div>
+            <div><h3>{t('descriptions')}</h3>{pack.copy.descriptions.map((value)=><p className="copy-readonly" key={value}>{value}</p>)}</div>
+          </div>
+          <div className="prompt-meta">
+            <span>{t('providerSuggested')}: {copyPkg?.provider}</span>
+            <span>{t('requiredCost')}: R$ 0</span>
+            <span>{t('keywords')}: {pack.copy.keywords.length}</span>
+          </div>
+          <label className="prompt-instruction">{t('whatChange')}<textarea value={instruction} onChange={(e)=>setInstruction(e.target.value)} rows={3}/></label>
+          {copyPkg && <><pre className="prompt-box">{copyPkg.system}{'\n\n'}{copyPkg.prompt}</pre><button className="button secondary" onClick={()=>void copyPackage()}>{copied?t('copied'):t('copyPackage')}</button></>}
+
+          <div className="prompt-import-copy">
+            <p className="eyebrow">{t('importResult')}</p>
+            <h2>{t('aiResult')}</h2>
+            <p className="muted">{t('truthSafeImport')}</p>
+            <textarea
+              className="ai-result-input"
+              disabled={!editable || !campaign}
+              rows={8}
+              value={aiResult}
+              onChange={(e)=>{setAiResult(e.target.value);setImportState('idle');}}
+              placeholder={'{"headline":"...","pinterestTitle":"...","description":"...","altText":"...","cta":"...","template":"Editorial Clean"}'}
+            />
+            <div className="import-result-row">
+              <button className="button secondary" disabled={!editable || !aiResult.trim()} onClick={importResult}>{t('importAiResult')}</button>
+              {importState==='ok' && <span className="success-text">{t('importedAiResult')}</span>}
+              {importState==='error' && <span className="field-error">{t('invalidAiResult')}</span>}
+            </div>
+          </div>
+        </div>}
+
+        {tab==='analysis' && <div className="prompt-studio-pane analysis-grid">
+          <article><p className="eyebrow">{t('environment')}</p><h3>{pack.creativeDirection.roomOrEnvironment}</h3><p>{pack.imageConcepts[0]?.sceneProfile.explanation}</p></article>
+          <article><p className="eyebrow">{t('recommendedAngle')}</p><h3>{pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId)?.title}</h3><p>{pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId)?.rationale}</p></article>
+          <article><p className="eyebrow">PRODUCT TRUTH</p><h3>{t('truthRestrictions')}</h3><ul>{pack.truthConstraints.map((item)=><li key={item}>{item}</li>)}</ul></article>
+          <article><p className="eyebrow">SEO</p><h3>{pack.copy.primaryKeyword}</h3><div className="keyword-cloud">{pack.copy.keywords.map((keyword)=><span key={keyword}>{keyword}</span>)}</div></article>
+          <article><p className="eyebrow">{t('packQuality')}</p><h3>{pack.qualityScore}/100</h3><ul>{pack.qualityExplanation.map((item)=><li key={item}>{item}</li>)}</ul></article>
+          <article><p className="eyebrow">{t('publicationReadiness')}</p><h3>{campaign.currentVersion.creativeAsset?t('finalImageReady'):t('waitingImport')}</h3><ul>{pack.publicationChecklist.map((item)=><li key={item}>{item}</li>)}</ul></article>
+        </div>}
+      </>}
     </section>
   </div>;
 }
