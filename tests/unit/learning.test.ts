@@ -3,6 +3,7 @@ import { deriveLearning, historicalScoreAdjustment } from '../../packages/learni
 import type { Campaign } from '../../packages/core/src/index';
 import type { PerformanceDaily } from '../../packages/analytics/src/index';
 import { buildPinterestCreativePack } from '../../packages/creative-engine/src/index';
+import { buildPinterestCreativePack } from '../../packages/creative-engine/src/index';
 
 const now=new Date().toISOString();
 
@@ -78,5 +79,30 @@ describe('learning engine', () => {
     expect(adjustment.evidenceCount).toBe(12);
     expect(adjustment.adjustment).toBeGreaterThanOrEqual(-6);
     expect(adjustment.adjustment).toBeLessThanOrEqual(6);
+  });
+
+
+  it('learns scene type, environment and creative angle only after repeated evidence', () => {
+    const campaigns=Array.from({length:12},(_,i)=>{
+      const item=campaign('visual-'+i);
+      const pack=buildPinterestCreativePack({
+        organizationId:item.organizationId,
+        campaignId:item.id,
+        campaignVersion:item.currentVersion.version,
+        product:{...item.currentVersion.product,assetRights:'AUTHORIZED'},
+        keyword:item.currentVersion.keyword,
+        boardName:item.currentVersion.boardName,
+        locale:'pt-BR',
+        createdAt:now,
+      });
+      return {...item,currentVersion:{...item.currentVersion,creativePack:pack}};
+    });
+    const metrics=campaigns.map((item)=>metric(item.id));
+    const insights=deriveLearning(campaigns,metrics);
+    const contextual=insights.find((item)=>item.id.startsWith('creative-context:'));
+    expect(contextual?.confidence).toBe('established');
+    expect(contextual?.dimensions?.sceneType).toBeTruthy();
+    expect(contextual?.dimensions?.environment).toBeTruthy();
+    expect(contextual?.dimensions?.creativeAngle).toBeTruthy();
   });
 });
