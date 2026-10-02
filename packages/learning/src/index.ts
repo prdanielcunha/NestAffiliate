@@ -203,7 +203,7 @@ export function deriveLearning(campaigns: Campaign[], metrics: PerformanceDaily[
       backgroundStrategy,
     };
     const key=Object.values(dimensions).join('|');
-    const bucket=byVisualSignature.get(key) ?? {campaignIds:new Set(),rows:[],dimensions};
+    const bucket=byVisualSignature.get(key) ?? {campaignIds:new Set<string>(),rows:[] as PerformanceDaily[],dimensions};
     bucket.campaignIds.add(campaign.id);
     bucket.rows.push(...metrics.filter((row)=>row.campaignId===campaign.id));
     byVisualSignature.set(key,bucket);
