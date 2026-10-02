@@ -219,8 +219,8 @@ export function deriveLearning(campaigns: Campaign[], metrics: PerformanceDaily[
       confidence:level,
       title:'Contexto visual: '+bucket.dimensions.creativeAngle+' · '+bucket.dimensions.sceneType,
       explanation:level==='insufficient'
-        ? `Há \${count} campanhas publicadas com esta combinação visual. O sistema registra, mas ainda não muda o comportamento.`
-        : `A combinação reúne \${count} campanhas, CTR de \${(summary.ctr*100).toFixed(2)}% e save rate de \${(summary.saveRate*100).toFixed(2)}%.`,
+        ? `Há ${count} campanhas publicadas com esta combinação visual. O sistema registra, mas ainda não muda o comportamento.`
+        : `A combinação reúne ${count} campanhas, CTR de ${(summary.ctr*100).toFixed(2)}% e save rate de ${(summary.saveRate*100).toFixed(2)}%.`,
       evidenceCount:count,
       recommendation:level==='established' && (summary.ctr>0.02 || summary.saveRate>0.02)
         ? 'Usar esta combinação como hipótese forte em novos testes, sem transformar correlação em regra absoluta.'
