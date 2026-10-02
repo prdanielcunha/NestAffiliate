@@ -817,27 +817,42 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       </div>
       {state === 'loading' && <ProgressSteps />}
       {state === 'error' && <div className="notice danger">{t('radarError')}</div>}
-      {!items.length && state === 'idle' && <Empty title={t('radarEmpty')} body={t('radarEmptyBody')} />}
+      {!opportunities.length && state === 'idle' && <Empty title={t('radarEmpty')} body={t('radarEmptyBody')} />}
       {editable ? (
-        <ManualProductImport organizationId={organizationId} onImported={(product, keyword) => create(product, keyword)} />
+        <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
       ) : (
         <div className="notice">{t('readOnlyRadar')}</div>
       )}
       <div className="opportunity-grid">
-        {items.map((product) => (
-          <article className="opportunity-card" key={product.externalId}>
+        {opportunities.map((opportunity,index) => {
+          const product=opportunity.product;
+          return (
+          <article className="opportunity-card radar2-card" key={product.externalId}>
             <div className="product-image">
               {product.imageUrl ? <img src={product.imageUrl.value} alt="" /> : <span>{t('assetUnavailable')}</span>}
+              <span className="rank-pill">#{index+1}</span>
+              <span className="radar-score">{opportunity.score.score}</span>
             </div>
-            <div>
-              <span className="market-chip">Mercado Livre</span>
+            <div className="opportunity-copy">
+              <div className="opportunity-meta">
+                <span className="market-chip">{product.marketplace==='MELI'?'Mercado Livre':'Shopee'}</span>
+                <span>NestScore 2.0 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}</span>
+              </div>
               <h3>{product.title.value}</h3>
               <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
-              <p className="muted">{t('truthPreserved')}</p>
-              <button className="button secondary" disabled={!editable} onClick={() => create(product)}>{t('createCampaign')}</button>
+              <div className="ranking-reasons">
+                <strong>{t('whyRanked')}</strong>
+                {opportunity.rankingReasons.slice(0,3).map((reason)=><span key={reason}>{reason}</span>)}
+              </div>
+              <div className="tracking-row"><code>{opportunity.trackingCode}</code><button className="text-button" onClick={()=>void navigator.clipboard.writeText(opportunity.trackingCode)}>{t('copyTracking')}</button></div>
+              <div className="opportunity-actions">
+                <a className="button secondary" href={product.url.value} target="_blank" rel="noreferrer">{t('openProduct')}</a>
+                <button className="button secondary" onClick={()=>prepareAffiliate(opportunity)}>{t('affiliatePrep')}</button>
+                <button className="button primary" disabled={!editable} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{t('createCampaign')}</button>
+              </div>
             </div>
           </article>
-        ))}
+        )})}
       </div>
     </div>
   );
@@ -1031,7 +1046,8 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             </div>
           </Disclosure>
           <Disclosure title={t('why')} defaultOpen>
-            <ul>{campaign.score.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+            <ul>{(campaign.rankingContext?.evidence?.length ? campaign.rankingContext.evidence : campaign.score.reasons).map((reason) => <li key={reason}>{reason}</li>)}</ul>
+            {campaign.rankingContext?.trackingCode && <div className="tracking-row"><code>{campaign.rankingContext.trackingCode}</code><button className="text-button" onClick={()=>void navigator.clipboard.writeText(campaign.rankingContext!.trackingCode!)}>{t('copyTracking')}</button></div>}
           </Disclosure>
           <Disclosure title={t('content')}>
             <label>{t('title')}</label><p>{v.narrative.pinterestTitle}</p>
