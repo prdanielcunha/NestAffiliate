@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
+import { getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth';
 import type { Role } from '@nestaffiliate/core';
 import { auth, db, firebaseReady, googleProvider } from './firebase';
 
@@ -14,11 +14,46 @@ interface WorkspaceIdentity {
   signIn: () => Promise<void>;
   switchAccount: () => Promise<void>;
   logout: () => Promise<void>;
+  authError: string | null;
+  authPending: boolean;
+  clearAuthError: () => void;
 }
 
 const AuthContext = createContext<WorkspaceIdentity | null>(null);
 
 const globalRoles = new Set(['ceo', 'global_admin', 'ecosystem_owner', 'founder']);
+
+const redirectFallbackCodes = new Set([
+  'auth/popup-blocked',
+  'auth/operation-not-supported-in-this-environment',
+  'auth/web-storage-unsupported',
+]);
+
+function authErrorCode(error: unknown) {
+  if (error && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'auth/unknown';
+}
+
+async function startGoogleSignIn() {
+  if (!auth || !googleProvider || !firebaseReady) {
+    throw Object.assign(new Error('Firebase Auth is not configured for this build.'), {
+      code: 'auth/configuration-unavailable',
+    });
+  }
+
+  try {
+    await signInWithPopup(auth, googleProvider);
+  } catch (error) {
+    const code = authErrorCode(error);
+    if (redirectFallbackCodes.has(code)) {
+      await signInWithRedirect(auth, googleProvider);
+      return;
+    }
+    throw error;
+  }
+}
 
 async function resolveWorkspace(user: User): Promise<{ organizationId: string; role: Role } | null> {
   if (!db) return null;
@@ -68,6 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>(mock ? 'ready' : 'loading');
   const [organizationId, setOrganizationId] = useState<string | null>(mock ? 'demo-org' : null);
   const [role, setRole] = useState<Role | null>(mock ? 'owner' : null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authPending, setAuthPending] = useState(false);
 
   useEffect(() => {
     if (mock) return;
@@ -75,6 +112,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState('signed-out');
       return;
     }
+    void getRedirectResult(auth).catch((error) => setAuthError(authErrorCode(error)));
+
     return onAuthStateChanged(auth, async (nextUser) => {
       setUser(nextUser);
       if (!nextUser) {
@@ -92,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setOrganizationId(resolved.organizationId);
         setRole(resolved.role);
+        setAuthError(null);
         setState('ready');
       } catch {
         setState('denied');
@@ -105,18 +145,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     organizationId,
     role,
     signIn: async () => {
-      if (!auth || !googleProvider) return;
-      await signInWithPopup(auth, googleProvider);
+      setAuthError(null);
+      setAuthPending(true);
+      try {
+        await startGoogleSignIn();
+      } catch (error) {
+        setAuthError(authErrorCode(error));
+        throw error;
+      } finally {
+        setAuthPending(false);
+      }
     },
     switchAccount: async () => {
-      if (!auth || !googleProvider) return;
-      await signOut(auth);
-      await signInWithPopup(auth, googleProvider);
+      setAuthError(null);
+      setAuthPending(true);
+      try {
+        if (auth) await signOut(auth);
+        await startGoogleSignIn();
+      } catch (error) {
+        setAuthError(authErrorCode(error));
+        throw error;
+      } finally {
+        setAuthPending(false);
+      }
     },
     logout: async () => {
+      setAuthError(null);
       if (auth) await signOut(auth);
     },
-  }), [user, state, organizationId, role]);
+    authError,
+    authPending,
+    clearAuthError: () => setAuthError(null),
+  }), [user, state, organizationId, role, authError, authPending]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

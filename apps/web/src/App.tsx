@@ -438,8 +438,18 @@ function SyncErrorBanner({
 
 function Login() {
   const { t } = useI18n();
-  const { state, signIn, switchAccount, user } = useAuth();
+  const { state, signIn, switchAccount, user, authError, authPending, clearAuthError } = useAuth();
   if (state === 'ready') return <Navigate to="/" replace />;
+
+  const authErrorMessage = authError === 'auth/configuration-unavailable'
+    ? t('authConfigError')
+    : authError === 'auth/unauthorized-domain'
+      ? t('authDomainError')
+      : ['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'].includes(authError ?? '')
+        ? t('authPopupError')
+        : authError
+          ? t('authGenericError')
+          : null;
   return (
     <main className="login-shell">
       <section className="login-brand">
@@ -453,13 +463,26 @@ function Login() {
         <div className="status-orb" />
         <h2>{state === 'loading' ? t('loadingAccount') : t('enterContinue')}</h2>
         <p className="muted">{t('loginPrivacy')}</p>
+        {authErrorMessage && <div className="notice danger" role="alert">{authErrorMessage}</div>}
         {state === 'denied' ? (
           <>
             <div className="notice danger">{t('accessDenied')}</div>
-            <button className="button primary" onClick={switchAccount}>{t('tryAnother')}</button>
+            <button
+              className="button primary"
+              disabled={authPending}
+              onClick={() => { clearAuthError(); void switchAccount().catch(() => undefined); }}
+            >
+              {authPending ? t('openingGoogle') : t('tryAnother')}
+            </button>
           </>
         ) : (
-          <button className="button primary" onClick={signIn}>{t('continueGoogle')}</button>
+          <button
+            className="button primary"
+            disabled={authPending || state === 'loading'}
+            onClick={() => { clearAuthError(); void signIn().catch(() => undefined); }}
+          >
+            {authPending ? t('openingGoogle') : t('continueGoogle')}
+          </button>
         )}
         <a className="button secondary" href={import.meta.env.VITE_HUB_URL || 'https://www.millionsnest.com'}>
           {t('openHub')}
