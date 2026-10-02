@@ -4,7 +4,7 @@ import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, Publica
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
 import { MercadoLivrePublicAdapter } from '@nestaffiliate/integrations';
-import { buildOpportunity, shortlist } from '@nestaffiliate/radar';
+import { buildOpportunity, buildSearchSignal, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
@@ -33,6 +33,7 @@ import { SettingsPanel } from './features/SettingsPanel';
 import { runDailyAgentCycle, type DailyAgentReport } from './services/dailyAgent';
 import { freshValidateProduct } from './services/freshValidation';
 import { completePublicationSchedule, listPublicationSchedules, savePublicationSchedule } from './services/publicationScheduleRepository';
+import { listMarketSignals, saveMarketSignals } from './services/marketSignalRepository';
 
 const marketplaceAdapter = new MercadoLivrePublicAdapter();
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
