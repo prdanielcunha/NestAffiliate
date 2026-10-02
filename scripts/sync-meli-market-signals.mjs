@@ -663,6 +663,10 @@ async function runDailyAgent(accessToken,signals,observedAt){
   for(const campaign of campaigns.filter((item)=>item?.status==='READY' && item?.marketplace==='MELI' && item?.currentVersion?.product && observed(item.currentVersion.product)<=cutoff).slice(0,20)){
     try{
       const previous=campaign.currentVersion.product;
+      if(previous.listingVerified===false){
+        report.skipped+=1;
+        continue;
+      }
       let fresh=(await dailyBulkItems([previous.externalId],accessToken))[0];
       if(!fresh){
         const fallback=await dailySearch(previous.title?.value || campaign.currentVersion.keyword,accessToken,8);
@@ -671,7 +675,52 @@ async function runDailyAgent(accessToken,signals,observedAt){
           fallback.find((item)=>previous.catalogProductId && item.catalogProductId===previous.catalogProductId) ||
           fallback.find((item)=>dailySimilarity(item.title.value,previous.title?.value || '')>=0.72);
       }
-      if(!fresh || fresh.listingVerified===false){report.skipped+=1;continue;}
+      if(!fresh || fresh.listingVerified===false){
+        const sourceText=[
+          previous?.title?.source,
+          previous?.url?.source,
+          previous?.imageUrl?.source,
+        ].filter(Boolean).join(' ').toLowerCase();
+        const looksLikeLegacyCatalog=
+          previous.listingVerified===undefined &&
+          (sourceText.includes('catalog') || String(previous.externalId || '').startsWith('catalog:'));
+        if(looksLikeLegacyCatalog){
+          const previousVersion=campaign.currentVersion;
+          const versionNumber=Number(previousVersion.version || 0)+1;
+          const observedAt=new Date().toISOString();
+          const migratedProduct={
+            ...previous,
+            listingVerified:false,
+            availability:{
+              ...previous.availability,
+              value:'unknown',
+              source:'daily-agent-catalog-safety-migration',
+              observedAt,
+            },
+          };
+          const nextVersion={
+            ...previousVersion,
+            id:campaign.id+'-v'+versionNumber+'-catalog-safety',
+            parentVersionId:previousVersion.id,
+            version:versionNumber,
+            createdAt:observedAt,
+            reason:'daily agent catalog safety migration',
+            product:migratedProduct,
+          };
+          const history=Array.isArray(campaign.history) ? campaign.history : [];
+          const migrated={
+            ...campaign,
+            currentVersion:nextVersion,
+            history:history.some((item)=>item?.id===previousVersion.id) ? history : [...history,previousVersion],
+          };
+          await persistDailyCampaign(migrated);
+          report.changed+=1;
+          report.messages.push(campaign.currentVersion.keyword+': campanha de catálogo legado marcada para confirmação manual antes da publicação.');
+          continue;
+        }
+        report.skipped+=1;
+        continue;
+      }
       fresh.listingVerified=true;
       report.checked+=1;
       report.campaignsRevalidated+=1;
