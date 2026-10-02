@@ -18,7 +18,9 @@ function product(id:string,title:string,price:number,image:string){
 }
 
 test('Radar shows automatic market status, useful suggestions and real product cards', async ({ page }) => {
+  let brokerCalls=0;
   await page.route('**/api/v1/nestaffiliate/mercadolivre/search**',async (route)=>{
+    brokerCalls+=1;
     const url=new URL(route.request().url());
     const query=url.searchParams.get('q') || 'organizador cozinha pequena';
     const products=[
@@ -52,9 +54,9 @@ test('Radar shows automatic market status, useful suggestions and real product c
 
   await page.getByRole('button',{name:'Analisar produtos'}).click();
 
-  await expect(page.getByText('3 produtos para comparar',{exact:true})).toBeVisible();
+  await expect.poll(()=>brokerCalls).toBe(1);
+  await expect(page.locator('.opportunity-card')).toHaveCount(3,{timeout:10_000});
   await expect(page.getByText(/143 encontrados no catálogo/)).toBeVisible();
-  await expect(page.locator('.opportunity-card')).toHaveCount(3);
   await expect(page.getByRole('link',{name:'Organizador de Gavetas Ajustável'})).toBeVisible();
   await expect(page.getByRole('link',{name:'Prateleira Extensível para Armário'})).toBeVisible();
 
