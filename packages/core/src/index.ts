@@ -113,6 +113,7 @@ export interface PublicationPackage {
   boardName: string;
   topics: string[];
   altText: string;
+  trackingCode?: string;
   suggestedPublishAt?: string;
   compliance: ComplianceOutcome;
 }
