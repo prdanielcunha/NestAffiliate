@@ -27,7 +27,6 @@ import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
 import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
 import { resolveCreativeAssetUrl } from './services/creativePackRepository';
-import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
 import { ConnectionCenter } from './features/ConnectionCenter';
 import { ensureNestAffiliateWorkspace } from './services/workspaceBootstrap';
 import { defaultPreferences, loadUserPreferences, saveUserPreferences, type UserPreferences } from './services/preferencesRepository';
