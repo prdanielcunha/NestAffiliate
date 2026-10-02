@@ -1,0 +1,60 @@
+name: NestAffiliate Mercado Livre OAuth Bootstrap
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: nestaffiliate-meli-oauth-bootstrap
+  cancel-in-progress: false
+
+env:
+  FIREBASE_PROJECT_ID: millionsnest
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Authenticate to MillionsNest Firebase
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-infra-admin@millionsnest.iam.gserviceaccount.com
+
+      - name: Check required configuration
+        shell: bash
+        env:
+          ORG_ID: ${{ vars.NESTAFFILIATE_SIGNAL_ORG_ID }}
+          CLIENT_ID: ${{ secrets.MELI_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.MELI_CLIENT_SECRET }}
+          BOOTSTRAP_BUNDLE: ${{ secrets.MELI_BOOTSTRAP_BUNDLE }}
+        run: |
+          set -euo pipefail
+          test -n "$ORG_ID"
+          test -n "$CLIENT_ID"
+          test -n "$CLIENT_SECRET"
+          test -n "$BOOTSTRAP_BUNDLE"
+          echo "Mercado Livre OAuth bootstrap configuration present."
+
+      - name: Exchange authorization code and persist rotating refresh token
+        shell: bash
+        env:
+          NESTAFFILIATE_SIGNAL_ORG_ID: ${{ vars.NESTAFFILIATE_SIGNAL_ORG_ID }}
+          MELI_CLIENT_ID: ${{ secrets.MELI_CLIENT_ID }}
+          MELI_CLIENT_SECRET: ${{ secrets.MELI_CLIENT_SECRET }}
+          MELI_BOOTSTRAP_BUNDLE: ${{ secrets.MELI_BOOTSTRAP_BUNDLE }}
+        run: |
+          set -euo pipefail
+          export GOOGLE_OAUTH_ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          node scripts/bootstrap-meli-oauth.mjs
+
+      - name: Safety note
+        run: |
+          echo "OAuth bootstrap completed."
+          echo "Delete the one-time MELI_BOOTSTRAP_BUNDLE repository secret before the next authorization cycle."
+          echo "Do not copy access/refresh tokens into the frontend or logs."
