@@ -1,51 +1,10 @@
 import { useState } from 'react';
 
 const REDIRECT_URI='https://nestaffiliate.millionsnest.com/integrations/meli/callback';
-
-function base64Url(bytes:ArrayBuffer){
-  const raw=String.fromCharCode(...new Uint8Array(bytes));
-  return btoa(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-}
-
-function randomVerifier(){
-  const bytes=new Uint8Array(48);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes,(byte)=>byte.toString(16).padStart(2,'0')).join('');
-}
-
-async function challengeFor(verifier:string){
-  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier));
-  return base64Url(digest);
-}
+const DEV_CENTER='https://developers.mercadolivre.com.br/';
 
 export function MercadoLivreSetupPanel(){
-  const [clientId,setClientId]=useState(()=>sessionStorage.getItem('na_meli_client_id') ?? '');
   const [copiedRedirect,setCopiedRedirect]=useState(false);
-  const [error,setError]=useState('');
-
-  async function begin(){
-    const appId=clientId.trim();
-    if(!/^\d+$/.test(appId)){
-      setError('Cole o App ID numérico criado no DevCenter do Mercado Livre.');
-      return;
-    }
-    setError('');
-    const state=crypto.randomUUID();
-    const verifier=randomVerifier();
-    const challenge=await challengeFor(verifier);
-    sessionStorage.setItem('na_meli_oauth_state',state);
-    sessionStorage.setItem('na_meli_pkce_verifier',verifier);
-    sessionStorage.setItem('na_meli_client_id',appId);
-
-    const url=new URL('https://auth.mercadolivre.com.br/authorization');
-    url.searchParams.set('response_type','code');
-    url.searchParams.set('client_id',appId);
-    url.searchParams.set('redirect_uri',REDIRECT_URI);
-    url.searchParams.set('state',state);
-    url.searchParams.set('code_challenge',challenge);
-    url.searchParams.set('code_challenge_method','S256');
-    window.location.assign(url.toString());
-  }
 
   async function copyRedirect(){
     await navigator.clipboard.writeText(REDIRECT_URI);
@@ -55,30 +14,43 @@ export function MercadoLivreSetupPanel(){
   return <section className="meli-setup surface">
     <div>
       <p className="eyebrow">MERCADO LIVRE · RADAR 2.0</p>
-      <h2>Ativar sinais oficiais</h2>
-      <p className="muted">Uma autorização inicial libera Trends e Highlights para o coletor diário. O Client Secret nunca entra nesta tela.</p>
+      <h2>Sinais oficiais sem expor credenciais</h2>
+      <p className="muted">
+        Trends e Highlights exigem Access Token. Enquanto o broker OAuth seguro não estiver conectado,
+        use o importador JSON do Radar. O App ID, Client Secret, access token e refresh token nunca devem
+        ser colados no frontend.
+      </p>
     </div>
-    <div className="meli-setup-grid">
-      <label>
-        <span>Redirect URI exata</span>
-        <div className="inline-editor">
-          <input value={REDIRECT_URI} readOnly aria-label="Mercado Livre redirect URI" />
-          <button className="button secondary" onClick={()=>void copyRedirect()}>{copiedRedirect?'Copiado':'Copiar'}</button>
+    <div className="list-surface">
+      <div className="list-row">
+        <div>
+          <h3>1. Criar aplicativo no DevCenter</h3>
+          <p>Use sua conta administradora do Mercado Livre e habilite o fluxo OAuth oficial.</p>
         </div>
-      </label>
-      <label>
-        <span>App ID</span>
-        <input
-          inputMode="numeric"
-          value={clientId}
-          onChange={(event)=>setClientId(event.target.value)}
-          placeholder="Ex.: 1234567890123456"
-          aria-label="Mercado Livre App ID"
-        />
-      </label>
+        <a className="button secondary" href={DEV_CENTER} target="_blank" rel="noreferrer">Abrir DevCenter</a>
+      </div>
+      <div className="list-row">
+        <div>
+          <h3>2. Registrar a Redirect URI</h3>
+          <p>{REDIRECT_URI}</p>
+        </div>
+        <button className="button secondary" onClick={()=>void copyRedirect()}>{copiedRedirect?'Copiado':'Copiar'}</button>
+      </div>
+      <div className="list-row">
+        <div>
+          <h3>3. Usar o Radar agora</h3>
+          <p>Consulte /trends ou /highlights em ambiente autenticado e cole apenas o JSON de resposta no Radar → Sinais Oficiais.</p>
+        </div>
+        <span>ZERO COST</span>
+      </div>
+      <div className="list-row">
+        <div>
+          <h3>4. Automação futura</h3>
+          <p>Quando o broker server-side estiver disponível, o mesmo parser será alimentado automaticamente pela API.</p>
+        </div>
+        <span>PREPARADO</span>
+      </div>
     </div>
-    {error && <p className="field-error">{error}</p>}
-    <button className="button primary" onClick={()=>void begin()}>Autorizar Mercado Livre</button>
-    <p className="field-hint">No DevCenter, habilite acesso offline/somente leitura e PKCE. A conta que autoriza deve ser a conta principal/administradora.</p>
+    <p className="field-hint">Nunca cole Client Secret, access token, refresh token ou Authorization header dentro do NestAffiliate.</p>
   </section>;
 }
