@@ -22,6 +22,7 @@ import { appendApprovalEvent, markPublication, markPublicationScheduled, saveFre
 import { saveLearningInsights } from './services/learningRepository';
 import { listApprovalEvents } from './services/approvalRepository';
 import { ManualProductImport } from './features/ManualProductImport';
+import { OfficialSignalImport } from './features/OfficialSignalImport';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
 import { ConnectionCenter } from './features/ConnectionCenter';
@@ -819,7 +820,18 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       {state === 'error' && <div className="notice danger">{t('radarError')}</div>}
       {!opportunities.length && state === 'idle' && <Empty title={t('radarEmpty')} body={t('radarEmptyBody')} />}
       {editable ? (
-        <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
+        <>
+          <OfficialSignalImport onImported={async (signals)=>{
+            if(!db) return;
+            await saveMarketSignals(db,organizationId,signals);
+            setMarketSignals((items)=>[
+              ...items.filter((existing)=>!signals.some((signal)=>signal.id===existing.id)),
+              ...signals,
+            ]);
+            if(opportunities.length) void search();
+          }} />
+          <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
+        </>
       ) : (
         <div className="notice">{t('readOnlyRadar')}</div>
       )}
