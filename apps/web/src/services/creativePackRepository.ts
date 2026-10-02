@@ -1,6 +1,8 @@
 import {
+  Bytes,
   collection,
   doc,
+  getDoc,
   getDocs,
   limit,
   query,
@@ -82,20 +84,19 @@ export async function findCreativeAssetByHash(
 
 export async function uploadCreativeAsset(input:{
   db:Firestore;
-  storage:FirebaseStorage;
+  storage?:FirebaseStorage|null;
   organizationId:string;
   asset:CreativeAsset;
   blob:Blob;
 }):Promise<CreativeAsset>{
   if(input.asset.organizationId!==input.organizationId) throw new Error('TENANT_MISMATCH');
   const duplicate=await findCreativeAssetByHash(input.db,input.organizationId,input.asset.hash);
-  if(duplicate?.downloadUrl){
+  if(duplicate){
     const reused:CreativeAsset={
       ...input.asset,
-      mimeType:'image/png',
       width:1000,
       height:1500,
-      storagePath:duplicate.storagePath,
+      storagePath:duplicate.storagePath ?? ('firestore:'+duplicate.id),
       downloadUrl:duplicate.downloadUrl,
     };
     await setDoc(doc(input.db,...root(input.organizationId),'creativeAssets',reused.id),{
@@ -107,28 +108,48 @@ export async function uploadCreativeAsset(input:{
     return reused;
   }
 
-  const path='organizations/'+input.organizationId+'/creative-assets/'+input.asset.id+'.png';
-  const objectRef=ref(input.storage,path);
-  await uploadBytes(objectRef,input.blob,{
-    contentType:'image/png',
-    customMetadata:{
-      organizationId:input.organizationId,
-      campaignId:input.asset.campaignId,
-      origin:input.asset.origin,
-    },
-  });
-  const downloadUrl=await getDownloadURL(objectRef);
+  const extension=input.asset.mimeType==='image/webp' ? 'webp' : input.asset.mimeType==='image/jpeg' ? 'jpg' : 'png';
+  if(input.storage){
+    const path='organizations/'+input.organizationId+'/creative-assets/'+input.asset.id+'.'+extension;
+    try{
+      const objectRef=ref(input.storage,path);
+      await uploadBytes(objectRef,input.blob,{
+        contentType:input.asset.mimeType,
+        customMetadata:{
+          organizationId:input.organizationId,
+          campaignId:input.asset.campaignId,
+          origin:input.asset.origin,
+        },
+      });
+      const downloadUrl=await getDownloadURL(objectRef);
+      const saved:CreativeAsset={...input.asset,width:1000,height:1500,storagePath:path,downloadUrl};
+      await setDoc(doc(input.db,...root(input.organizationId),'creativeAssets',saved.id),{
+        ...saved,
+        organizationId:input.organizationId,
+        storageMode:'FIREBASE_STORAGE',
+        updatedAt:serverTimestamp(),
+      },{merge:true});
+      return saved;
+    }catch{
+      // Fall through to the bounded Firestore binary fallback.
+    }
+  }
+
+  const buffer=await input.blob.arrayBuffer();
+  if(buffer.byteLength>700_000) throw new Error('INLINE_ASSET_TOO_LARGE');
   const saved:CreativeAsset={
     ...input.asset,
-    mimeType:'image/png',
     width:1000,
     height:1500,
-    storagePath:path,
-    downloadUrl,
+    storagePath:'firestore:'+input.asset.id,
+    downloadUrl:undefined,
   };
   await setDoc(doc(input.db,...root(input.organizationId),'creativeAssets',saved.id),{
     ...saved,
     organizationId:input.organizationId,
+    storageMode:'FIRESTORE_INLINE',
+    inlineBytes:Bytes.fromUint8Array(new Uint8Array(buffer)),
+    inlineBytesSize:buffer.byteLength,
     updatedAt:serverTimestamp(),
   },{merge:true});
   return saved;
@@ -145,4 +166,25 @@ export async function saveLocalCreativeAssetMetadata(
     organizationId,
     updatedAt:serverTimestamp(),
   },{merge:true});
+}
+
+
+export async function resolveCreativeAssetUrl(
+  db:Firestore,
+  organizationId:string,
+  asset:CreativeAsset,
+):Promise<{url:string;revoke:boolean}|null>{
+  if(asset.organizationId!==organizationId) throw new Error('TENANT_MISMATCH');
+  if(asset.downloadUrl) return {url:asset.downloadUrl,revoke:false};
+  const pointer=asset.storagePath?.startsWith('firestore:')
+    ? asset.storagePath.slice('firestore:'.length)
+    : asset.id;
+  if(!pointer) return null;
+  const snapshot=await getDoc(doc(db,...root(organizationId),'creativeAssets',pointer));
+  if(!snapshot.exists()) return null;
+  const data=snapshot.data();
+  const inline=data.inlineBytes as Bytes|undefined;
+  if(!inline) return null;
+  const blob=new Blob([inline.toUint8Array()],{type:String(data.mimeType ?? asset.mimeType)});
+  return {url:URL.createObjectURL(blob),revoke:true};
 }
