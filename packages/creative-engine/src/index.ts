@@ -206,7 +206,7 @@ export async function renderPin(
 
   if (!contextualRendered) {
     const image = version.product.imageUrl?.value;
-    const safeAsset = ['AUTHORIZED', 'USER_PROVIDED', 'GENERATED'].includes(version.product.assetRights);
+    const safeAsset = ['AUTHORIZED', 'PLATFORM_PROVIDED', 'USER_PROVIDED', 'GENERATED'].includes(version.product.assetRights);
     if (image && safeAsset) {
       try {
         const img = await loadCreativeImage(image);
