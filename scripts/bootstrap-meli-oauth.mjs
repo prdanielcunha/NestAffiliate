@@ -109,10 +109,15 @@ async function main(){
   const verifiedTrendCount=await verify(token.access_token);
   const now=new Date().toISOString();
 
+  const expiresIn=Math.max(60,Number(token.expires_in || 0));
+  const accessTokenExpiresAt=new Date(Date.now()+expiresIn*1000).toISOString();
+
   await gcpWrite(secretDoc,{
     organizationId:ORG_ID,
     provider:'MELI',
     refreshToken:String(token.refresh_token),
+    accessToken:String(token.access_token),
+    accessTokenExpiresAt,
     rotatedAt:now,
     bootstrapCompletedAt:now,
   });
@@ -135,6 +140,7 @@ async function main(){
     scopes:String(token.scope || ''),
     userId:String(token.user_id || ''),
     bootstrapCompletedAt:now,
+    accessTokenExpiresAt,
   }));
 }
 
