@@ -63,8 +63,12 @@ export function buildCreativeConcepts(input: {
   keyword: string;
   boardName?: string;
   createdAt?: string;
+  directionOffset?: number;
 }): ImageConcept[] {
-  const selected = preferredAngles(input.scene);
+  const preferred=preferredAngles(input.scene);
+  const pool=[...preferred,...ANGLES.map((item)=>item.angle).filter((angle)=>!preferred.includes(angle))];
+  const start=((input.directionOffset ?? 0)*3)%pool.length;
+  const selected=Array.from({length:3},(_,index)=>pool[(start+index)%pool.length]!);
   return selected.map((angle, index) => {
     const base = ANGLES.find((item) => item.angle === angle)!;
     const scene = conceptScene(input.scene, angle);
