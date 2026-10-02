@@ -99,7 +99,13 @@ async function resolveWorkspace(user: User): Promise<{ organizationId: string; r
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const mock = import.meta.env.VITE_E2E_MOCK_AUTH === 'true';
-  const [user, setUser] = useState<User | null>(null);
+  const mockUser = mock ? ({
+    uid:'demo-user',
+    email:'demo@nestaffiliate.local',
+    displayName:'Demo Owner',
+    getIdToken:async ()=>'e2e-token',
+  } as User) : null;
+  const [user, setUser] = useState<User | null>(mockUser);
   const [state, setState] = useState<State>(mock ? 'ready' : 'loading');
   const [organizationId, setOrganizationId] = useState<string | null>(mock ? 'demo-org' : null);
   const [role, setRole] = useState<Role | null>(mock ? 'owner' : null);
