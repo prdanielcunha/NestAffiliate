@@ -388,6 +388,16 @@ async function resolvePurchasableCatalogProduct(candidate,detail,accessToken){
 
 async function dailySearch(query,accessToken,limit=20){
   const safeLimit=Math.max(1,Math.min(Number(limit || 20),20));
+
+  const listings=await meliMaybeGet(
+    '/sites/MLB/search?q='+encodeURIComponent(query)+'&limit='+safeLimit,
+    accessToken,
+  );
+  const listingProducts=(Array.isArray(listings?.results) ? listings.results : [])
+    .map((item)=>mapDailyItem(item))
+    .filter(Boolean);
+  if(listingProducts.length) return listingProducts;
+
   const catalog=await meliMaybeGet('/products/search?status=active&site_id=MLB&q='+encodeURIComponent(query)+'&limit='+safeLimit,accessToken);
   const candidates=(Array.isArray(catalog?.results) ? catalog.results : []).map((item)=>({
     id:String(item.id || ''),
