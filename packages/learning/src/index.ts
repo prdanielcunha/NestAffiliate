@@ -6,7 +6,7 @@ export type LearningConfidence = 'insufficient' | 'emerging' | 'established';
 
 export interface LearningInsight {
   id:string;
-  type:'CREATIVE_DNA'|'PRODUCT_DNA'|'AUDIENCE_DNA'|'PREFERENCE';
+  type:'CREATIVE_DNA'|'CREATIVE_SCENE'|'PRODUCT_DNA'|'AUDIENCE_DNA'|'PREFERENCE';
   confidence:LearningConfidence;
   title:string;
   explanation:string;
@@ -181,6 +181,76 @@ export function deriveLearning(campaigns: Campaign[], metrics: PerformanceDaily[
         ? 'Continuar testando temas próximos neste board com variação controlada.'
         : undefined,
       dimensions:{board,saveRate:summary.saveRate,epm:summary.epm},
+    });
+  }
+
+
+  const byCreativePack=new Map<string,{campaignIds:Set<string>;rows:PerformanceDaily[];dimensions:Record<string,string|number|boolean|null>}>();
+  for(const campaign of published){
+    const pack=campaign.currentVersion.creativePack;
+    if(!pack) continue;
+    const selected=pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId) ?? pack.imageConcepts[0];
+    if(!selected) continue;
+    const key=[
+      selected.sceneProfile.sceneType,
+      selected.sceneProfile.environment,
+      selected.sceneProfile.style,
+      selected.sceneProfile.lighting,
+      selected.sceneProfile.composition,
+      selected.angle,
+      pack.promptTemplateVersion,
+      campaign.currentVersion.template,
+      pack.copy.primaryKeyword,
+      campaign.currentVersion.boardName,
+    ].join('::');
+    const bucket=byCreativePack.get(key) ?? {
+      campaignIds:new Set<string>(),
+      rows:[],
+      dimensions:{
+        sceneType:selected.sceneProfile.sceneType,
+        environment:selected.sceneProfile.environment,
+        visualStyle:selected.sceneProfile.style,
+        lighting:selected.sceneProfile.lighting,
+        composition:selected.sceneProfile.composition,
+        angle:selected.angle,
+        promptVersion:pack.promptTemplateVersion,
+        template:campaign.currentVersion.template,
+        keywordCluster:pack.copy.primaryKeyword,
+        board:campaign.currentVersion.boardName,
+        lastConceptId:selected.id,
+      },
+    };
+    bucket.campaignIds.add(campaign.id);
+    bucket.rows.push(...metrics.filter((row)=>row.campaignId===campaign.id));
+    bucket.dimensions.lastConceptId=selected.id;
+    byCreativePack.set(key,bucket);
+  }
+
+  for(const [key,bucket] of byCreativePack){
+    const count=bucket.campaignIds.size;
+    const level=confidence(count);
+    const summary=summarizePerformance(bucket.rows);
+    insights.push({
+      id:'creative-scene:'+normalize(key).slice(0,120).replace(/\s+/g,'-'),
+      type:'CREATIVE_SCENE',
+      confidence:level,
+      title:'Creative Pack: '+String(bucket.dimensions.angle ?? 'scene'),
+      explanation:level==='insufficient'
+        ? 'Há '+count+' campanhas comparáveis. O NestAffiliate registra o sinal, mas não prioriza esta direção ainda.'
+        : 'Com '+count+' campanhas comparáveis, esta combinação registra CTR de '+(summary.ctr*100).toFixed(2)+'%, save rate de '+(summary.saveRate*100).toFixed(2)+'%, conversão de '+(summary.conversionRate*100).toFixed(2)+'% e EPM '+(summary.epm===null?'—':summary.epm.toFixed(2))+'.',
+      evidenceCount:count,
+      recommendation:level==='established'
+        ? 'Usar como sinal criativo explicável em novos rankings, mantendo Product Truth e diversidade editorial.'
+        : undefined,
+      dimensions:{
+        ...bucket.dimensions,
+        ctr:summary.ctr,
+        saveRate:summary.saveRate,
+        outboundClicks:summary.outboundClicks,
+        conversionRate:summary.conversionRate,
+        revenue:summary.revenue,
+        epm:summary.epm,
+      },
     });
   }
 
