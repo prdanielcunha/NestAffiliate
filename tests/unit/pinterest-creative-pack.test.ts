@@ -53,12 +53,13 @@ describe('Pinterest Creative Pack',()=>{
     expect(pack.copy.titles).toHaveLength(3);
     expect(pack.copy.descriptions).toHaveLength(2);
     expect(pack.copy.keywords.length).toBeGreaterThanOrEqual(8);
-    expect(pack.copy.keywords.length).toBeLessThanOrEqual(15);
+    expect(pack.copy.keywords.length).toBeLessThanOrEqual(12);
     expect(pack.imageConcepts).toHaveLength(3);
     expect(new Set(pack.imageConcepts.map((concept)=>concept.angle)).size).toBe(3);
     expect(pack.imageConcepts.every((concept)=>concept.imagePrompt.prompt.includes('1000x1500'))).toBe(true);
     expect(pack.imageConcepts.every((concept)=>concept.imagePrompt.prompt.includes('2:3'))).toBe(true);
     expect(pack.imageConcepts.every((concept)=>/No embedded text|Sem nenhum texto incorporado/i.test(concept.imagePrompt.prompt))).toBe(true);
+    expect(pack.imageConcepts.every((concept)=>!concept.imagePrompt.prompt.includes('129.9'))).toBe(true);
     expect(pack.technical).toEqual(expect.objectContaining({width:1000,height:1500,ratio:'2:3',embeddedText:false}));
     expect(pack.copy.recommendedBoardName).toBe('Organização de Cozinha');
   });
