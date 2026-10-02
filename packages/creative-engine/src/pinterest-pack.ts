@@ -1,8 +1,11 @@
 import type { CampaignVersion, PinterestCreativePack, ProductTruth, SceneProfile } from '@nestaffiliate/core';
 import { buildCreativeConcepts } from './creative-director';
-import { slugifyFilename } from './index';
 import { buildSceneProfile } from './scene-engine/scene-rules';
 import { runVisualTruthGuard, truthConstraints } from './visual-truth';
+
+function slugifyPackFilename(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+}
 
 export interface BuildPinterestCreativePackInput {
   organizationId: string;
@@ -183,7 +186,7 @@ export function buildPinterestCreativePack(input: BuildPinterestCreativePackInpu
         keyword + ' no dia a dia',
       ],
       recommendedBoardName,
-      friendlyFilename: slugifyFilename(keyword + '-' + input.product.title.value) + '.png',
+      friendlyFilename: slugifyPackFilename(keyword + '-' + input.product.title.value) + '.png',
     },
     creativeDirection: {
       productCategory: scene.category,
