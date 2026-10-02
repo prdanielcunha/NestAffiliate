@@ -214,7 +214,7 @@ The data model is multi-tenant from day one, but external billing/plans/onboardi
 ### Daily Agent 2.0 — cloud operator
 - runs in GitHub Actions every 3 hours and on relevant production integration changes;
 - persists server-side cycle reports and a backend health/watchdog snapshot;
-- analyzes live Mercado Livre signals/products, prioritizing exact ITEM ids from official bestseller signals and using catalog/buy-box discovery as a secondary source; expires stale opportunities after 24 hours and maintains a diversified review queue;
+- analyzes live Mercado Livre signals/products, resolving official bestseller entities across ITEM, PRODUCT and USER_PRODUCT when the provider exposes a verifiable sale condition; catalog products without a verified listing may inform research/ranking but can never be auto-promoted into a campaign; expires stale opportunities after 24 hours and maintains a diversified review queue;
 - keeps a 3–5 campaign operating band, refilling toward 5 without flooding the human review queue;
 - avoids exact/near-duplicate products already represented in campaign history and diversifies persisted opportunities/campaigns by commercial theme;
 - revalidates legacy/catalog-based READY campaigns through item lookup with a conservative catalog/title fallback;

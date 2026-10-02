@@ -164,6 +164,8 @@ function highlightSignal(entry,category,observedAt){
     ],
     rank:position,
     keyword:category.label || undefined,
+    entityType:String(entry.type || 'UNKNOWN'),
+    entityId:String(entry.id || ''),
     productExternalId:exactItem ? entry.id : undefined,
   };
 }
@@ -427,6 +429,31 @@ async function resolvePurchasableCatalogProduct(candidate,detail,accessToken){
   return null;
 }
 
+function mapCatalogResearchProduct(product,candidate,query){
+  const catalogId=String(product?.id || candidate?.id || '').trim();
+  const title=String(product?.name || product?.family_name || candidate?.name || query).trim();
+  if(!catalogId || !title) return null;
+  const observedAt=new Date().toISOString();
+  const pictures=Array.isArray(product?.pictures) && product.pictures.length ? product.pictures : candidate?.pictures;
+  const picture=Array.isArray(pictures) ? pictures[0] : null;
+  const image=String(picture?.secure_url || picture?.url || picture || '').replace(/^http:/,'https:');
+  const url=String(product?.permalink || candidate?.permalink || 'https://www.mercadolivre.com.br/p/'+encodeURIComponent(catalogId));
+  return {
+    productId:'meli:catalog:'+catalogId,
+    organizationId:ORG_ID,
+    marketplace:'MELI',
+    externalId:'catalog:'+catalogId,
+    catalogProductId:catalogId,
+    listingVerified:false,
+    title:{value:title,source:'mercadolivre-catalog-research',observedAt},
+    url:{value:url,source:'mercadolivre-catalog-research',observedAt},
+    currency:{value:'BRL',source:'mercadolivre-catalog-research',observedAt},
+    availability:{value:'unknown',source:'mercadolivre-catalog-research',observedAt},
+    imageUrl:image ? {value:image,source:'mercadolivre-catalog-research',observedAt} : undefined,
+    assetRights:'UNKNOWN',
+  };
+}
+
 async function dailySearch(query,accessToken,limit=20){
   const safeLimit=Math.max(1,Math.min(Number(limit || 20),20));
   const catalog=await meliMaybeGet('/products/search?status=active&site_id=MLB&q='+encodeURIComponent(query)+'&limit='+safeLimit,accessToken);
@@ -453,7 +480,11 @@ async function dailySearch(query,accessToken,limit=20){
     const winner=product?.buy_box_winner || {};
     const itemId=String(winner.item_id || '').trim();
     const catalogId=String(product?.id || '').trim();
-    if(!product || !itemId || !catalogId) return [];
+
+    if(!product || !itemId || !catalogId){
+      const research=mapCatalogResearchProduct(details[index] || candidate,candidate,query);
+      return research ? [research] : [];
+    }
 
     const permalink=String(product.permalink || candidate.permalink || 'https://www.mercadolivre.com.br/p/'+encodeURIComponent(catalogId));
     const title=String(product.name || product.family_name || candidate.name || query).trim();
@@ -471,6 +502,7 @@ async function dailySearch(query,accessToken,limit=20){
       marketplace:'MELI',
       externalId:itemId,
       catalogProductId:catalogId,
+      listingVerified:true,
       title:{value:title,source:'mercadolivre-catalog-api',observedAt},
       url:{value:permalink,source:'mercadolivre-catalog-api',observedAt},
       price:typeof price==='number' ? {value:price,source:'mercadolivre-buy-box',observedAt} : undefined,
@@ -480,6 +512,38 @@ async function dailySearch(query,accessToken,limit=20){
       assetRights:'UNKNOWN',
     }];
   });
+}
+
+async function resolveHighlightSignalProducts(signal,accessToken){
+  const type=String(signal?.entityType || '').toUpperCase();
+  const id=String(signal?.entityId || signal?.productExternalId || '').trim();
+  if(!id) return [];
+
+  if(type==='ITEM' || /^MLB\d+$/.test(id) && !type){
+    return dailyBulkItems([id],accessToken);
+  }
+
+  if(type==='PRODUCT'){
+    const detail=await meliMaybeGet('/products/'+encodeURIComponent(id),accessToken);
+    if(!detail) return [];
+    const resolved=await resolvePurchasableCatalogProduct({id,name:detail.name || ''},detail,accessToken);
+    const itemId=String(resolved?.buy_box_winner?.item_id || '').trim();
+    return itemId ? dailyBulkItems([itemId],accessToken) : [];
+  }
+
+  if(type==='USER_PRODUCT' || /^MLBU\d+$/.test(id)){
+    const up=await meliMaybeGet('/user-products/'+encodeURIComponent(id),accessToken);
+    const sellerId=String(up?.user_id || '').trim();
+    if(!sellerId) return [];
+    const search=await meliMaybeGet(
+      '/users/'+encodeURIComponent(sellerId)+'/items/search?user_product_id='+encodeURIComponent(id)+'&limit=8',
+      accessToken,
+    );
+    const itemIds=Array.isArray(search?.results) ? search.results.map(String).filter(Boolean).slice(0,8) : [];
+    return dailyBulkItems(itemIds,accessToken);
+  }
+
+  return [];
 }
 
 function dailyOpportunity(product,keyword,signals,rank){
@@ -607,7 +671,8 @@ async function runDailyAgent(accessToken,signals,observedAt){
           fallback.find((item)=>previous.catalogProductId && item.catalogProductId===previous.catalogProductId) ||
           fallback.find((item)=>dailySimilarity(item.title.value,previous.title?.value || '')>=0.72);
       }
-      if(!fresh){report.skipped+=1;continue;}
+      if(!fresh || fresh.listingVerified===false){report.skipped+=1;continue;}
+      fresh.listingVerified=true;
       report.checked+=1;
       report.campaignsRevalidated+=1;
       fresh.affiliateUrl=previous.affiliateUrl;
@@ -649,20 +714,26 @@ async function runDailyAgent(accessToken,signals,observedAt){
   const existingIds=new Set(campaigns.map((campaign)=>campaign?.currentVersion?.product?.externalId).filter(Boolean));
   const candidates=new Map();
 
-  const exactSignals=signals
-    .filter((signal)=>typeof signal?.productExternalId==='string' && signal.productExternalId.trim())
-    .filter((signal,index,all)=>all.findIndex((item)=>item.productExternalId===signal.productExternalId)===index)
-    .slice(0,60);
-  const exactSignalById=new Map(exactSignals.map((signal)=>[signal.productExternalId,signal]));
-  for(let offset=0;offset<exactSignals.length;offset+=20){
-    const ids=exactSignals.slice(offset,offset+20).map((signal)=>signal.productExternalId);
+  const highlightCandidates=signals
+    .filter((signal)=>signal?.source==='MELI_BEST_SELLER' && signal?.entityId)
+    .filter((signal,index,all)=>all.findIndex((item)=>item.entityType===signal.entityType && item.entityId===signal.entityId)===index)
+    .slice(0,36);
+
+  const typeCounts=highlightCandidates.reduce((acc,signal)=>{
+    const key=String(signal.entityType || 'UNKNOWN');
+    acc[key]=(acc[key] || 0)+1;
+    return acc;
+  },{});
+  console.log('DAILY_AGENT_HIGHLIGHT_TYPES',JSON.stringify(typeCounts));
+
+  for(const signal of highlightCandidates){
     try{
-      const products=await dailyBulkItems(ids,accessToken);
+      const products=await resolveHighlightSignalProducts(signal,accessToken);
       report.checked+=products.length;
       report.verifiedBestSellerProducts+=products.length;
       for(const product of products){
+        product.listingVerified=true;
         if(product.availability.value!=='available' || !product.imageUrl?.value || !product.url?.value) continue;
-        const signal=exactSignalById.get(product.externalId);
         const keyword=String(signal?.keyword || product.title.value || '').trim();
         if(!keyword) continue;
         const opportunity=dailyOpportunity(product,keyword,signals,0);
@@ -671,7 +742,7 @@ async function runDailyAgent(accessToken,signals,observedAt){
       }
     }catch(error){
       report.errors+=1;
-      console.warn('DAILY_AGENT_BESTSELLER_ITEM_ERROR',error instanceof Error ? error.message : String(error));
+      console.warn('DAILY_AGENT_BESTSELLER_RESOLVE_ERROR',signal.entityType,signal.entityId,error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -682,7 +753,7 @@ async function runDailyAgent(accessToken,signals,observedAt){
       report.checked+=products.length;
       console.log('DAILY_AGENT_QUERY',JSON.stringify({query,total:products.length,withImage:products.filter((item)=>Boolean(item.imageUrl?.value)).length,withPrice:products.filter((item)=>Boolean(item.price?.value)).length,available:products.filter((item)=>item.availability?.value==='available').length}));
       for(const product of products){
-        if(product.availability.value!=='available' || !product.imageUrl?.value || !product.url?.value) continue;
+        if(product.availability.value==='unavailable' || !product.imageUrl?.value || !product.url?.value) continue;
         const opportunity=dailyOpportunity(product,query,signals,0);
         const current=candidates.get(product.externalId);
         if(!current || opportunity.score.score>current.score.score) candidates.set(product.externalId,opportunity);
@@ -745,6 +816,7 @@ async function runDailyAgent(accessToken,signals,observedAt){
   const existingTitles=campaigns.map((campaign)=>campaign?.currentVersion?.product?.title?.value).filter(Boolean);
   const eligible=ranked.filter((item)=>
     item.score.score>=58 &&
+    item.product.listingVerified===true &&
     !existingIds.has(item.product.externalId) &&
     !existingTitles.some((title)=>dailySimilarity(title,item.product.title.value)>=0.72)
   );
