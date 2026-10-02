@@ -516,8 +516,9 @@ async function runDailyAgent(accessToken,signals,observedAt){
     try{
       const products=await dailySearch(query,accessToken);
       report.checked+=products.length;
+      console.log('DAILY_AGENT_QUERY',JSON.stringify({query,total:products.length,withImage:products.filter((item)=>Boolean(item.imageUrl?.value)).length,withPrice:products.filter((item)=>Boolean(item.price?.value)).length,available:products.filter((item)=>item.availability?.value==='available').length}));
       for(const product of products){
-        if(product.availability.value!=='available' || !product.imageUrl?.value || !product.url?.value || !product.price?.value) continue;
+        if(product.availability.value!=='available' || !product.imageUrl?.value || !product.url?.value) continue;
         const opportunity=dailyOpportunity(product,query,signals,0);
         const current=candidates.get(product.externalId);
         if(!current || opportunity.score.score>current.score.score) candidates.set(product.externalId,opportunity);
