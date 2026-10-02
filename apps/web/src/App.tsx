@@ -26,6 +26,7 @@ import { OfficialSignalImport } from './features/OfficialSignalImport';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
 import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
+import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
 import { ConnectionCenter } from './features/ConnectionCenter';
 import { ensureNestAffiliateWorkspace } from './services/workspaceBootstrap';
 import { defaultPreferences, loadUserPreferences, saveUserPreferences, type UserPreferences } from './services/preferencesRepository';
@@ -986,7 +987,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   function chooseSwap(product: ProductTruth) {
     const versioned = nextCampaignVersion(
       campaign,
-      { product: { ...product, organizationId: campaign.organizationId } },
+      {
+        product: { ...product, organizationId: campaign.organizationId },
+        creativePack: undefined,
+        creativeAsset: undefined,
+      },
       'product swap',
     );
     const next={ ...versioned, marketplace: product.marketplace };
@@ -1157,6 +1162,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           )}
         </section>
       </div>
+      <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
       <div className="ai-bar">
         <span className="spark">✦</span>
         <input id="ai-edit" disabled={!editable} value={command} onChange={(e) => { setSaved(false); setCommand(e.target.value); }} onKeyDown={(e) => e.key === 'Enter' && applyEdit(command)} placeholder={editable ? t('askChange') : t('readOnly')} />
@@ -1289,7 +1295,16 @@ function Publish({
     title: v.narrative.pinterestTitle, description: v.narrative.description, disclosure: v.narrative.disclosure,
     destinationUrl: destination, boardName: v.boardName,
     topics: v.creativePack?.copy.keywords.slice(0,10) ?? [v.keyword, 'casa organizada', 'ideias para casa'],
-    altText: v.narrative.altText, trackingCode: activeCampaign.rankingContext?.trackingCode, compliance: guard.outcome,
+    altText: v.narrative.altText,
+    trackingCode: activeCampaign.rankingContext?.trackingCode,
+    compliance: guard.outcome,
+    keywords: v.creativePack?.copy.keywords,
+    creativePackId: v.creativePack?.id,
+    creativeAssetId: v.creativeAsset?.id,
+    conceptId: v.creativePack?.recommendedConceptId,
+    promptPackageId: v.creativePack?.imageConcepts.find((item)=>item.id===v.creativePack?.recommendedConceptId)?.imagePrompt.id,
+    sceneType: v.creativePack?.creativeDirection.sceneType,
+    environment: v.creativePack?.creativeDirection.roomOrEnvironment,
     keywords:v.creativePack?.copy.keywords,
     creativePackId:v.creativePack?.id,
     creativeAssetId:v.creativeAsset?.id,
