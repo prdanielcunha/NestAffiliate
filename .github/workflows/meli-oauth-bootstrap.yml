@@ -24,7 +24,7 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
-          service_account: mn-infra-admin@millionsnest.iam.gserviceaccount.com
+          service_account: mn-nestaffiliate-signals@millionsnest.iam.gserviceaccount.com
 
       - name: Check required configuration
         shell: bash
