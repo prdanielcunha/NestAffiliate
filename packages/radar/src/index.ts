@@ -511,3 +511,45 @@ export function signalResolverFromSnapshots(signals:CommerceSignal[]){
     };
   };
 }
+
+
+export function parseMeliTrendsPayload(payload:unknown,observedAt=new Date().toISOString()):CommerceSignal[]{
+  if(!Array.isArray(payload)) throw new Error('MELI_TRENDS_PAYLOAD_INVALID');
+  return payload.slice(0,50).map((row,index)=>{
+    if(!row || typeof row!=='object') throw new Error('MELI_TRENDS_ROW_INVALID');
+    const keyword=String((row as {keyword?:unknown}).keyword ?? '').trim();
+    if(!keyword) throw new Error('MELI_TRENDS_KEYWORD_MISSING');
+    return buildMeliTrendSignal({position:index+1,keyword,observedAt});
+  });
+}
+
+export function parseMeliHighlightsPayload(payload:unknown,observedAt=new Date().toISOString()):CommerceSignal[]{
+  if(!payload || typeof payload!=='object') throw new Error('MELI_HIGHLIGHTS_PAYLOAD_INVALID');
+  const content=(payload as {content?:unknown}).content;
+  if(!Array.isArray(content)) throw new Error('MELI_HIGHLIGHTS_CONTENT_INVALID');
+  return content.slice(0,20).map((row,index)=>{
+    if(!row || typeof row!=='object') throw new Error('MELI_HIGHLIGHTS_ROW_INVALID');
+    const item=row as {id?:unknown;position?:unknown};
+    const externalId=String(item.id ?? '').trim();
+    if(!externalId) throw new Error('MELI_HIGHLIGHTS_ID_MISSING');
+    const rawPosition=Number(item.position ?? index+1);
+    const position=Number.isFinite(rawPosition) ? rawPosition : index+1;
+    return buildMeliBestSellerSignal({position,productExternalId:externalId,observedAt});
+  });
+}
+
+export function parseMeliOfficialSignals(input:{
+  mode:'TRENDS'|'HIGHLIGHTS';
+  raw:string;
+  observedAt?:string;
+}){
+  let payload:unknown;
+  try{
+    payload=JSON.parse(input.raw);
+  }catch{
+    throw new Error('MELI_SIGNAL_JSON_INVALID');
+  }
+  return input.mode==='TRENDS'
+    ? parseMeliTrendsPayload(payload,input.observedAt)
+    : parseMeliHighlightsPayload(payload,input.observedAt);
+}
