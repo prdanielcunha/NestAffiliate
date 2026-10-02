@@ -159,16 +159,16 @@ async function inferRelevantCategories(trends,accessToken){
   for(const trend of sample){
     if(!homeRelevant(trend.keyword)) continue;
     try{
-      const search=await meliGet(`/sites/MLB/search?q=${encodeURIComponent(trend.keyword)}&limit=1`,accessToken);
-      const categoryId=search?.results?.[0]?.category_id;
+      const discovery=await meliGet(`/sites/MLB/domain_discovery/search?limit=3&q=${encodeURIComponent(trend.keyword)}`,accessToken);
+      const predicted=Array.isArray(discovery) ? discovery[0] : null;
+      const categoryId=predicted?.category_id;
       if(!categoryId || seen.has(categoryId)) continue;
       const category=await meliGet(`/categories/${encodeURIComponent(categoryId)}`,accessToken);
       const path=(category?.path_from_root || []).map((item)=>item.name).join(' ');
-      if(!homeRelevant(path || category?.name || trend.keyword)) continue;
-      const children=Array.isArray(category?.children_categories) ? category.children_categories : [];
-      if(children.length) continue;
+      const label=predicted?.category_name || category?.name || trend.keyword;
+      if(!homeRelevant(path || label || trend.keyword)) continue;
       seen.add(categoryId);
-      selected.push({id:categoryId,label:category?.name || trend.keyword});
+      selected.push({id:categoryId,label});
       if(selected.length>=8) break;
     }catch(error){
       console.warn('CATEGORY_DISCOVERY_SKIP',trend.keyword,error instanceof Error ? error.message : String(error));
