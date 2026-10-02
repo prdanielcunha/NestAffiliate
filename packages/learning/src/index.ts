@@ -185,6 +185,57 @@ export function deriveLearning(campaigns: Campaign[], metrics: PerformanceDaily[
   }
 
 
+  const byVisualSignature=new Map<string,{campaignIds:Set<string>;rows:PerformanceDaily[];dimensions:Record<string,string>}>();
+  for(const campaign of published){
+    const pack=campaign.currentVersion.creativePack;
+    if(!pack) continue;
+    const concept=pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId) ?? pack.imageConcepts[0];
+    if(!concept) continue;
+    const headlineStyle=campaign.currentVersion.narrative.headline.length<=42 ? 'short' : campaign.currentVersion.narrative.headline.length<=72 ? 'medium' : 'long';
+    const visualDensity=pack.creativeDirection.composition.toLowerCase().includes('close') ? 'focused' : 'contextual';
+    const backgroundStrategy=campaign.currentVersion.creativeAsset ? 'generated-context' : 'template-or-source';
+    const dimensions={
+      sceneType:pack.creativeDirection.sceneType,
+      environment:pack.creativeDirection.roomOrEnvironment,
+      creativeAngle:concept.angle,
+      headlineStyle,
+      visualDensity,
+      backgroundStrategy,
+    };
+    const key=Object.values(dimensions).join('|');
+    const bucket=byVisualSignature.get(key) ?? {campaignIds:new Set(),rows:[],dimensions};
+    bucket.campaignIds.add(campaign.id);
+    bucket.rows.push(...metrics.filter((row)=>row.campaignId===campaign.id));
+    byVisualSignature.set(key,bucket);
+  }
+
+  for(const [signature,bucket] of byVisualSignature){
+    const count=bucket.campaignIds.size;
+    const level=confidence(count);
+    const summary=summarizePerformance(bucket.rows);
+    insights.push({
+      id:'creative-context:'+normalize(signature).replace(/\s+/g,':').slice(0,120),
+      type:'CREATIVE_DNA',
+      confidence:level,
+      title:'Contexto visual: '+bucket.dimensions.creativeAngle+' · '+bucket.dimensions.sceneType,
+      explanation:level==='insufficient'
+        ? \`Há \${count} campanhas publicadas com esta combinação visual. O sistema registra, mas ainda não muda o comportamento.\`
+        : \`A combinação reúne \${count} campanhas, CTR de \${(summary.ctr*100).toFixed(2)}% e save rate de \${(summary.saveRate*100).toFixed(2)}%.\`,
+      evidenceCount:count,
+      recommendation:level==='established' && (summary.ctr>0.02 || summary.saveRate>0.02)
+        ? 'Usar esta combinação como hipótese forte em novos testes, sem transformar correlação em regra absoluta.'
+        : undefined,
+      dimensions:{
+        ...bucket.dimensions,
+        ctr:summary.ctr,
+        saveRate:summary.saveRate,
+        conversionRate:summary.conversionRate,
+        epm:summary.epm,
+      },
+    });
+  }
+
+
   const byCreativePack=new Map<string,{campaignIds:Set<string>;rows:PerformanceDaily[];dimensions:Record<string,string|number|boolean|null>}>();
   for(const campaign of published){
     const pack=campaign.currentVersion.creativePack;
