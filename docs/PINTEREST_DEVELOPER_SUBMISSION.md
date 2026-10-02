@@ -1,14 +1,34 @@
 # NestAffiliate — Pinterest Developer Submission Pack
 
-**Prepared:** 2026-10-01  
+**Prepared:** 2026-10-02  
 **App name:** NestAffiliate  
 **Brand:** Achados do Nest  
+**Official Pinterest profile:** https://br.pinterest.com/achadosdonest/  
 **Product family:** MillionsNest  
 **Production URL:** https://nestaffiliate.millionsnest.com  
 **Privacy Policy:** https://nestaffiliate.millionsnest.com/privacy  
 **Terms:** https://nestaffiliate.millionsnest.com/terms  
 **Data deletion:** https://nestaffiliate.millionsnest.com/data-deletion  
 **Support/contact:** nestaffiliate@millionsnest.com
+
+## Launch state — start now
+
+The official Pinterest profile is already created as **@achadosdonest**.
+
+NestAffiliate does **not** need to wait for API approval to start validating the business. The production-safe path is:
+
+1. generate and approve campaigns in NestAffiliate;
+2. use Guided Publisher to download the 1000×1500 creative and copy the prepared metadata;
+3. publish manually to @achadosdonest;
+4. mark the campaign as published;
+5. import performance manually until Pinterest analytics is connected.
+
+This gives the Learning Engine real campaign decisions and metrics immediately, while the API approval track proceeds in parallel.
+
+Current Pinterest platform behavior verified on 2026-10-02:
+- Trial Access supports API testing in Sandbox;
+- Pins and Boards created through Trial are visible only to the creator as Sandbox entities;
+- Standard Access is required for production-level public API operation and higher rate limits.
 
 ## Trial application — suggested app description
 
@@ -71,14 +91,17 @@ NestAffiliate connects a user's own Pinterest Business account to an affiliate p
 
 ## Manual actions that still require the account owner
 
-1. Create or confirm the Pinterest Business account and verify its email.
-2. Open Pinterest Developers → My apps and accept the Developer Terms.
-3. Submit Trial Access using the app description and Privacy Policy URL above.
-4. After Trial approval, provision App ID/App Secret securely to the backend broker.
-5. Register the exact redirect URI provided by the deployed broker.
-6. Run the OAuth flow and Trial/Sandbox demo.
-7. Record the Standard Access video.
-8. Submit Upgrade to Standard Access.
+1. **Done:** official Pinterest profile created as @achadosdonest.
+2. Confirm the account is a **Pinterest Business** account and its email is verified.
+3. Open Pinterest Developers → My apps and accept the Developer Terms.
+4. Submit Trial Access using the app description and Privacy Policy URL above.
+5. After Trial approval, provision App ID/App Secret securely to the backend broker.
+6. Register the exact redirect URI provided by the deployed broker.
+7. Run the OAuth flow and Trial/Sandbox demo.
+8. Record the Standard Access video.
+9. Submit Upgrade to Standard Access.
+
+Do not wait for steps 2–9 to begin publishing manually through Guided Publisher.
 
 ## Security non-negotiables
 
