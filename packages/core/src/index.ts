@@ -56,7 +56,7 @@ export interface NestScoreResult {
   confidence: Confidence;
   reasons: string[];
   risks: string[];
-  version: '1.0';
+  version: '1.0' | '2.0';
   dimensions: NestScoreDimensions;
 }
 
