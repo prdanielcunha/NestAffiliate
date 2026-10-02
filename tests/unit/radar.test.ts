@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ProductTruth } from '../../packages/core/src/index';
-import { affiliateTrackingCode, buildMeliBestSellerSignal, buildMeliTrendSignal, buildOpportunity, buildShopeeManualSignals, dedupeProducts, keywordCluster, normalizeSearchText, shortlist } from '../../packages/radar/src/index';
+import { affiliateTrackingCode, buildMeliBestSellerSignal, buildMeliTrendSignal, buildOpportunity, buildShopeeManualSignals, dedupeProducts, keywordCluster, normalizeSearchText, parseMeliHighlightsPayload, parseMeliTrendsPayload, shortlist } from '../../packages/radar/src/index';
 
 const now = new Date().toISOString();
 function product(id:string,title:string): ProductTruth {
@@ -77,4 +77,27 @@ it('creates stable affiliate tracking labels',()=>{
     keyword:'organizador cozinha pequena',
     seed:'MLB-123456',
   })).toBe('NA_ML_ORGANIZADOR_COZINHA_PEQUENA_123456');
+});
+
+
+it('parses the official Mercado Livre trends payload by documented position bands',()=>{
+  const payload=Array.from({length:50},(_,index)=>({keyword:`keyword ${index+1}`,url:'https://lista.mercadolivre.com.br/x'}));
+  const signals=parseMeliTrendsPayload(payload,'2026-10-02T00:00:00.000Z');
+  expect(signals).toHaveLength(50);
+  expect(signals[0]?.source).toBe('MELI_TREND_GROWTH');
+  expect(signals[10]?.source).toBe('MELI_TREND_DESIRED');
+  expect(signals[30]?.source).toBe('MELI_TREND_POPULAR');
+});
+
+it('parses official Mercado Livre highlights into product-specific bestseller evidence',()=>{
+  const signals=parseMeliHighlightsPayload({
+    content:[
+      {id:'MLB111',position:1,type:'ITEM'},
+      {id:'MLB222',position:2,type:'ITEM'},
+    ],
+  },'2026-10-02T00:00:00.000Z');
+  expect(signals).toHaveLength(2);
+  expect(signals[0]?.productExternalId).toBe('MLB111');
+  expect(signals[0]?.rank).toBe(1);
+  expect(signals[0]?.source).toBe('MELI_BEST_SELLER');
 });
