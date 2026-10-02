@@ -404,26 +404,31 @@ async function resolvePurchasableCatalogProduct(candidate,detail,accessToken){
   const base={...candidate,...(detail || {})};
   if(base?.buy_box_winner?.item_id) return base;
 
-  const childIds=Array.isArray(base?.children_ids) ? base.children_ids : [];
-  const childId=childIds.find(Boolean);
-  if(!childId) return null;
+  const directChildIds=Array.isArray(base?.children_ids) ? base.children_ids.filter(Boolean).slice(0,2) : [];
+  for(const childId of directChildIds){
+    const child=await meliMaybeGet('/products/'+encodeURIComponent(String(childId)),accessToken);
+    if(child?.buy_box_winner?.item_id) return child;
+  }
 
-  const child=await meliMaybeGet('/products/'+encodeURIComponent(String(childId)),accessToken);
-  return child?.buy_box_winner?.item_id ? child : null;
+  const parentId=String(base?.id || candidate?.id || '').trim();
+  if(!parentId) return null;
+  const childSearch=await meliMaybeGet(
+    '/products/search?status=active&site_id=MLB&parent_product_id='+encodeURIComponent(parentId)+'&limit=4',
+    accessToken,
+  );
+  const childCandidates=Array.isArray(childSearch?.results) ? childSearch.results.slice(0,4) : [];
+  for(const childCandidate of childCandidates){
+    const childId=String(childCandidate?.id || '').trim();
+    if(!childId) continue;
+    const child=await meliMaybeGet('/products/'+encodeURIComponent(childId),accessToken);
+    if(child?.buy_box_winner?.item_id) return child;
+  }
+
+  return null;
 }
 
 async function dailySearch(query,accessToken,limit=20){
   const safeLimit=Math.max(1,Math.min(Number(limit || 20),20));
-
-  const listings=await meliMaybeGet(
-    '/sites/MLB/search?q='+encodeURIComponent(query)+'&limit='+safeLimit,
-    accessToken,
-  );
-  const listingProducts=(Array.isArray(listings?.results) ? listings.results : [])
-    .map((item)=>mapDailyItem(item))
-    .filter(Boolean);
-  if(listingProducts.length) return listingProducts;
-
   const catalog=await meliMaybeGet('/products/search?status=active&site_id=MLB&q='+encodeURIComponent(query)+'&limit='+safeLimit,accessToken);
   const candidates=(Array.isArray(catalog?.results) ? catalog.results : []).map((item)=>({
     id:String(item.id || ''),
@@ -821,9 +826,7 @@ async function main(){
   const trends=await meliGet('/trends/MLB',token.access_token);
   if(!Array.isArray(trends)) throw new Error('MELI_TRENDS_INVALID_RESPONSE');
 
-  const searchProbe=await meliMaybeGet('/sites/MLB/search?q=organizador%20cozinha%20pequena&limit=3',token.access_token);
-  const searchProbeCount=Array.isArray(searchProbe?.results) ? searchProbe.results.length : 0;
-  if(searchProbeCount<1) console.warn('MELI_SEARCH_PROBE_EMPTY');
+  const searchProbeCount=0;
 
   const trendSignals=trends
     .map((entry,index)=>trendSignal(entry,index,now))
