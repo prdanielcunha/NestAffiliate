@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('Radar 2.0 imports official Mercado Livre signals without exposing credentials', async ({ page }) => {
   await page.goto('/radar');
 
-  await expect(page.getByText('SINAIS OFICIAIS')).toBeVisible();
+  await expect(page.getByText('SINAIS OFICIAIS',{exact:true})).toBeVisible();
 
   const payload=[
     {keyword:'organizador cozinha',url:'https://lista.mercadolivre.com.br/organizador-cozinha'},
