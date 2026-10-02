@@ -1,0 +1,58 @@
+name: NestAffiliate Mercado Livre Signal Sync
+
+on:
+  schedule:
+    - cron: '17 10 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: nestaffiliate-meli-signal-sync
+  cancel-in-progress: false
+
+env:
+  FIREBASE_PROJECT_ID: millionsnest
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Authenticate to MillionsNest Firebase
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-infra-admin@millionsnest.iam.gserviceaccount.com
+
+      - name: Check configuration
+        id: config
+        shell: bash
+        env:
+          ORG_ID: ${{ vars.NESTAFFILIATE_SIGNAL_ORG_ID }}
+          CLIENT_ID: ${{ secrets.MELI_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.MELI_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ORG_ID" ] || [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Mercado Livre signal sync is not configured yet."
+            exit 0
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Sync official Mercado Livre signals
+        if: steps.config.outputs.ready == 'true'
+        shell: bash
+        env:
+          NESTAFFILIATE_SIGNAL_ORG_ID: ${{ vars.NESTAFFILIATE_SIGNAL_ORG_ID }}
+          MELI_CLIENT_ID: ${{ secrets.MELI_CLIENT_ID }}
+          MELI_CLIENT_SECRET: ${{ secrets.MELI_CLIENT_SECRET }}
+          MELI_INITIAL_REFRESH_TOKEN: ${{ secrets.MELI_INITIAL_REFRESH_TOKEN }}
+        run: |
+          set -euo pipefail
+          export GOOGLE_OAUTH_ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          node scripts/sync-meli-market-signals.mjs
