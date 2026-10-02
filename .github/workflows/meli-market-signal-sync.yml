@@ -1,6 +1,11 @@
 name: NestAffiliate Mercado Livre Signal Sync
 
 on:
+  push:
+    branches: [production]
+    paths:
+      - ".github/workflows/meli-market-signal-sync.yml"
+      - "scripts/sync-meli-market-signals.mjs"
   schedule:
     - cron: '17 */4 * * *'
   workflow_dispatch:
