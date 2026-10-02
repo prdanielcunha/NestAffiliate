@@ -208,7 +208,7 @@ async function main(){
   const trends=await meliGet('/trends/MLB',token.access_token);
   if(!Array.isArray(trends)) throw new Error('MELI_TRENDS_INVALID_RESPONSE');
 
-  const searchProbe=await meliGet('/sites/MLB/search?q=organizador%20cozinha%20pequena&limit=3',token.access_token);
+  const searchProbe=await meliGet('/products/search?status=active&site_id=MLB&q=organizador%20cozinha%20pequena&limit=3',token.access_token);
   const searchProbeCount=Array.isArray(searchProbe?.results) ? searchProbe.results.length : 0;
   if(searchProbeCount<1) throw new Error('MELI_SEARCH_PROBE_EMPTY');
 
