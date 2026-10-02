@@ -211,11 +211,16 @@ The data model is multi-tenant from day one, but external billing/plans/onboardi
 
 ## Operational automation
 
-- Daily Agent incrementally refreshes stale READY Mercado Livre campaigns on app open.
-- The agent never silently edits an already approved campaign.
-- Product changes create a new version and rescore; unavailable products are blocked.
+- Daily Agent runs in the zero-cost cloud path through the scheduled Mercado Livre GitHub Actions cycle, every four hours and on integration changes/manual dispatch.
+- Each cycle refreshes official Mercado Livre signals, searches and enriches product candidates, computes NestScore 2.0, persists the best opportunities and can prepare READY campaigns without requiring the browser to be open.
+- The review queue is intentionally bounded: the agent targets up to 3 READY campaigns awaiting human decision and pauses new campaign creation while the queue is already full.
+- Autonomous campaign selection prefers different intents/keywords before filling remaining slots, reducing repetitive review work.
+- The agent incrementally revalidates stale READY Mercado Livre campaigns; product changes create a new version and unavailable products are blocked.
+- The agent never silently edits an already approved campaign and never publishes without human approval.
+- Every cloud cycle persists a server-side `dailyAgentRuns` report with checked/changed/blocked counts, signals, analyzed opportunities, persisted opportunities and prepared campaigns.
+- Today reads the latest cloud report from Firestore instead of treating browser localStorage as the source of truth.
 - Policy Watch versions official Pinterest/Mercado Livre/Shopee/CONAR baselines and surfaces review dates.
-- Zero-cost scheduling persists publication intent and returns due work to Today without requiring a paid 24/7 job.
+- Zero-cost scheduling persists publication intent and returns due work to Today without requiring a paid 24/7 worker.
 
 ## Zero-cost state
 
