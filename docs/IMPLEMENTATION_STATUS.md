@@ -65,16 +65,29 @@ Production safety rules are maintained additively in the central prdanielcunha/m
 - explainable shortlist;
 - affiliate-link separation.
 
-### Phase 3 — Opportunity Radar — complete
+### Phase 3 — Opportunity Radar / Radar 2.0 — complete for current zero-cost sources
 - marketplace signal ingestion;
-- persisted trend signals / clusters;
+- NestScore 2.0 with the original 100-point weighting contract;
+- Mercado Livre public product search;
+- official Mercado Livre `/trends` parser (growth / desired / popular position bands);
+- official Mercado Livre `/highlights` bestseller parser;
+- safe JSON import path for authenticated Mercado Livre responses without exposing tokens in the frontend;
+- Shopee official/manual signals for Recommendation, Extra Commission and Top Sales;
+- persisted `marketSignalSnapshots`;
+- ranking with explainable evidence and confidence;
+- stable campaign tracking / Shopee Sub_id suggestion;
+- direct product-opening / affiliate preparation flow;
 - local seasonality engine;
 - keyword clusters;
-- confidence;
 - dedupe;
 - max-price and image filters;
-- explainable Radar shortlist;
+- future `PinterestTrendsProvider` contract + feature flag, currently disabled;
+- fallback to marketplace + internal performance while Pinterest Trends API is unavailable;
 - no prohibited scraping.
+
+**Current credential gate:** automated Mercado Livre Trends/Highlights ingestion still requires a secure server-side OAuth/token broker. Until that is provisioned, the official JSON importer provides the same normalized signal path without putting access/refresh tokens in the browser.
+
+**Shopee:** no private panel scraping. Confirmed affiliate/program signals are entered through the official/manual flow and feed the same ranking engine.
 
 ### Phase 4 — Zero-Cost AI — internally complete; external free-provider activation gated
 - AI Router;
