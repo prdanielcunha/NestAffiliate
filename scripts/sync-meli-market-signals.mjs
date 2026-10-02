@@ -197,6 +197,8 @@ const dailyAgentCampaigns=dailyAgentRoot+'/campaigns';
 const dailyAgentVersions=dailyAgentRoot+'/campaignVersions';
 const dailyAgentOpportunities=dailyAgentRoot+'/opportunities';
 const dailyAgentRuns=dailyAgentRoot+'/dailyAgentRuns';
+const dailyAgentJobs=dailyAgentRoot+'/systemJobs';
+const DAILY_AGENT_INTERVAL_MS=3*60*60_000;
 
 function decodeFsValue(value){
   if(!value || typeof value!=='object') return null;
@@ -404,6 +406,8 @@ async function dailySearch(query,accessToken){
 
 function dailyOpportunity(product,keyword,signals,rank){
   const scored=dailyScore(product,keyword,signals);
+  const createdAt=new Date().toISOString();
+  const expiresAt=new Date(Date.now()+24*60*60_000).toISOString();
   const suffix=String(product.externalId).replace(/[^a-zA-Z0-9]/g,'').slice(-6).toUpperCase() || '000001';
   const key=dailyNormalize(keyword).split(' ').filter(Boolean).slice(0,3).join('_').slice(0,32).toUpperCase() || 'PRODUTO';
   return {
@@ -417,7 +421,10 @@ function dailyOpportunity(product,keyword,signals,rank){
     commercialSignals:scored.relevant,
     rankingReasons:['Ordenação consolidada pelo NestScore 2.0',...scored.relevant.slice(0,3).map((signal)=>signal.rank ? signal.label+' · #'+signal.rank : signal.label),...scored.reasons.slice(0,2)],
     trackingCode:'NA_ML_'+key+'_'+suffix,
-    createdAt:new Date().toISOString(),
+    createdAt,
+    expiresAt,
+    lastRankedAt:createdAt,
+    lifecycleStatus:'ACTIVE',
     rank,
   };
 }
@@ -471,10 +478,39 @@ async function runDailyAgent(accessToken,signals,observedAt){
   const report={
     organizationId:ORG_ID,startedAt:new Date().toISOString(),completedAt:observedAt,source:'github-actions',status:'RUNNING',
     checked:0,changed:0,blocked:0,skipped:0,errors:0,signals:signals.length,
-    opportunitiesAnalyzed:0,opportunitiesPersisted:0,campaignsCreated:0,campaignsWaiting:0,fallbackQueries:0,messages:[],
+    opportunitiesAnalyzed:0,opportunitiesPersisted:0,opportunitiesExpired:0,campaignsCreated:0,campaignsWaiting:0,fallbackQueries:0,
+    categoriesCovered:0,topOpportunityScore:0,topOpportunityKeyword:'',queueMin:3,queueTarget:5,queueState:'STABLE',nextExpectedAt:'',messages:[],
   };
   const docs=await listDocs(dailyAgentCampaigns);
   const campaigns=docs.map(decodeFsDoc).filter((campaign)=>campaign?.organizationId===ORG_ID);
+
+  try{
+    const opportunityDocs=await listDocs(dailyAgentOpportunities);
+    const nowMs=Date.now();
+    for(const doc of opportunityDocs){
+      const opportunity=decodeFsDoc(doc);
+      const expiresAt=new Date(String(opportunity?.expiresAt || '')).getTime();
+      if(
+        opportunity?.organizationId===ORG_ID &&
+        opportunity?.lifecycleStatus!=='EXPIRED' &&
+        Number.isFinite(expiresAt) &&
+        expiresAt<=nowMs
+      ){
+        const docId=String(doc.name || '').split('/').pop();
+        if(!docId) continue;
+        await writeDoc(dailyAgentOpportunities+'/'+encodeURIComponent(docId),{
+          ...opportunity,
+          lifecycleStatus:'EXPIRED',
+          expiredAt:new Date().toISOString(),
+        });
+        report.opportunitiesExpired+=1;
+      }
+    }
+  }catch(error){
+    report.errors+=1;
+    console.warn('DAILY_AGENT_OPPORTUNITY_EXPIRY_ERROR',error instanceof Error ? error.message : String(error));
+  }
+
   const cutoff=Date.now()-60*60_000;
   const observed=(product)=>{
     const values=[product?.title?.observedAt,product?.url?.observedAt,product?.price?.observedAt,product?.availability?.observedAt].filter(Boolean);
@@ -550,6 +586,9 @@ async function runDailyAgent(accessToken,signals,observedAt){
     ranked.push(opportunity);
   }
   report.opportunitiesAnalyzed=ranked.length;
+  report.categoriesCovered=new Set(ranked.slice(0,12).map((item)=>dailyBoard(item.keyword))).size;
+  report.topOpportunityScore=ranked[0]?.score?.score || 0;
+  report.topOpportunityKeyword=ranked[0]?.keyword || '';
 
   for(const opportunity of ranked.slice(0,12)){
     try{
@@ -564,19 +603,31 @@ async function runDailyAgent(accessToken,signals,observedAt){
 
   const originalReady=campaigns.filter((campaign)=>campaign.status==='READY').length;
   const readyBeforeCreation=Math.max(0,originalReady-report.blocked);
-  const queueTarget=3;
+  const queueMin=3;
+  const queueTarget=5;
+  report.queueMin=queueMin;
+  report.queueTarget=queueTarget;
   const creationSlots=Math.max(0,queueTarget-readyBeforeCreation);
-  const eligible=ranked.filter((item)=>item.score.score>=58 && !existingIds.has(item.product.externalId));
+  const existingTitles=campaigns.map((campaign)=>campaign?.currentVersion?.product?.title?.value).filter(Boolean);
+  const eligible=ranked.filter((item)=>
+    item.score.score>=58 &&
+    !existingIds.has(item.product.externalId) &&
+    !existingTitles.some((title)=>dailySimilarity(title,item.product.title.value)>=0.72)
+  );
   const selected=[];
   if(creationSlots>0){
+    const selectedBoards=new Set();
     for(const opportunity of eligible){
-      if(selected.some((item)=>dailySimilarity(item.keyword,opportunity.keyword)>=0.72)) continue;
+      const board=dailyBoard(opportunity.keyword);
+      if(selectedBoards.has(board)) continue;
+      selectedBoards.add(board);
       selected.push(opportunity);
       if(selected.length>=creationSlots) break;
     }
     if(selected.length<creationSlots){
       for(const opportunity of eligible){
         if(selected.some((item)=>item.product.externalId===opportunity.product.externalId)) continue;
+        if(selected.some((item)=>dailySimilarity(item.product.title.value,opportunity.product.title.value)>=0.72)) continue;
         selected.push(opportunity);
         if(selected.length>=creationSlots) break;
       }
@@ -600,12 +651,40 @@ async function runDailyAgent(accessToken,signals,observedAt){
 
   report.campaignsWaiting=readyBeforeCreation+report.campaignsCreated;
   if(readyBeforeCreation>=queueTarget){
-    report.messages.push('Fila de revisão já possui '+readyBeforeCreation+' campanhas; novas campanhas não foram criadas neste ciclo.');
+    report.queueState='FULL';
+    report.messages.push('Fila de revisão já está abastecida; nenhuma campanha nova era necessária neste ciclo.');
+  }else if(report.campaignsCreated>0){
+    report.queueState='REFILLED';
+    report.messages.push('Fila de revisão foi reabastecida automaticamente até o limite inteligente.');
+  }else if(creationSlots>0 && eligible.length===0){
+    report.queueState='NO_ELIGIBLE';
+    report.messages.push('Nenhuma nova oportunidade passou pelo corte de qualidade e duplicidade neste ciclo.');
+  }else{
+    report.queueState='STABLE';
   }
+
   report.completedAt=new Date().toISOString();
+  report.nextExpectedAt=new Date(new Date(report.completedAt).getTime()+DAILY_AGENT_INTERVAL_MS).toISOString();
   report.status=report.errors>0 ? 'PARTIAL' : 'SUCCESS';
+  report.messages.unshift(
+    'Ciclo concluído: '+report.checked+' produtos verificados, '+report.opportunitiesAnalyzed+
+    ' oportunidades analisadas, '+report.campaignsCreated+' campanhas preparadas e '+
+    report.campaignsWaiting+' aguardando decisão.'
+  );
   const runId='run-'+report.completedAt.replace(/[^0-9]/g,'').slice(0,14);
   await writeDoc(dailyAgentRuns+'/'+runId,report);
+  await writeDoc(dailyAgentJobs+'/daily-agent',{
+    organizationId:ORG_ID,
+    job:'daily-agent',
+    status:report.status,
+    lastRunAt:report.completedAt,
+    nextExpectedAt:report.nextExpectedAt,
+    checked:report.checked,
+    opportunitiesAnalyzed:report.opportunitiesAnalyzed,
+    campaignsCreated:report.campaignsCreated,
+    campaignsWaiting:report.campaignsWaiting,
+    errors:report.errors,
+  });
   return report;
 }
 
@@ -720,7 +799,38 @@ async function main(){
   }));
 }
 
-main().catch((error)=>{
+main().catch(async(error)=>{
   console.error(error instanceof Error ? error.stack || error.message : error);
+  try{
+    if(ORG_ID && GCP_TOKEN){
+      const completedAt=new Date().toISOString();
+      const nextExpectedAt=new Date(Date.now()+DAILY_AGENT_INTERVAL_MS).toISOString();
+      const failureReport={
+        organizationId:ORG_ID,
+        startedAt:completedAt,
+        completedAt,
+        source:'github-actions',
+        status:'FAILED',
+        checked:0,changed:0,blocked:0,skipped:0,errors:1,signals:0,
+        opportunitiesAnalyzed:0,opportunitiesPersisted:0,opportunitiesExpired:0,
+        campaignsCreated:0,campaignsWaiting:0,fallbackQueries:0,categoriesCovered:0,
+        topOpportunityScore:0,topOpportunityKeyword:'',queueMin:3,queueTarget:5,queueState:'STABLE',
+        nextExpectedAt,
+        messages:['O ciclo em nuvem falhou antes de concluir. Consulte o GitHub Actions; nenhuma publicação automática foi executada.'],
+      };
+      const runId='failure-'+completedAt.replace(/[^0-9]/g,'').slice(0,14);
+      await writeDoc(dailyAgentRuns+'/'+runId,failureReport);
+      await writeDoc(dailyAgentJobs+'/daily-agent',{
+        organizationId:ORG_ID,
+        job:'daily-agent',
+        status:'FAILED',
+        lastRunAt:completedAt,
+        nextExpectedAt,
+        errors:1,
+      });
+    }
+  }catch(reportError){
+    console.warn('DAILY_AGENT_FAILURE_REPORT_ERROR',reportError instanceof Error ? reportError.message : String(reportError));
+  }
   process.exitCode=1;
 });
