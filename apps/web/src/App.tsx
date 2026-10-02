@@ -1427,7 +1427,7 @@ function Publish({
       setFreshState('idle');
       return;
     }
-    if(campaign.marketplace!=='MELI'){
+    if(campaign.marketplace!=='MELI' || campaign.currentVersion.product.listingVerified===false){
       setFreshState('manual');
       return;
     }

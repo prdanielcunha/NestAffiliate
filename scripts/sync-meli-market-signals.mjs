@@ -816,9 +816,14 @@ async function runDailyAgent(accessToken,signals,observedAt){
   const existingTitles=campaigns.map((campaign)=>campaign?.currentVersion?.product?.title?.value).filter(Boolean);
   const eligible=ranked.filter((item)=>
     item.score.score>=58 &&
-    item.product.listingVerified===true &&
+    item.product.availability?.value!=='unavailable' &&
+    Boolean(item.product.imageUrl?.value) &&
+    Boolean(item.product.url?.value) &&
     !existingIds.has(item.product.externalId) &&
     !existingTitles.some((title)=>dailySimilarity(title,item.product.title.value)>=0.72)
+  ).sort((a,b)=>
+    Number(b.product.listingVerified===true)-Number(a.product.listingVerified===true) ||
+    b.score.score-a.score.score
   );
   const selected=[];
   if(creationSlots>0){
