@@ -344,3 +344,19 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .creative-pack-footer{display:flex;justify-content:space-between;gap:16px;padding:14px 24px;background:var(--surface2);color:var(--muted);font-size:10px}
 @media(max-width:980px){.concept-grid,.pack-analysis{grid-template-columns:1fr}.pack-summary-grid{grid-template-columns:repeat(2,1fr)}.pack-summary-grid>div:nth-child(3n){border-right:1px solid var(--border)}.pack-summary-grid>div:nth-child(2n){border-right:0}}
 @media(max-width:720px){.creative-pack-empty,.creative-pack-header,.prompt-panel-head,.pack-section>.section-heading{display:grid}.prepare-pin-button{width:100%}.pack-summary-grid,.copy-option-grid,.prompt-reference-grid,.image-import-preview{grid-template-columns:1fr}.pack-summary-grid>div{border-right:0}.concept-card{min-height:0}.creative-pack-footer{display:grid}.prompt-actions{display:grid;grid-template-columns:1fr}.prompt-actions .button{width:100%}}
+
+
+.prompt-studio-tabs{margin:22px 0 0}
+.prompt-studio-pane{display:grid;gap:22px;padding:22px 0 4px}
+.prompt-studio-product{display:flex;justify-content:space-between;gap:22px;align-items:flex-start;padding:18px;border:1px solid var(--border);border-radius:16px;background:var(--surface2)}
+.prompt-studio-product h2{margin:4px 0 6px;font-size:20px}.prompt-studio-product p:not(.eyebrow){margin:0;color:var(--muted);font-size:11px}
+.prompt-studio-product>strong{font-size:12px;white-space:nowrap;color:var(--accent)}
+.prompt-instruction{display:grid;gap:8px;color:var(--muted);font-size:11px;font-weight:700}
+.prompt-instruction textarea{width:100%;border:1px solid var(--border);border-radius:12px;background:var(--surface2);color:var(--text);padding:11px 12px;resize:vertical}
+.copy-readonly{margin:0 0 7px;padding:11px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);color:var(--muted);font-size:11px;line-height:1.5}
+.prompt-import-copy{padding-top:20px;border-top:1px solid var(--border)}
+.analysis-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.analysis-grid article{padding:18px;border:1px solid var(--border);border-radius:16px;background:var(--surface2)}
+.analysis-grid article h3{margin:5px 0 8px;font-size:15px}.analysis-grid article p:not(.eyebrow),.analysis-grid article li{color:var(--muted);font-size:10px;line-height:1.55}
+.analysis-grid article ul{margin:8px 0;padding-left:17px}
+@media(max-width:700px){.prompt-studio-product{display:grid}.analysis-grid{grid-template-columns:1fr}.prompt-studio-product>strong{white-space:normal}}
