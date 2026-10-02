@@ -25,6 +25,7 @@ import { ManualProductImport } from './features/ManualProductImport';
 import { OfficialSignalImport } from './features/OfficialSignalImport';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
+import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
 import { ConnectionCenter } from './features/ConnectionCenter';
 import { ensureNestAffiliateWorkspace } from './services/workspaceBootstrap';
 import { defaultPreferences, loadUserPreferences, saveUserPreferences, type UserPreferences } from './services/preferencesRepository';
@@ -882,6 +883,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   const [affiliateError, setAffiliateError] = useState('');
   const [swapOptions, setSwapOptions] = useState<ProductTruth[]>([]);
   const [swapLoading, setSwapLoading] = useState(false);
+  const [creativeApprovalError,setCreativeApprovalError]=useState(false);
   const approvingRef = useRef(false);
 
   useEffect(() => {
@@ -997,6 +999,12 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   function approve() {
     if (approvingRef.current) return;
     approvingRef.current = true;
+    if(v.creativePack && !v.creativeAsset){
+      setCreativeApprovalError(true);
+      approvingRef.current=false;
+      return;
+    }
+    setCreativeApprovalError(false);
     const destination = v.product.affiliateUrl?.value ?? v.product.url.value;
     const guard = runPublishingGuard({
       product: v.product,
@@ -1028,6 +1036,8 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
 
   return (
     <div className="review-page">
+      <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
+      {creativeApprovalError && <div className="notice danger creative-approval-error">{t('creativeImageRequired')}</div>}
       <div className="review-grid">
         <PinPreview campaign={activeCampaign} />
         <section className="decision-panel">
@@ -1272,11 +1282,21 @@ function Publish({
       minutesSinceLastPublication:frequency.minutesSinceLastPublication,
     } : undefined,
   });
+  const selectedConcept=v.creativePack?.imageConcepts.find((item)=>item.id===v.creativePack?.recommendedConceptId)
+    ?? v.creativePack?.imageConcepts[0];
   const pkg: PublicationPackage = {
     campaignId: activeCampaign.id, version: v.version, filename: campaignFilename(v), width: 1000, height: 1500,
     title: v.narrative.pinterestTitle, description: v.narrative.description, disclosure: v.narrative.disclosure,
-    destinationUrl: destination, boardName: v.boardName, topics: [v.keyword, 'casa organizada', 'ideias para casa'],
+    destinationUrl: destination, boardName: v.boardName,
+    topics: v.creativePack?.copy.keywords.slice(0,10) ?? [v.keyword, 'casa organizada', 'ideias para casa'],
     altText: v.narrative.altText, trackingCode: activeCampaign.rankingContext?.trackingCode, compliance: guard.outcome,
+    keywords:v.creativePack?.copy.keywords,
+    creativePackId:v.creativePack?.id,
+    creativeAssetId:v.creativeAsset?.id,
+    conceptId:selectedConcept?.id,
+    promptPackageId:selectedConcept?.imagePrompt.id,
+    sceneType:selectedConcept?.sceneProfile.sceneType,
+    environment:selectedConcept?.sceneProfile.environment,
   };
   const apiMode=preferences.publishingMode==='api_when_available' && canAttemptPinterestPublish();
   const manualFreshAllowed=!apiMode && ['manual','error'].includes(freshState) && manualFreshConfirmed;
@@ -1411,6 +1431,8 @@ function Publish({
           <Field label="Link" value={pkg.destinationUrl} onCopy={() => copy(pkg.destinationUrl)} />
           <Field label={t('saveTo')} value={pkg.boardName} onCopy={() => copy(pkg.boardName)} />
           <Field label={t('altText')} value={pkg.altText} onCopy={() => copy(pkg.altText)} />
+          {pkg.keywords?.length ? <Field label={t('keywords')} value={pkg.keywords.join(', ')} onCopy={() => copy(pkg.keywords!.join(', '))} /> : null}
+          {selectedConcept ? <Field label={t('recommendedAngle')} value={selectedConcept.title} onCopy={() => copy(selectedConcept.title)} /> : null}
           {activeCampaign.rankingContext?.trackingCode && <Field label={t('trackingCode')} value={activeCampaign.rankingContext.trackingCode} onCopy={() => copy(activeCampaign.rankingContext!.trackingCode!)} />}
         </section>
       </div>
