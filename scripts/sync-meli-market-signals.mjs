@@ -155,23 +155,37 @@ function highlightSignal(entry,category,observedAt){
 async function inferRelevantCategories(trends,accessToken){
   const selected=[];
   const seen=new Set();
-  const sample=trends.slice(0,30);
-  for(const trend of sample){
-    if(!homeRelevant(trend.keyword)) continue;
+  const seeds=[
+    'organizador cozinha',
+    'potes hermeticos',
+    'prateleira organizadora',
+    'organizador banheiro',
+    'organizador lavanderia',
+    'cadeira escritorio',
+    'luminaria casa',
+    'cesto organizador',
+  ];
+  const trendSeeds=trends
+    .map((trend)=>String(trend.keyword || '').trim())
+    .filter((keyword)=>keyword && homeRelevant(keyword))
+    .slice(0,20);
+  const queries=[...new Set([...seeds,...trendSeeds])];
+
+  for(const query of queries){
     try{
-      const discovery=await meliGet(`/sites/MLB/domain_discovery/search?limit=3&q=${encodeURIComponent(trend.keyword)}`,accessToken);
+      const discovery=await meliGet(`/sites/MLB/domain_discovery/search?limit=3&q=${encodeURIComponent(query)}`,accessToken);
       const predicted=Array.isArray(discovery) ? discovery[0] : null;
       const categoryId=predicted?.category_id;
       if(!categoryId || seen.has(categoryId)) continue;
       const category=await meliGet(`/categories/${encodeURIComponent(categoryId)}`,accessToken);
       const path=(category?.path_from_root || []).map((item)=>item.name).join(' ');
-      const label=predicted?.category_name || category?.name || trend.keyword;
-      if(!homeRelevant(path || label || trend.keyword)) continue;
+      const label=predicted?.category_name || category?.name || query;
+      if(!homeRelevant(path || label || query)) continue;
       seen.add(categoryId);
-      selected.push({id:categoryId,label});
-      if(selected.length>=8) break;
+      selected.push({id:categoryId,label,seed:query});
+      if(selected.length>=10) break;
     }catch(error){
-      console.warn('CATEGORY_DISCOVERY_SKIP',trend.keyword,error instanceof Error ? error.message : String(error));
+      console.warn('CATEGORY_DISCOVERY_SKIP',query,error instanceof Error ? error.message : String(error));
     }
   }
   return selected;
@@ -613,8 +627,26 @@ async function main(){
     .filter((signal)=>homeRelevant(signal.keyword));
 
   const categories=await inferRelevantCategories(trends,token.access_token);
+  const categoryTrendSignals=[];
   const highlightSignals=[];
   for(const category of categories){
+    try{
+      const categoryTrends=await meliGet(`/trends/MLB/${encodeURIComponent(category.id)}`,token.access_token);
+      if(Array.isArray(categoryTrends)){
+        categoryTrends.slice(0,12).forEach((entry,index)=>{
+          const base=trendSignal(entry,index,now);
+          categoryTrendSignals.push({
+            ...base,
+            id:`${base.id}-${category.id}`,
+            label:`${base.label} · ${category.label}`,
+            evidence:[...base.evidence,`categoria:${category.label}`,`seed:${category.seed}`],
+          });
+        });
+      }
+    }catch(error){
+      console.warn('CATEGORY_TRENDS_SKIP',category.id,error instanceof Error ? error.message : String(error));
+    }
+
     try{
       const highlights=await meliGet(`/highlights/MLB/category/${encodeURIComponent(category.id)}`,token.access_token);
       for(const entry of highlights?.content || []){
@@ -625,7 +657,7 @@ async function main(){
     }
   }
 
-  const all=[...trendSignals,...highlightSignals];
+  const all=[...trendSignals,...categoryTrendSignals,...highlightSignals];
   for(const signal of all){
     const docId=signal.id.replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,180);
     await writeDoc(`${signalBase}/${docId}`,{
@@ -645,6 +677,7 @@ async function main(){
     accessTokenExpiresAt,
     searchProbeCount,
     trendSignals:trendSignals.length,
+    categoryTrendSignals:categoryTrendSignals.length,
     highlightSignals:highlightSignals.length,
     categories:categories.map((category)=>category.id),
   });
@@ -654,6 +687,7 @@ async function main(){
   console.log(JSON.stringify({
     ok:true,
     trends:trendSignals.length,
+    categoryTrends:categoryTrendSignals.length,
     highlights:highlightSignals.length,
     categories,
     searchProbeCount,
