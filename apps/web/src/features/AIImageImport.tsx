@@ -167,7 +167,18 @@ export function AIImageImport({
     }
   }
 
-  return <section className="ai-image-import">
+  return <section
+    className="ai-image-import"
+    tabIndex={0}
+    onPaste={(event)=>{
+      const item=[...event.clipboardData.items].find((entry)=>entry.type.startsWith('image/'));
+      const pasted=item?.getAsFile() ?? null;
+      if(pasted){
+        event.preventDefault();
+        void choose(pasted);
+      }
+    }}
+  >
     <div className="section-heading">
       <div>
         <p className="eyebrow">{t('importAiImage')}</p>
