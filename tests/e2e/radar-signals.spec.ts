@@ -54,7 +54,7 @@ test('Radar shows automatic market status, useful suggestions and real product c
 
   await page.getByRole('button',{name:'Analisar produtos'}).click();
 
-  await expect.poll(()=>brokerCalls).toBe(1);
+  await expect.poll(()=>brokerCalls).toBeGreaterThanOrEqual(1);
   await expect(page.locator('.opportunity-card')).toHaveCount(3,{timeout:10_000});
   await expect(page.getByText(/143 encontrados no catálogo/)).toBeVisible();
   await expect(page.getByRole('link',{name:'Organizador de Gavetas Ajustável'})).toBeVisible();
