@@ -21,7 +21,6 @@ import { appendApprovalEvent, markPublication, markPublicationScheduled, saveFre
 import { saveLearningInsights } from './services/learningRepository';
 import { listApprovalEvents } from './services/approvalRepository';
 import { ManualProductImport } from './features/ManualProductImport';
-import { OfficialSignalImport } from './features/OfficialSignalImport';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
 import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
@@ -699,6 +698,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [maxPrice,setMaxPrice]=useState('');
   const [requireImage,setRequireImage]=useState(false);
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
+  const [errorCode,setErrorCode]=useState('');
 
   useEffect(()=>{
     if(!db || !organizationId) return;
@@ -710,26 +710,52 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     return ()=>{active=false;};
   },[organizationId]);
 
-  async function search(signalOverride?:CommerceSignal[]) {
+  const suggestedQueries=useMemo(()=>{
+    const official=marketSignals
+      .map((signal)=>signal.keyword?.trim())
+      .filter((value):value is string=>Boolean(value && value.length>5));
+    const fallbacks=[
+      t('radarSuggestion1'),
+      t('radarSuggestion2'),
+      t('radarSuggestion3'),
+      t('radarSuggestion4'),
+      t('radarSuggestion5'),
+      t('radarSuggestion6'),
+    ];
+    return [...new Set([...official,...fallbacks])].slice(0,6);
+  },[marketSignals,t]);
+
+  const latestSignalAt=useMemo(()=>{
+    const values=marketSignals
+      .map((signal)=>Date.parse(signal.observedAt))
+      .filter((value)=>Number.isFinite(value));
+    return values.length ? Math.max(...values) : null;
+  },[marketSignals]);
+
+  async function search(queryOverride?:string,signalOverride?:CommerceSignal[]) {
+    const effectiveQuery=(queryOverride ?? query).trim();
+    if(!effectiveQuery) return;
+    setQuery(effectiveQuery);
+    setErrorCode('');
     setState('loading');
     try {
       if(!identity.user) throw new Error('UNAUTHENTICATED');
-      const found = await searchMercadoLivreBroker({ user:identity.user, organizationId, query, limit:20 });
+      const found = await searchMercadoLivreBroker({ user:identity.user, organizationId, query:effectiveQuery, limit:20 });
       if(db && identity.user?.uid){
         const currentDb=db;
-        void recordRadarSignal({db:currentDb,organizationId,query,products:found}).catch(()=>undefined);
+        void recordRadarSignal({db:currentDb,organizationId,query:effectiveQuery,products:found}).catch(()=>undefined);
       }
       const ceiling=maxPrice.trim() ? Number(maxPrice.replace(',','.')) : null;
       const snapshotResolver=signalResolverFromSnapshots(signalOverride ?? marketSignals);
-      const ranked=shortlist(found,query,20,(product)=>{
-        const stored=snapshotResolver(product,query);
+      const ranked=shortlist(found,effectiveQuery,20,(product)=>{
+        const stored=snapshotResolver(product,effectiveQuery);
         return {
           ...stored,
           signals:[
             ...stored.signals,
             buildSearchSignal({
               marketplace:product.marketplace,
-              keyword:query,
+              keyword:effectiveQuery,
               resultCount:found.length,
               confidence:0.76,
             }),
@@ -740,7 +766,8 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         .filter((opportunity)=>!requireImage || Boolean(opportunity.product.imageUrl));
       setOpportunities(ranked.slice(0,12));
       setState('idle');
-    } catch {
+    } catch (error) {
+      setErrorCode(error instanceof Error ? error.message : 'UNKNOWN');
       setState('error');
     }
   }
@@ -804,10 +831,27 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     <div className="page">
       <PageTitle eyebrow="RADAR" title={t('opportunities')} subtitle={t('opportunitiesSub')} />
       <div className="search-box">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void search()} placeholder="Ex.: organizador cozinha pequena" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void search()} placeholder={t('radarSearchPlaceholder')} />
         <button className="button primary" onClick={() => void search()}>{t('analyzeProducts')}</button>
       </div>
-      <div className="chips"><span>{t('home')}</span><span>{t('kitchen')}</span><span>Mercado Livre</span><span>{t('dedupeActive')}</span><span>{t('localSeasonality')}</span><span>{marketSignals.length ? t('officialSignals',{n:marketSignals.length}) : t('trendDataPending')}</span></div>
+
+      <div className="radar-suggestions">
+        <span>{t('suggestedSearches')}</span>
+        <div className="suggestion-buttons">
+          {suggestedQueries.map((suggestion)=><button key={suggestion} type="button" onClick={()=>void search(suggestion)}>{suggestion}</button>)}
+        </div>
+      </div>
+
+      <div className="radar-status-row">
+        <div className="signal-health">
+          <span className="health-dot" />
+          <div>
+            <strong>{t('officialAutomationOn')}</strong>
+            <span>{t('officialAutomationBody',{n:marketSignals.length})}{latestSignalAt ? ` · ${new Intl.DateTimeFormat(locale,{dateStyle:'short',timeStyle:'short'}).format(latestSignalAt)}` : ''}</span>
+          </div>
+        </div>
+        <div className="chips compact"><span>{t('noDuplicates')}</span><span>{t('seasonalityOn')}</span></div>
+      </div>
       <div className="radar-filters">
         <label>
           <span>{t('maxPrice')}</span>
@@ -819,21 +863,21 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         </label>
       </div>
       {state === 'loading' && <ProgressSteps />}
-      {state === 'error' && <div className="notice danger">{t('radarError')}</div>}
+      {state === 'error' && <div className="notice danger radar-error">
+        <div>
+          <strong>{t('radarErrorTitle')}</strong>
+          <span>{
+            errorCode.includes('MELI_NOT_CONNECTED') ? t('radarErrorReconnect') :
+            errorCode.includes('MELI_TOKEN_STALE') ? t('radarErrorRefreshing') :
+            errorCode.includes('FORBIDDEN') ? t('radarErrorAccess') :
+            t('radarError')
+          }</span>
+        </div>
+        <button className="button secondary" type="button" onClick={()=>void search()}>{t('radarRetry')}</button>
+      </div>}
       {!opportunities.length && state === 'idle' && <Empty title={t('radarEmpty')} body={t('radarEmptyBody')} />}
       {editable ? (
-        <>
-          <OfficialSignalImport onImported={async (signals)=>{
-            const merged=[
-              ...marketSignals.filter((existing)=>!signals.some((signal)=>signal.id===existing.id)),
-              ...signals,
-            ];
-            if(db) await saveMarketSignals(db,organizationId,signals);
-            setMarketSignals(merged);
-            if(opportunities.length) void search(merged);
-          }} />
-          <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
-        </>
+        <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
       ) : (
         <div className="notice">{t('readOnlyRadar')}</div>
       )}
@@ -852,7 +896,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                 <span className="market-chip">{product.marketplace==='MELI'?'Mercado Livre':'Shopee'}</span>
                 <span>NestScore 2.0 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}</span>
               </div>
-              <h3>{product.title.value}</h3>
+              <h3><a className="product-title-link" href={product.url.value} target="_blank" rel="noreferrer">{product.title.value}</a></h3>
               <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
               <div className="ranking-reasons">
                 <strong>{t('whyRanked')}</strong>
