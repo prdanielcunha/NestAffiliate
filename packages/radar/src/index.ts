@@ -410,7 +410,7 @@ export function affiliateTrackingCode(input:{
   seed:string;
 }){
   const market=input.marketplace==='MELI'?'ML':'SH';
-  const slug=normalizeSearchText(input.keyword).split(' ').filter(Boolean).slice(0,3).join('_').slice(0,24).toUpperCase() || 'PRODUTO';
+  const slug=normalizeSearchText(input.keyword).split(' ').filter(Boolean).slice(0,3).join('_').slice(0,32).toUpperCase() || 'PRODUTO';
   const suffix=input.seed.replace(/[^a-zA-Z0-9]/g,'').slice(-6).toUpperCase() || '000001';
   return `NA_${market}_${slug}_${suffix}`;
 }
