@@ -1,5 +1,31 @@
 # NestAffiliate — Radar 2.0 Manual Setup Runbook
 
+## 0. Mercado Livre — recommended automatic setup
+
+The recommended flow is now:
+
+1. Open NestAffiliate → Conexões → Mercado Livre.
+2. In Mercado Livre DevCenter, create the app and register exactly:
+   `https://nestaffiliate.millionsnest.com/integrations/meli/callback`
+3. Add the repository variable `NESTAFFILIATE_SIGNAL_ORG_ID`.
+4. Add GitHub repository secrets:
+   - `MELI_CLIENT_ID`
+   - `MELI_CLIENT_SECRET`
+5. Back in NestAffiliate, enter only the public App ID and click **Autorizar Mercado Livre**.
+6. Approve the Mercado Livre authorization with the administrator account.
+7. The callback validates `state` + PKCE and displays a one-time bootstrap bundle.
+8. Copy that bundle directly into the GitHub repository secret `MELI_BOOTSTRAP_BUNDLE`. Do not send it through chat, email or messaging.
+9. Run GitHub Actions → **NestAffiliate Mercado Livre OAuth Bootstrap** → Run workflow.
+10. After success, delete the one-time `MELI_BOOTSTRAP_BUNDLE` secret.
+11. Run **NestAffiliate Mercado Livre Signal Sync** once manually to seed the Radar.
+12. From then on, the scheduled workflow refreshes the rotating token and synchronizes official Trends/Highlights.
+
+The access token is short-lived. Mercado Livre returns a new refresh token on each refresh, and only the latest refresh token remains valid. The sync workflow therefore stores the rotated refresh token in the backend-only `providerSecretState` document; browser clients cannot read or modify it.
+
+If any credential step is not ready, use the manual JSON import below. It feeds the exact same normalized ranking engine.
+
+---
+
 **Status:** immediate zero-cost operation  
 **Goal:** use official marketplace evidence now without exposing provider credentials in the browser.
 
@@ -19,7 +45,7 @@ The official response contains 50 entries:
 ### Manual workflow
 
 1. Create/configure a Mercado Livre developer application.
-2. Complete the official OAuth flow outside the NestAffiliate frontend.
+2. Prefer the automatic OAuth bootstrap above. For fallback/manual use, obtain an authenticated response using Mercado Livre's official tools.
 3. Use an authenticated API client/API explorer to call the trends endpoint.
 4. Copy **only the JSON response body**. Never copy Authorization headers or tokens.
 5. Open NestAffiliate → Radar.
