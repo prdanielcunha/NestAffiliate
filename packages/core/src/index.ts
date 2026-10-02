@@ -82,6 +82,13 @@ export interface CampaignVersion {
   template: string;
 }
 
+export interface CampaignRankingContext {
+  rank?: number;
+  trackingCode?: string;
+  evidence: string[];
+  signalSources: string[];
+}
+
 export interface Campaign {
   id: string;
   organizationId: string;
@@ -90,6 +97,7 @@ export interface Campaign {
   score: NestScoreResult;
   currentVersion: CampaignVersion;
   history: CampaignVersion[];
+  rankingContext?: CampaignRankingContext;
 }
 
 export interface PublicationPackage {
