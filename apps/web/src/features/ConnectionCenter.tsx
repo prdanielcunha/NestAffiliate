@@ -1,4 +1,4 @@
-import { FEATURE_FLAGS, KILL_SWITCHES } from '@nestaffiliate/config';
+import { FEATURE_FLAGS, KILL_SWITCHES, PUBLIC_LINKS } from '@nestaffiliate/config';
 import { useI18n } from '../lib/i18n-context';
 import { PolicyWatchPanel } from './PolicyWatchPanel';
 
@@ -12,6 +12,19 @@ interface ConnectionCard {
   safety: string;
 }
 
+interface LaunchCopy {
+  officialProfile: string;
+  openProfile: string;
+  startNow: string;
+  startNowBody: string;
+  apiTitle: string;
+  apiReady: string;
+  apiPending: string;
+  stepBusiness: string;
+  stepTrial: string;
+  stepStandard: string;
+}
+
 function statusLabel(status: Status, locale: string) {
   const labels: Record<string, Record<Status, string>> = {
     'pt-BR': { active: 'Ativo', guided: 'Modo guiado', external: 'Aprovação externa', off: 'Off', blocked: 'Bloqueado' },
@@ -21,20 +34,63 @@ function statusLabel(status: Status, locale: string) {
   return labels[locale]?.[status] ?? labels['pt-BR']![status];
 }
 
+function launchCopy(locale: string): LaunchCopy {
+  const copy: Record<string, LaunchCopy> = {
+    'pt-BR': {
+      officialProfile: 'Perfil oficial',
+      openProfile: 'Abrir @achadosdonest',
+      startNow: 'Começar agora',
+      startNowBody: 'O Guided Publisher já pode preparar imagem, título, descrição, link, pasta e checklist. Publique manualmente no perfil oficial enquanto a API não está liberada.',
+      apiTitle: 'Ativação da API',
+      apiReady: 'API habilitada neste ambiente. Continue respeitando approval gate e access tier.',
+      apiPending: 'Próximo gate externo: solicitar Trial Access no Pinterest Developers. Trial serve para Sandbox; Standard é necessário para operação pública via API.',
+      stepBusiness: '1. Confirmar conta Pinterest Business e e-mail verificado.',
+      stepTrial: '2. Cadastrar NestAffiliate no Pinterest Developers e solicitar Trial Access.',
+      stepStandard: '3. Testar OAuth/Sandbox e então solicitar Standard Access para produção.',
+    },
+    en: {
+      officialProfile: 'Official profile',
+      openProfile: 'Open @achadosdonest',
+      startNow: 'Start now',
+      startNowBody: 'Guided Publisher can already prepare the image, title, description, link, board and checklist. Publish manually to the official profile while API access is pending.',
+      apiTitle: 'API activation',
+      apiReady: 'API is enabled in this environment. Keep the approval gate and access tier checks in place.',
+      apiPending: 'Next external gate: request Trial Access in Pinterest Developers. Trial is for Sandbox; Standard is required for public production use through the API.',
+      stepBusiness: '1. Confirm Pinterest Business account and verified email.',
+      stepTrial: '2. Register NestAffiliate in Pinterest Developers and request Trial Access.',
+      stepStandard: '3. Test OAuth/Sandbox, then request Standard Access for production.',
+    },
+    es: {
+      officialProfile: 'Perfil oficial',
+      openProfile: 'Abrir @achadosdonest',
+      startNow: 'Empezar ahora',
+      startNowBody: 'Guided Publisher ya puede preparar imagen, título, descripción, enlace, tablero y checklist. Publica manualmente en el perfil oficial mientras la API sigue pendiente.',
+      apiTitle: 'Activación de API',
+      apiReady: 'La API está habilitada en este entorno. Mantén el approval gate y la validación del nivel de acceso.',
+      apiPending: 'Próximo gate externo: solicitar Trial Access en Pinterest Developers. Trial sirve para Sandbox; Standard es necesario para producción pública vía API.',
+      stepBusiness: '1. Confirmar cuenta Pinterest Business y correo verificado.',
+      stepTrial: '2. Registrar NestAffiliate en Pinterest Developers y solicitar Trial Access.',
+      stepStandard: '3. Probar OAuth/Sandbox y luego solicitar Standard Access para producción.',
+    },
+  };
+  return copy[locale] ?? copy['pt-BR']!;
+}
+
 export function ConnectionCenter() {
   const { locale } = useI18n();
+  const launch = launchCopy(locale);
   const cards: ConnectionCard[] = [
     {
-      name: 'Pinterest',
+      name: 'Pinterest API',
       status: FEATURE_FLAGS.PINTEREST_STANDARD_ACCESS
         ? FEATURE_FLAGS.PINTEREST_AUTO_PUBLISH ? 'active' : 'guided'
         : 'external',
       capability: FEATURE_FLAGS.PINTEREST_STANDARD_ACCESS
         ? 'Boards · Pins · Analytics'
-        : 'Guided Publisher · pacote completo',
+        : 'Guided Publisher · Trial/Sandbox readiness',
       detail: FEATURE_FLAGS.PINTEREST_STANDARD_ACCESS
         ? 'Standard Access detectado. Auto-publish continua subordinado ao approval gate e às flags.'
-        : 'Trial não é tratado como publicação pública. O modo guiado continua sendo o caminho de produção.',
+        : 'Trial é usado para Sandbox; Pins e Boards criados nesse nível não são tratados como publicação pública. O modo guiado continua sendo o caminho de produção.',
       safety: 'OAuth/client_secret nunca é armazenado no frontend.',
     },
     {
@@ -81,6 +137,59 @@ export function ConnectionCenter() {
         <h1>Integrações sem dependência escondida.</h1>
         <p>Cada provider declara o que consegue fazer, seu gate atual e como o produto continua funcionando quando ele está indisponível.</p>
       </header>
+
+      <section className="two-col" aria-label="Pinterest launch status">
+        <article className="surface">
+          <p className="eyebrow">{launch.officialProfile}</p>
+          <h2>Achados do Nest</h2>
+          <p className="muted">@achadosdonest</p>
+          <a
+            className="button secondary"
+            href={PUBLIC_LINKS.PINTEREST_PROFILE_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {launch.openProfile}
+          </a>
+        </article>
+
+        <article className="surface">
+          <p className="eyebrow">{launch.startNow}</p>
+          <h2>Guided Publisher</h2>
+          <p className="muted">{launch.startNowBody}</p>
+        </article>
+      </section>
+
+      <section className="section">
+        <div className="section-heading">
+          <h2>{launch.apiTitle}</h2>
+          <span>{FEATURE_FLAGS.PINTEREST_API_ENABLED ? statusLabel('active', locale) : statusLabel('external', locale)}</span>
+        </div>
+        <div className="list-surface">
+          <div className="list-row">
+            <div>
+              <h3>{FEATURE_FLAGS.PINTEREST_API_ENABLED ? launch.apiReady : launch.apiPending}</h3>
+              <p>{launch.stepBusiness}</p>
+            </div>
+            <span>01</span>
+          </div>
+          <div className="list-row">
+            <div>
+              <h3>{launch.stepTrial}</h3>
+              <p>OAuth + Sandbox + leitura de Boards/Pins + analytics de teste.</p>
+            </div>
+            <span>02</span>
+          </div>
+          <div className="list-row">
+            <div>
+              <h3>{launch.stepStandard}</h3>
+              <p>Publicação pública via API continua bloqueada até esse gate.</p>
+            </div>
+            <span>03</span>
+          </div>
+        </div>
+      </section>
+
       <div className="connection-grid">
         {cards.map((card) => (
           <article className="connection-card" key={card.name}>
