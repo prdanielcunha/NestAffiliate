@@ -822,12 +822,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       {editable ? (
         <>
           <OfficialSignalImport onImported={async (signals)=>{
-            if(!db) return;
-            await saveMarketSignals(db,organizationId,signals);
             const merged=[
               ...marketSignals.filter((existing)=>!signals.some((signal)=>signal.id===existing.id)),
               ...signals,
             ];
+            if(db) await saveMarketSignals(db,organizationId,signals);
             setMarketSignals(merged);
             if(opportunities.length) void search(merged);
           }} />
