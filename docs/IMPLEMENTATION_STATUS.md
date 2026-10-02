@@ -246,3 +246,31 @@ The data model is multi-tenant from day one, but external billing/plans/onboardi
 5. OpenAI paid providers only after explicit revenue/budget authorization.
 
 No external blocker prevents the current zero-cost guided operation from running. The launch profile is @achadosdonest and manual production publishing can begin immediately.
+
+
+## 2026-10-02 — Pinterest Creative Pack / Phase 14
+
+Implementation branch: \`feature/pinterest-creative-pack-2026-10-02\`.
+
+Implemented for release validation:
+
+- PinterestCreativePack domain model and versioning;
+- deterministic Scene Engine;
+- Creative Director 2.0 with three ranked visual concepts;
+- Image Prompt Builder with EN default and PT view;
+- Visual Truth Guard;
+- image signature/resolution validation;
+- SHA-256 dedupe;
+- 2:3 smart crop and 1000x1500 normalization;
+- Firebase Storage path with bounded Firestore binary fallback;
+- eight contextual creative variants while preserving the ten base templates;
+- Review integration;
+- Prompt → ChatGPT manual handoff;
+- generated-image import;
+- publication metadata traceability;
+- Learning Engine contextual dimensions;
+- PT/EN/ES UI strings;
+- unit/E2E coverage;
+- architecture/release/rollback documentation.
+
+Production promotion remains gated by CI, rules QA and branch reconciliation. No paid AI provider was enabled.
