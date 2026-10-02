@@ -185,6 +185,9 @@ export async function resolveCreativeAssetUrl(
   const data=snapshot.data();
   const inline=data.inlineBytes as Bytes|undefined;
   if(!inline) return null;
-  const blob=new Blob([inline.toUint8Array()],{type:String(data.mimeType ?? asset.mimeType)});
+  const raw=inline.toUint8Array();
+  const copy=new Uint8Array(raw.byteLength);
+  copy.set(raw);
+  const blob=new Blob([copy.buffer],{type:String(data.mimeType ?? asset.mimeType)});
   return {url:URL.createObjectURL(blob),revoke:true};
 }
