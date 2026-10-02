@@ -9,6 +9,7 @@
 ## Launch state
 
 - Official Pinterest profile is live as **@achadosdonest**.
+- Pinterest domain verification meta tag is installed in the web app and ready to be validated after deployment.
 - Guided Publisher is the active production path and can be used immediately.
 - API approval is no longer a blocker for starting business validation.
 - Trial Access is the next integration milestone for OAuth/Sandbox testing.
