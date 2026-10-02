@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ProductTruth } from '@nestaffiliate/core';
+import type { ProductTruth } from '../../packages/core/src/index';
 import {
   buildPinterestCreativePack,
   buildSceneProfile,
@@ -8,7 +8,7 @@ import {
   validateImageMetadata,
   validatePromptClaims,
   versionPinterestCreativePack,
-} from '@nestaffiliate/creative-engine';
+} from '../../packages/creative-engine/src/index';
 
 const now='2026-10-02T12:00:00.000Z';
 
