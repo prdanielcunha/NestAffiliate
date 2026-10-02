@@ -268,3 +268,22 @@ export interface PinterestTrendsProvider {
   available():Promise<boolean>;
   search(input:{keywords:string[];region?:string}):Promise<PinterestTrendRecord[]>;
 }
+
+
+export class DisabledPinterestTrendsProvider implements PinterestTrendsProvider {
+  async available(){
+    return false;
+  }
+
+  async search(){
+    return [];
+  }
+}
+
+export function pinterestTrendsCapability(flags:{apiEnabled:boolean;trendsEnabled:boolean}){
+  return {
+    configured:flags.apiEnabled && flags.trendsEnabled,
+    source:'PINTEREST_TRENDS' as const,
+    fallback:'MARKETPLACE_AND_INTERNAL_SIGNALS' as const,
+  };
+}
