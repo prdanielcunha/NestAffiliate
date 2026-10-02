@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calculateDuplicateSimilarity, isSafeExternalUrl, maxDuplicateSimilarity, runPublishingGuard } from '../../packages/compliance/src/index';
-import type { ProductTruth } from '../../packages/core/src/index';
+import type { CreativeAsset, ProductTruth } from '../../packages/core/src/index';
 
 const product: ProductTruth = {
   productId: 'p1',
@@ -49,6 +49,26 @@ describe('Publishing Guard', () => {
       description: 'Veja a ideia.',
     });
     expect(result.outcome).toBe('BLOCK');
+  });
+
+
+  it('blocks an imported AI asset until visual fidelity and embedded-text checks are confirmed', () => {
+    const asset:CreativeAsset={
+      id:'asset1',organizationId:'o1',campaignId:'c1',origin:'MANUAL_CHATGPT',rightsStatus:'GENERATED',
+      mimeType:'image/png',width:1000,height:1500,originalWidth:1000,originalHeight:1500,
+      hash:'abc',embeddedTextConfirmedAbsent:false,productFidelityConfirmed:false,createdAt:new Date().toISOString(),
+    };
+    const result=runPublishingGuard({
+      product,
+      creativeAsset:asset,
+      disclosure:'Conteúdo com link de afiliado. Posso receber comissão.',
+      destinationUrl:'https://example.com/p',
+      headline:'Organização prática',
+      description:'Uma ideia editorial.',
+    });
+    expect(result.outcome).toBe('BLOCK');
+    expect(result.checks.find((check)=>check.key==='creative-fidelity')?.outcome).toBe('BLOCK');
+    expect(result.checks.find((check)=>check.key==='creative-embedded-text')?.outcome).toBe('BLOCK');
   });
 });
 
