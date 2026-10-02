@@ -568,16 +568,18 @@ async function runDailyAgent(accessToken,signals,observedAt){
   const creationSlots=Math.max(0,queueTarget-readyBeforeCreation);
   const eligible=ranked.filter((item)=>item.score.score>=58 && !existingIds.has(item.product.externalId));
   const selected=[];
-  for(const opportunity of eligible){
-    if(selected.some((item)=>dailySimilarity(item.keyword,opportunity.keyword)>=0.72)) continue;
-    selected.push(opportunity);
-    if(selected.length>=creationSlots) break;
-  }
-  if(selected.length<creationSlots){
+  if(creationSlots>0){
     for(const opportunity of eligible){
-      if(selected.some((item)=>item.product.externalId===opportunity.product.externalId)) continue;
+      if(selected.some((item)=>dailySimilarity(item.keyword,opportunity.keyword)>=0.72)) continue;
       selected.push(opportunity);
       if(selected.length>=creationSlots) break;
+    }
+    if(selected.length<creationSlots){
+      for(const opportunity of eligible){
+        if(selected.some((item)=>item.product.externalId===opportunity.product.externalId)) continue;
+        selected.push(opportunity);
+        if(selected.length>=creationSlots) break;
+      }
     }
   }
 
