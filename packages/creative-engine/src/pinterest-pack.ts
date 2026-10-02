@@ -59,6 +59,42 @@ function boardFor(scene: SceneProfile, fallback?: string) {
   return map[scene.category] ?? fallback ?? 'Achados Inteligentes para Casa';
 }
 
+function localizeConcept(locale:'pt-BR'|'en'|'es',angle:string){
+  const labels:Record<string,[string,string,string]>={
+    problem_solution:['Problema → Solução','Problem → Solution','Problema → Solución'],
+    transformation:['Transformação','Transformation','Transformación'],
+    discovery:['Descoberta','Discovery','Descubrimiento'],
+    inspiration:['Inspiração','Inspiration','Inspiración'],
+    utility:['Utilidade','Utility','Utilidad'],
+    organization:['Organização','Organization','Organización'],
+    small_spaces:['Pequenos espaços','Small spaces','Espacios pequeños'],
+    routine:['Rotina facilitada','Easier routine','Rutina más simple'],
+    aesthetics:['Estética / decoração','Aesthetics / decor','Estética / decoración'],
+    how_to:['How-to','How-to','How-to'],
+    curation:['Curadoria','Curation','Curaduría'],
+    seasonal:['Seasonal','Seasonal','Estacional'],
+  };
+  const rationales:Record<string,[string,string,string]>={
+    problem_solution:['Mostra o problema prático e apresenta o produto como solução visual natural, sem exagerar claims.','Shows the practical problem and frames the product as a natural visual solution without exaggerated claims.','Muestra el problema práctico y presenta el producto como solución visual natural, sin exagerar claims.'],
+    transformation:['Mostra um resultado visual mais organizado ou acolhedor sem atribuir desempenho não comprovado ao produto.','Shows a calmer or more organized visual outcome without implying unverified product performance.','Muestra un resultado visual más organizado o acogedor sin atribuir rendimiento no comprobado al producto.'],
+    discovery:['Apresenta o produto como uma descoberta útil dentro de uma cena cotidiana crível.','Frames the product as a useful discovery inside a believable everyday scene.','Presenta el producto como un descubrimiento útil dentro de una escena cotidiana creíble.'],
+    inspiration:['Cria uma composição editorial desejável e salvável, mantendo o produto natural no ambiente.','Creates a save-worthy editorial composition where the product belongs naturally.','Crea una composición editorial atractiva y guardable, manteniendo el producto natural en el ambiente.'],
+    utility:['Deixa o uso real do produto claro e fácil de entender no feed mobile.','Makes the real use case clear and easy to understand on a mobile feed.','Hace que el uso real del producto sea claro y fácil de entender en el feed móvil.'],
+    organization:['Enfatiza ordem visual e posicionamento prático sem usar antes/depois falso.','Emphasizes visual order and practical placement without a fake before-and-after.','Enfatiza el orden visual y la colocación práctica sin usar un antes/después falso.'],
+    small_spaces:['Mostra um cenário compacto com pistas visuais de escala, sem inventar dimensões.','Shows a compact-space scenario with visual scale cues and no invented dimensions.','Muestra un escenario compacto con pistas visuales de escala, sin inventar dimensiones.'],
+    routine:['Integra o produto a uma rotina realista sem prometer resultados garantidos.','Integrates the product into a realistic routine without promising guaranteed results.','Integra el producto en una rutina realista sin prometer resultados garantizados.'],
+    aesthetics:['Prioriza uma composição editorial de interiores sem perder a legibilidade do produto.','Prioritizes an editorial interior composition while keeping the product readable.','Prioriza una composición editorial de interiores sin perder la legibilidad del producto.'],
+    how_to:['Cria sensação instrucional simples sem rasterizar etapas ou texto na imagem.','Creates a simple instructional feel without rasterized steps or embedded text.','Crea una sensación instructiva simple sin rasterizar pasos o texto en la imagen.'],
+    curation:['Apresenta o produto como escolha editorial criteriosa, não como promoção gritante.','Presents the product as a considered editorial pick, not a loud promotion.','Presenta el producto como una elección editorial cuidada, no como una promoción estridente.'],
+    seasonal:['Usa atmosfera sazonal apenas quando ela é coerente com o contexto editorial.','Uses seasonal atmosphere only when it fits the editorial context.','Usa una atmósfera estacional solo cuando encaja con el contexto editorial.'],
+  };
+  const index=locale==='pt-BR'?0:locale==='en'?1:2;
+  return {
+    title:(labels[angle] ?? labels.utility!)[index],
+    rationale:(rationales[angle] ?? rationales.utility!)[index],
+  };
+}
+
 function localizedCopy(
   locale: 'pt-BR' | 'en' | 'es',
   keyword: string,
@@ -140,7 +176,7 @@ export function buildPinterestCreativePack(input: BuildPinterestCreativePackInpu
     boardName: input.boardName,
     editorialContext: input.editorialContext,
   });
-  const concepts = buildCreativeConcepts({
+  const rawConcepts = buildCreativeConcepts({
     campaignId: input.campaignId,
     campaignVersion: input.campaignVersion,
     product: input.product,
@@ -149,6 +185,19 @@ export function buildPinterestCreativePack(input: BuildPinterestCreativePackInpu
     boardName: input.boardName,
     createdAt,
     directionOffset:input.directionOffset,
+  });
+  const concepts=rawConcepts.map((concept)=>{
+    const localized=localizeConcept(locale,concept.angle);
+    return {
+      ...concept,
+      title:localized.title,
+      rationale:localized.rationale,
+      scoreExplanation:locale==='en'
+        ? ['Product-scene coherence: '+Math.round(concept.sceneProfile.confidence*100)+'/100','Mobile readability and negative space planned.','Distinct editorial angle.','Product Truth preserved in the prompt.','Fit with search intent: '+keyword+'.']
+        : locale==='es'
+          ? ['Coherencia producto-escena: '+Math.round(concept.sceneProfile.confidence*100)+'/100','Lectura móvil y espacio negativo planificados.','Ángulo editorial diferente.','Product Truth preservado en el prompt.','Adecuación a la intención: '+keyword+'.']
+          : concept.scoreExplanation,
+    };
   });
   const recommended = concepts[0]!;
   const copy = localizedCopy(locale, keyword, input.product.title.value, scene, input.existingNarrative);
