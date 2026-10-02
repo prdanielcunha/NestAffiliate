@@ -1,5 +1,50 @@
-import type { ProductTruth, NestScoreDimensions, NestScoreResult } from '@nestaffiliate/core';
+import type { ProductTruth, NestScoreDimensions, NestScoreResult, Marketplace } from '@nestaffiliate/core';
 import { calculateNestScore } from '@nestaffiliate/scoring';
+
+export type CommerceSignalSource =
+  | 'RULE_ENGINE'
+  | 'MELI_SEARCH'
+  | 'MELI_TREND_GROWTH'
+  | 'MELI_TREND_DESIRED'
+  | 'MELI_TREND_POPULAR'
+  | 'MELI_BEST_SELLER'
+  | 'SHOPEE_RECOMMENDATION'
+  | 'SHOPEE_EXTRA_COMMISSION'
+  | 'SHOPEE_TOP_SALES'
+  | 'PINTEREST_TRENDS'
+  | 'INTERNAL_PERFORMANCE'
+  | 'MANUAL';
+
+export type CommerceSignalKind =
+  | 'DEMAND'
+  | 'BEST_SELLER'
+  | 'YIELD'
+  | 'PINTEREST_DEMAND'
+  | 'COMPETITION_GAP'
+  | 'INTERNAL_PERFORMANCE';
+
+export interface CommerceSignal {
+  id: string;
+  source: CommerceSignalSource;
+  kind: CommerceSignalKind;
+  strength: number;
+  confidence: number;
+  observedAt: string;
+  label: string;
+  evidence: string[];
+  rank?: number;
+  keyword?: string;
+  productExternalId?: string;
+  commissionRate?: number;
+  futureProvider?: boolean;
+}
+
+export interface OpportunitySignals {
+  signals: CommerceSignal[];
+  commissionRate?: number;
+  internalEpmStrength?: number;
+  internalConversionStrength?: number;
+}
 
 export interface TrendSignal {
   id: string;
@@ -21,12 +66,17 @@ export interface Opportunity {
   confidence: number;
   cluster: string[];
   reasons: string[];
+  commercialSignals: CommerceSignal[];
+  rankingReasons: string[];
+  trackingCode: string;
   createdAt: string;
 }
 
 const stopwords = new Set([
   'a','o','as','os','de','da','do','das','dos','e','em','para','por','com','um','uma','the','and','for','of'
 ]);
+
+const clamp01=(value:number)=>Math.max(0,Math.min(1,value));
 
 export function normalizeSearchText(value: string) {
   return value
@@ -103,35 +153,135 @@ export function dataConfidence(product: ProductTruth) {
   return Math.min(1, points / 6);
 }
 
-export function opportunityDimensions(product: ProductTruth, keyword: string, signalStrength = 0.55): NestScoreDimensions {
-  const confidence=dataConfidence(product);
-  const seasonal=seasonalScore(keyword).score;
-  const price = product.price?.value ?? 0;
-  const visual = product.imageUrl ? 11 : 7;
-  const quality = product.rating
-    ? Math.round(Math.min(12, (product.rating.value / 5) * 12))
-    : product.sellerReputation
-      ? Math.round(Math.min(12, product.sellerReputation.value * 12))
-      : 7;
-  const intent = /compr|kit|organizador|suporte|dispens|prateleira|luminaria|tapete|cesto/.test(normalizeSearchText(keyword)) ? 15 : 12;
-  const yieldScore = price > 0 && price < 250 ? 10 : 7;
+export function buildSearchSignal(input:{
+  marketplace:Marketplace;
+  keyword:string;
+  resultCount:number;
+  confidence:number;
+  observedAt?:string;
+}):CommerceSignal{
   return {
-    trend: Math.max(4, Math.round(18 * Math.max(0, Math.min(1, signalStrength)))),
-    intent,
-    visual,
-    yield: yieldScore,
-    quality,
-    competition: 7,
-    creative: visual >= 10 ? 7 : 5,
-    seasonality: seasonal,
-    dataConfidence: Math.max(1, Math.round(confidence * 4)),
+    id:`search:${input.marketplace}:${normalizeSearchText(input.keyword)}`,
+    source:input.marketplace==='MELI'?'MELI_SEARCH':'MANUAL',
+    kind:'DEMAND',
+    strength:clamp01(input.resultCount/25)*0.62,
+    confidence:clamp01(input.confidence),
+    observedAt:input.observedAt ?? new Date().toISOString(),
+    label:'Demanda observada na busca',
+    keyword:input.keyword,
+    evidence:[`resultados:${input.resultCount}`],
   };
 }
 
-export function buildOpportunity(product: ProductTruth, keyword: string, signalStrength = 0.55): Opportunity {
-  const score=calculateNestScore(opportunityDimensions(product, keyword, signalStrength));
+function weightedSignalStrength(signals:CommerceSignal[], kinds:CommerceSignalKind[]){
+  const relevant=signals.filter((signal)=>kinds.includes(signal.kind) && !signal.futureProvider);
+  if(!relevant.length) return null;
+  const sorted=[...relevant].sort((a,b)=>(b.strength*b.confidence)-(a.strength*a.confidence));
+  const strongest=sorted[0]!;
+  const support=sorted.slice(1,3).reduce((sum,signal)=>sum+(signal.strength*signal.confidence*0.12),0);
+  return clamp01(strongest.strength*strongest.confidence+support);
+}
+
+function baselineYield(product:ProductTruth){
+  const price=product.price?.value ?? 0;
+  if(!price) return 0.48;
+  if(price>=35 && price<=140) return 0.76;
+  if(price>140 && price<=250) return 0.64;
+  if(price>0 && price<35) return 0.58;
+  return 0.46;
+}
+
+function yieldStrength(product:ProductTruth, input:OpportunitySignals){
+  const signals=input.signals.filter((signal)=>signal.kind==='YIELD' || signal.kind==='INTERNAL_PERFORMANCE');
+  const signalStrength=weightedSignalStrength(signals,['YIELD','INTERNAL_PERFORMANCE']);
+  let result=baselineYield(product);
+  if(signalStrength!==null) result=Math.max(result,signalStrength);
+  if(typeof input.commissionRate==='number'){
+    const commission=clamp01(input.commissionRate/0.2);
+    result=Math.max(result,commission);
+  }
+  if(typeof input.internalEpmStrength==='number') result=Math.max(result,clamp01(input.internalEpmStrength));
+  if(typeof input.internalConversionStrength==='number') result=Math.max(result,clamp01(input.internalConversionStrength));
+  return clamp01(result);
+}
+
+export function opportunityDimensions(
+  product: ProductTruth,
+  keyword: string,
+  input: OpportunitySignals | number = { signals: [] },
+): NestScoreDimensions {
+  const signals:OpportunitySignals=typeof input==='number'
+    ? {signals:[buildSearchSignal({marketplace:product.marketplace,keyword,resultCount:Math.round(clamp01(input)*25),confidence:0.75})]}
+    : input;
+  const confidence=dataConfidence(product);
+  const seasonal=seasonalScore(keyword).score;
+  const visual=product.imageUrl ? 0.82 : 0.5;
+  const quality=product.rating
+    ? Math.min(1,product.rating.value/5)
+    : product.sellerReputation
+      ? clamp01(product.sellerReputation.value)
+      : 0.58;
+  const intent=/compr|kit|organizador|suporte|dispens|prateleira|luminaria|tapete|cesto|armario|gancho|pote/.test(normalizeSearchText(keyword))
+    ? 0.94
+    : 0.74;
+
+  const demand=weightedSignalStrength(signals.signals,['DEMAND','BEST_SELLER','PINTEREST_DEMAND']) ?? 0.55;
+  const competition=weightedSignalStrength(signals.signals,['COMPETITION_GAP']) ?? 0.7;
+  const creative=product.imageUrl ? 0.88 : 0.6;
+  const yieldScore=yieldStrength(product,signals);
+  const signalConfidence=signals.signals.length
+    ? signals.signals.reduce((sum,signal)=>sum+signal.confidence,0)/signals.signals.length
+    : 0;
+  const combinedConfidence=clamp01(confidence*0.72+signalConfidence*0.28);
+
+  return {
+    trend: Math.round(18*demand),
+    intent: Math.round(16*intent),
+    visual: Math.round(14*visual),
+    yield: Math.round(14*yieldScore),
+    quality: Math.round(12*quality),
+    competition: Math.round(10*competition),
+    creative: Math.round(8*creative),
+    seasonality: seasonal,
+    dataConfidence: Math.max(1,Math.round(combinedConfidence*4)),
+  };
+}
+
+function signalReason(signal:CommerceSignal){
+  if(signal.rank) return `${signal.label} · #${signal.rank}`;
+  if(typeof signal.commissionRate==='number') return `${signal.label} · ${(signal.commissionRate*100).toFixed(1)}%`;
+  return signal.label;
+}
+
+export function affiliateTrackingCode(input:{
+  marketplace:Marketplace;
+  keyword:string;
+  seed:string;
+}){
+  const market=input.marketplace==='MELI'?'ML':'SH';
+  const slug=normalizeSearchText(input.keyword).split(' ').filter(Boolean).slice(0,3).join('_').slice(0,24).toUpperCase() || 'PRODUTO';
+  const suffix=input.seed.replace(/[^a-zA-Z0-9]/g,'').slice(-6).toUpperCase() || '000001';
+  return `NA_${market}_${slug}_${suffix}`;
+}
+
+export function buildOpportunity(
+  product: ProductTruth,
+  keyword: string,
+  input: OpportunitySignals | number = { signals: [] },
+): Opportunity {
+  const signalInput:OpportunitySignals=typeof input==='number'
+    ? {signals:[buildSearchSignal({marketplace:product.marketplace,keyword,resultCount:Math.round(clamp01(input)*25),confidence:0.75})]}
+    : input;
+  const score=calculateNestScore(opportunityDimensions(product,keyword,signalInput));
   const cluster=keywordCluster(keyword);
   const confidence=dataConfidence(product);
+  const rankedSignals=[...signalInput.signals]
+    .filter((signal)=>!signal.futureProvider)
+    .sort((a,b)=>(b.strength*b.confidence)-(a.strength*a.confidence));
+  const rankingReasons=[
+    ...rankedSignals.slice(0,3).map(signalReason),
+    ...score.reasons.slice(0,2),
+  ];
   return {
     id:`opp:${product.marketplace}:${product.externalId}`,
     organizationId:product.organizationId,
@@ -140,8 +290,16 @@ export function buildOpportunity(product: ProductTruth, keyword: string, signalS
     score,
     confidence,
     cluster,
+    commercialSignals:signalInput.signals,
+    rankingReasons,
+    trackingCode:affiliateTrackingCode({
+      marketplace:product.marketplace,
+      keyword,
+      seed:product.externalId,
+    }),
     reasons:[
       ...score.reasons,
+      ...rankedSignals.slice(0,3).map((signal)=>`Sinal: ${signalReason(signal)}`),
       ...seasonalScore(keyword).reasons,
       `Confiança factual: ${Math.round(confidence*100)}%`,
     ],
@@ -149,9 +307,28 @@ export function buildOpportunity(product: ProductTruth, keyword: string, signalS
   };
 }
 
-export function shortlist(products: ProductTruth[], keyword: string, limit = 6) {
+export function shortlist(
+  products: ProductTruth[],
+  keyword: string,
+  limit = 6,
+  signalResolver?: (product:ProductTruth)=>OpportunitySignals,
+) {
   return dedupeProducts(products)
-    .map((product)=>buildOpportunity(product,keyword))
+    .map((product)=>buildOpportunity(product,keyword,signalResolver?.(product) ?? {
+      signals:[buildSearchSignal({
+        marketplace:product.marketplace,
+        keyword,
+        resultCount:products.length,
+        confidence:dataConfidence(product),
+      })],
+    }))
     .sort((a,b)=>b.score.score-a.score.score || b.confidence-a.confidence)
-    .slice(0,limit);
+    .slice(0,limit)
+    .map((opportunity,index)=>({
+      ...opportunity,
+      rankingReasons:[
+        `Ranking #${index+1} entre as oportunidades analisadas`,
+        ...opportunity.rankingReasons,
+      ],
+    }));
 }
