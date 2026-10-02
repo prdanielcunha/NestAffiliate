@@ -7,7 +7,7 @@ import { buildOpportunity, buildSearchSignal, signalResolverFromSnapshots, short
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
-import { FEATURE_FLAGS, KILL_SWITCHES, automationEnabled, canAttemptPinterestPublish } from '@nestaffiliate/config';
+import { FEATURE_FLAGS, KILL_SWITCHES, canAttemptPinterestPublish } from '@nestaffiliate/config';
 import { type Locale } from './lib/i18n';
 import { I18nProvider, useI18n } from './lib/i18n-context';
 import { demoCampaigns, initialBoards } from './lib/demo';
@@ -31,7 +31,7 @@ import { defaultPreferences, loadUserPreferences, saveUserPreferences, type User
 import { recordRadarSignal } from './services/radarRepository';
 import { loadPublicationFrequency, type PublicationFrequencyState } from './services/publicationRepository';
 import { SettingsPanel } from './features/SettingsPanel';
-import { runDailyAgentCycle, type DailyAgentReport } from './services/dailyAgent';
+import { loadLatestDailyAgentReport, type DailyAgentReport } from './services/dailyAgentRepository';
 import { freshValidateProduct } from './services/freshValidation';
 import { completePublicationSchedule, listPublicationSchedules, savePublicationSchedule } from './services/publicationScheduleRepository';
 import { listMarketSignals, saveMarketSignals } from './services/marketSignalRepository';
@@ -324,13 +324,8 @@ function usePublicationScheduleStore(
 function useDailyAgent(input:{
   authState:string;
   organizationId:string|null;
-  actorId:string|null;
-  editable:boolean;
-  campaigns:Campaign[];
-  updateCampaign:(campaign:Campaign)=>void;
 }){
   const reportKey=`nestaffiliate_daily_agent_report:${input.organizationId ?? 'pending'}`;
-  const runKey=`nestaffiliate_daily_agent_last_run:${input.organizationId ?? 'pending'}`;
   const [report,setReport]=useState<DailyAgentReport|null>(()=>{
     try{
       const stored=localStorage.getItem(reportKey);
@@ -339,65 +334,34 @@ function useDailyAgent(input:{
       return null;
     }
   });
-  const running=useRef(false);
 
   useEffect(()=>{
-    const demoEnabled=
-      import.meta.env.VITE_DEMO_DATA_ENABLED==='true' ||
-      import.meta.env.VITE_E2E_MOCK_AUTH==='true';
-    if(
-      input.authState!=='ready' ||
-      !input.organizationId ||
-      !input.actorId ||
-      !input.editable ||
-      demoEnabled ||
-      !automationEnabled() ||
-      running.current
-    ) return;
+    if(input.authState!=='ready' || !input.organizationId || !db) return;
+    let active=true;
+    const currentDb=db;
+    const refresh=()=>{
+      void loadLatestDailyAgentReport(currentDb,input.organizationId!)
+        .then((next)=>{
+          if(!active || !next) return;
+          setReport(next);
+          localStorage.setItem(reportKey,JSON.stringify(next));
+        })
+        .catch(()=>undefined);
+    };
+    const onFocus=()=>refresh();
+    const onVisibility=()=>{ if(document.visibilityState==='visible') refresh(); };
 
-    const lastRun=Number(localStorage.getItem(runKey) ?? '0');
-    if(Number.isFinite(lastRun) && Date.now()-lastRun<30*60_000) return;
-
-    running.current=true;
-    localStorage.setItem(runKey,String(Date.now()));
-    void runDailyAgentCycle({
-      organizationId:input.organizationId,
-      campaigns:input.campaigns,
-      updateCampaign:input.updateCampaign,
-      maxProductsPerCycle:3,
-      minAgeMinutes:60,
-    }).then((next)=>{
-      setReport(next);
-      localStorage.setItem(reportKey,JSON.stringify(next));
-      if(db){
-        const currentDb=db;
-        void appendAudit(currentDb,{
-          organizationId:input.organizationId!,
-          actorId:input.actorId!,
-          action:'daily_agent.completed',
-          entityType:'systemCycle',
-          entityId:next.completedAt,
-          metadata:{
-            checked:next.checked,
-            changed:next.changed,
-            blocked:next.blocked,
-            errors:next.errors,
-          },
-        }).catch(()=>undefined);
-      }
-    }).finally(()=>{
-      running.current=false;
-    });
-  },[
-    input.authState,
-    input.organizationId,
-    input.actorId,
-    input.editable,
-    input.campaigns,
-    input.updateCampaign,
-    reportKey,
-    runKey,
-  ]);
+    refresh();
+    const timer=window.setInterval(refresh,5*60_000);
+    window.addEventListener('focus',onFocus);
+    document.addEventListener('visibilitychange',onVisibility);
+    return ()=>{
+      active=false;
+      window.clearInterval(timer);
+      window.removeEventListener('focus',onFocus);
+      document.removeEventListener('visibilitychange',onVisibility);
+    };
+  },[input.authState,input.organizationId,reportKey]);
 
   return report;
 }
@@ -653,7 +617,8 @@ function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; s
             <span><b>{agentReport?.changed ?? 0}</b> {t('productsChanged')}</span>
             <span><b>{agentReport?.blocked ?? 0}</b> {t('complianceBlocks')}</span>
             <span><b>{ready.length}</b> {t('campaignsWaiting')}</span>
-            {agentReport?.completedAt && <small>{t('lastSync')}: {new Date(agentReport.completedAt).toLocaleString(locale)}</small>}
+            {agentReport && <small>{agentReport.opportunitiesAnalyzed ?? 0} {t('opportunitiesAnalyzed')} · {agentReport.campaignsCreated ?? 0} {t('campaignsPrepared')}</small>}
+            {agentReport?.completedAt && <small>{t('lastSync')}: {new Date(agentReport.completedAt).toLocaleString(locale)} · {t('cloudAgent')}</small>}
           </div>
         </div>
         <div className="surface">
@@ -1662,10 +1627,6 @@ export function App() {
   const dailyAgentReport=useDailyAgent({
     authState:auth.state,
     organizationId:auth.organizationId,
-    actorId:auth.user?.uid ?? null,
-    editable,
-    campaigns:store.campaigns,
-    updateCampaign:store.update,
   });
   useEffect(() => localStorage.setItem('na_locale', locale), [locale]);
 
