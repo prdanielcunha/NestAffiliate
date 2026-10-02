@@ -562,7 +562,26 @@ async function runDailyAgent(accessToken,signals,observedAt){
     }
   }
 
-  for(const opportunity of ranked.filter((item)=>item.score.score>=58 && !existingIds.has(item.product.externalId)).slice(0,3)){
+  const originalReady=campaigns.filter((campaign)=>campaign.status==='READY').length;
+  const readyBeforeCreation=Math.max(0,originalReady-report.blocked);
+  const queueTarget=3;
+  const creationSlots=Math.max(0,queueTarget-readyBeforeCreation);
+  const eligible=ranked.filter((item)=>item.score.score>=58 && !existingIds.has(item.product.externalId));
+  const selected=[];
+  for(const opportunity of eligible){
+    if(selected.some((item)=>dailySimilarity(item.keyword,opportunity.keyword)>=0.72)) continue;
+    selected.push(opportunity);
+    if(selected.length>=creationSlots) break;
+  }
+  if(selected.length<creationSlots){
+    for(const opportunity of eligible){
+      if(selected.some((item)=>item.product.externalId===opportunity.product.externalId)) continue;
+      selected.push(opportunity);
+      if(selected.length>=creationSlots) break;
+    }
+  }
+
+  for(const opportunity of selected){
     try{
       const campaign=dailyCampaign(opportunity);
       const exists=await readDoc(dailyAgentCampaigns+'/'+encodeURIComponent(campaign.id));
@@ -577,8 +596,10 @@ async function runDailyAgent(accessToken,signals,observedAt){
     }
   }
 
-  const originalReady=campaigns.filter((campaign)=>campaign.status==='READY').length;
-  report.campaignsWaiting=Math.max(0,originalReady-report.blocked)+report.campaignsCreated;
+  report.campaignsWaiting=readyBeforeCreation+report.campaignsCreated;
+  if(readyBeforeCreation>=queueTarget){
+    report.messages.push('Fila de revisão já possui '+readyBeforeCreation+' campanhas; novas campanhas não foram criadas neste ciclo.');
+  }
   report.completedAt=new Date().toISOString();
   report.status=report.errors>0 ? 'PARTIAL' : 'SUCCESS';
   const runId='run-'+report.completedAt.replace(/[^0-9]/g,'').slice(0,14);
