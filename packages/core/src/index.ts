@@ -170,6 +170,7 @@ export interface CreativeAsset {
   storagePath?: string;
   downloadUrl?: string;
   embeddedTextConfirmedAbsent: boolean;
+  productFidelityConfirmed: boolean;
   createdAt: string;
 }
 
