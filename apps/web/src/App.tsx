@@ -804,7 +804,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void search()} placeholder="Ex.: organizador cozinha pequena" />
         <button className="button primary" onClick={() => void search()}>{t('analyzeProducts')}</button>
       </div>
-      <div className="chips"><span>{t('home')}</span><span>{t('kitchen')}</span><span>Mercado Livre</span><span>{t('dedupeActive')}</span><span>{t('localSeasonality')}</span></div>
+      <div className="chips"><span>{t('home')}</span><span>{t('kitchen')}</span><span>Mercado Livre</span><span>{t('dedupeActive')}</span><span>{t('localSeasonality')}</span><span>{marketSignals.length ? t('officialSignals',{n:marketSignals.length}) : t('trendDataPending')}</span></div>
       <div className="radar-filters">
         <label>
           <span>{t('maxPrice')}</span>
