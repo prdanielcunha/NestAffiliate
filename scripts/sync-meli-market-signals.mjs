@@ -556,7 +556,7 @@ async function runDailyAgent(accessToken,signals,observedAt){
   const report={
     organizationId:ORG_ID,startedAt:new Date().toISOString(),completedAt:observedAt,source:'github-actions',status:'RUNNING',
     checked:0,changed:0,blocked:0,skipped:0,errors:0,signals:signals.length,
-    opportunitiesAnalyzed:0,opportunitiesPersisted:0,opportunitiesExpired:0,campaignsRevalidated:0,campaignsCreated:0,campaignsWaiting:0,fallbackQueries:0,
+    opportunitiesAnalyzed:0,opportunitiesPersisted:0,opportunitiesExpired:0,campaignsRevalidated:0,verifiedBestSellerProducts:0,campaignsCreated:0,campaignsWaiting:0,fallbackQueries:0,
     categoriesCovered:0,themesCovered:0,topOpportunityScore:0,topOpportunityKeyword:'',queueMin:3,queueTarget:5,queueState:'STABLE',nextExpectedAt:'',messages:[],
   };
   const docs=await listDocs(dailyAgentCampaigns);
@@ -648,7 +648,35 @@ async function runDailyAgent(accessToken,signals,observedAt){
 
   const existingIds=new Set(campaigns.map((campaign)=>campaign?.currentVersion?.product?.externalId).filter(Boolean));
   const candidates=new Map();
-  for(const query of queries){
+
+  const exactSignals=signals
+    .filter((signal)=>typeof signal?.productExternalId==='string' && signal.productExternalId.trim())
+    .filter((signal,index,all)=>all.findIndex((item)=>item.productExternalId===signal.productExternalId)===index)
+    .slice(0,60);
+  const exactSignalById=new Map(exactSignals.map((signal)=>[signal.productExternalId,signal]));
+  for(let offset=0;offset<exactSignals.length;offset+=20){
+    const ids=exactSignals.slice(offset,offset+20).map((signal)=>signal.productExternalId);
+    try{
+      const products=await dailyBulkItems(ids,accessToken);
+      report.checked+=products.length;
+      report.verifiedBestSellerProducts+=products.length;
+      for(const product of products){
+        if(product.availability.value!=='available' || !product.imageUrl?.value || !product.url?.value) continue;
+        const signal=exactSignalById.get(product.externalId);
+        const keyword=String(signal?.keyword || product.title.value || '').trim();
+        if(!keyword) continue;
+        const opportunity=dailyOpportunity(product,keyword,signals,0);
+        const current=candidates.get(product.externalId);
+        if(!current || opportunity.score.score>current.score.score) candidates.set(product.externalId,opportunity);
+      }
+    }catch(error){
+      report.errors+=1;
+      console.warn('DAILY_AGENT_BESTSELLER_ITEM_ERROR',error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  const shouldRunCatalogDiscovery=candidates.size<24;
+  for(const query of shouldRunCatalogDiscovery ? queries : []){
     try{
       const products=await dailySearch(query,accessToken);
       report.checked+=products.length;
@@ -771,7 +799,11 @@ async function runDailyAgent(accessToken,signals,observedAt){
 
   report.completedAt=new Date().toISOString();
   report.nextExpectedAt=new Date(new Date(report.completedAt).getTime()+DAILY_AGENT_INTERVAL_MS).toISOString();
-  report.status=report.errors>0 ? 'PARTIAL' : 'SUCCESS';
+  const discoveryGap=report.signals>0 && report.opportunitiesAnalyzed===0;
+  if(discoveryGap){
+    report.messages.push('Os sinais chegaram, mas nenhum produto verificável virou oportunidade; o ciclo foi marcado para atenção.');
+  }
+  report.status=report.errors>0 || discoveryGap ? 'PARTIAL' : 'SUCCESS';
   report.messages.unshift(
     'Ciclo concluído: '+report.checked+' produtos verificados, '+report.opportunitiesAnalyzed+
     ' oportunidades analisadas, '+report.campaignsCreated+' campanhas preparadas e '+
@@ -916,7 +948,7 @@ main().catch(async(error)=>{
         source:'github-actions',
         status:'FAILED',
         checked:0,changed:0,blocked:0,skipped:0,errors:1,signals:0,
-        opportunitiesAnalyzed:0,opportunitiesPersisted:0,opportunitiesExpired:0,campaignsRevalidated:0,
+        opportunitiesAnalyzed:0,opportunitiesPersisted:0,opportunitiesExpired:0,campaignsRevalidated:0,verifiedBestSellerProducts:0,
         campaignsCreated:0,campaignsWaiting:0,fallbackQueries:0,categoriesCovered:0,themesCovered:0,
         topOpportunityScore:0,topOpportunityKeyword:'',queueMin:3,queueTarget:5,queueState:'STABLE',
         nextExpectedAt,

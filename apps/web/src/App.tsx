@@ -649,6 +649,7 @@ function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; s
             <span><b>{agentReport?.campaignsCreated ?? 0}</b> {t('campaignsPrepared')}</span>
             <span><b>{agentReport?.campaignsWaiting ?? ready.length}</b> {t('campaignsWaiting')}</span>
             <span><b>{agentReport?.signals ?? 0}</b> {t('signalsProcessed')}</span>
+            <span><b>{agentReport?.verifiedBestSellerProducts ?? 0}</b> {t('verifiedBestSellers')}</span>
             {agentReport && <small>{t('agentCycleDetails',{
               changed:agentReport.changed ?? 0,
               blocked:agentReport.blocked ?? 0,
