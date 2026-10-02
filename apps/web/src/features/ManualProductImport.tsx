@@ -67,7 +67,7 @@ export function ManualProductImport({
     setError('');
   }
 
-  function useEvidence(file:File|null){
+  function setEvidenceFile(file:File|null){
     if(!file || !file.type.startsWith('image/')) return;
     if(evidenceUrl.startsWith('blob:')) URL.revokeObjectURL(evidenceUrl);
     setEvidenceUrl(URL.createObjectURL(file));
@@ -135,7 +135,7 @@ export function ManualProductImport({
         const image=[...event.clipboardData.items].find((item)=>item.type.startsWith('image/'))?.getAsFile() ?? null;
         if(image){
           event.preventDefault();
-          useEvidence(image);
+          setEvidenceFile(image);
           return;
         }
         const text=event.clipboardData.getData('text/plain');
@@ -159,7 +159,7 @@ export function ManualProductImport({
             <span>{t('productScreenshotBody')}</span>
           </div>
           <button className="button secondary" type="button" onClick={()=>fileRef.current?.click()}>{t('sendScreenshot')}</button>
-          <input ref={fileRef} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(event)=>useEvidence(event.target.files?.[0] ?? null)} />
+          <input ref={fileRef} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(event)=>setEvidenceFile(event.target.files?.[0] ?? null)} />
         </div>
 
         {evidenceUrl && <div className="import-evidence-preview span-2">
