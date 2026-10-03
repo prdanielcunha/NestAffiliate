@@ -25,7 +25,7 @@ export function ShopeeResearchBridge({ query }: { query: string }) {
   const capabilities = [
     t('shopeeCapabilitySearch'),
     t('shopeeCapabilityCommission'),
-    t('shopeeCapabilityTags'),
+    t('shopeeCapabilityTags',{n:SHOPEE_AFFILIATE_CAPABILITIES.maxProductsPerPin}),
     t('shopeeCapabilityTracking'),
   ];
 
@@ -72,7 +72,7 @@ export function ShopeeResearchBridge({ query }: { query: string }) {
           {t('copySearchTerm')}
         </button>
         <a
-          className="button ghost"
+          className="button secondary"
           href={SHOPEE_PINTEREST_HELP_URL}
           target="_blank"
           rel="noreferrer"
@@ -88,9 +88,6 @@ export function ShopeeResearchBridge({ query }: { query: string }) {
       </ol>
 
       <p className="shopee-research-note">{t('shopeeSearchNotice')}</p>
-      <small>
-        {SHOPEE_AFFILIATE_CAPABILITIES.maxProductsPerPin} · Pinterest product tagging
-      </small>
     </section>
   );
 }
