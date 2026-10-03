@@ -1057,7 +1057,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               <h3><a className="product-title-link" href={product.url.value} target="_blank" rel="noreferrer">{product.title.value}</a></h3>
               <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
               <div className="product-proof-row">
-                <span className="proof-chip success">{t('availableNow')}</span>
+                <span className="proof-chip success">{product.availability.value==='available' ? t('availableNow') : t('catalogOfficial')}</span>
                 {typeof product.soldQuantity?.value==='number'
                   ? <span className="proof-chip">{t('salesProof',{n:new Intl.NumberFormat(locale,{notation:'compact',maximumFractionDigits:1}).format(product.soldQuantity.value)})}</span>
                   : null}
