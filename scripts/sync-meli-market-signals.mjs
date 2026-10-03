@@ -217,7 +217,7 @@ const dailyAgentOpportunities=dailyAgentRoot+'/opportunities';
 const dailyAgentRuns=dailyAgentRoot+'/dailyAgentRuns';
 const dailyAgentJobs=dailyAgentRoot+'/systemJobs';
 const DAILY_AGENT_INTERVAL_MS=3*60*60_000;
-const MIN_VALIDATED_SALES=50;
+const MIN_VALIDATED_SALES=100;
 
 function decodeFsValue(value){
   if(!value || typeof value!=='object') return null;

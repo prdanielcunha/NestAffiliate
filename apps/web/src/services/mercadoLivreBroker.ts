@@ -60,7 +60,7 @@ export async function searchMercadoLivreBrokerDetailed(input:{
       provider:'MELI',
       source:'mercadolivre-catalog-api',
       observedAt,
-      meta:{catalogTotal:143,candidates:20,detailed:18,usable:3,minSoldQuantity:50,rejectedUnavailable:4,rejectedLowSales:9,rejectedUnverified:4},
+      meta:{catalogTotal:143,candidates:20,detailed:18,usable:3,minSoldQuantity:100,rejectedUnavailable:4,rejectedLowSales:9,rejectedUnverified:4},
     };
   }
 
@@ -71,7 +71,7 @@ export async function searchMercadoLivreBrokerDetailed(input:{
       provider:'MELI',
       source:'mercadolivre-catalog-api',
       observedAt:new Date().toISOString(),
-      meta:{catalogTotal:0,candidates:0,detailed:0,usable:0,minSoldQuantity:50,rejectedUnavailable:0,rejectedLowSales:0,rejectedUnverified:0},
+      meta:{catalogTotal:0,candidates:0,detailed:0,usable:0,minSoldQuantity:100,rejectedUnavailable:0,rejectedLowSales:0,rejectedUnverified:0},
     };
   }
 
@@ -113,7 +113,7 @@ export async function searchMercadoLivreBrokerDetailed(input:{
       candidates:Number(rawMeta?.candidates ?? products.length),
       detailed:Number(rawMeta?.detailed ?? products.length),
       usable:Number(rawMeta?.usable ?? products.length),
-      minSoldQuantity:Number(rawMeta?.minSoldQuantity ?? 50),
+      minSoldQuantity:Number(rawMeta?.minSoldQuantity ?? 100),
       rejectedUnavailable:Number(rawMeta?.rejectedUnavailable ?? 0),
       rejectedLowSales:Number(rawMeta?.rejectedLowSales ?? 0),
       rejectedUnverified:Number(rawMeta?.rejectedUnverified ?? 0),

@@ -111,8 +111,8 @@ it('only considers stocked products with meaningful verified sales commerce-read
     availableQuantity:{value:14,source:'fixture',observedAt:now},
     imageUrl:{value:'https://http2.mlstatic.com/D_TEST.jpg',source:'fixture',observedAt:now},
   } satisfies ProductTruth;
-  expect(isCommerceReadyProduct(strong,50)).toBe(true);
-  expect(isCommerceReadyProduct({...strong,soldQuantity:{...strong.soldQuantity!,value:5}},50)).toBe(false);
-  expect(isCommerceReadyProduct({...strong,availableQuantity:{...strong.availableQuantity!,value:0}},50)).toBe(false);
-  expect(isCommerceReadyProduct({...strong,availability:{...strong.availability,value:'unavailable'}},50)).toBe(false);
+  expect(isCommerceReadyProduct(strong,100)).toBe(true);
+  expect(isCommerceReadyProduct({...strong,soldQuantity:{...strong.soldQuantity!,value:5}},100)).toBe(false);
+  expect(isCommerceReadyProduct({...strong,availableQuantity:{...strong.availableQuantity!,value:0}},100)).toBe(false);
+  expect(isCommerceReadyProduct({...strong,availability:{...strong.availability,value:'unavailable'}},100)).toBe(false);
 });

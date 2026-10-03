@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
-import { buildOpportunity, buildSearchSignal, isCommerceReadyProduct, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
+import { buildOpportunity, buildSearchSignal, isCommerceReadyProduct, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
@@ -1012,6 +1012,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             lowSales:searchMeta.rejectedLowSales,
             unverified:searchMeta.rejectedUnverified,
           })}</small>
+          <small className="ranking-order-note">{t('radarRankingOrder')}</small>
         </div>
         <span className="search-source">Mercado Livre · {new Intl.DateTimeFormat(locale,{timeStyle:'short'}).format(Date.parse(searchMeta.observedAt))}</span>
       </section>}
@@ -1035,6 +1036,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       <div className="opportunity-grid">
         {opportunities.map((opportunity,index) => {
           const product=opportunity.product;
+          const potential=productPotentialBand(opportunity);
+          const potentialLabel=potential==='EXCEPTIONAL' ? t('potentialExceptional') :
+            potential==='VERY_HIGH' ? t('potentialVeryHigh') :
+            potential==='HIGH' ? t('potentialHigh') :
+            t('potentialValidated');
           return (
           <article className="opportunity-card radar2-card" key={product.externalId}>
             <div className="product-image">
@@ -1045,6 +1051,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             <div className="opportunity-copy">
               <div className="opportunity-meta">
                 <span className="market-chip">{product.marketplace==='MELI'?'Mercado Livre':'Shopee'}</span>
+                <span className={`potential-chip potential-${potential.toLowerCase()}`}>{potentialLabel}</span>
                 <span>NestScore 2.0 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}</span>
               </div>
               <h3><a className="product-title-link" href={product.url.value} target="_blank" rel="noreferrer">{product.title.value}</a></h3>
