@@ -1,4 +1,5 @@
 import { FEATURE_FLAGS, KILL_SWITCHES, PUBLIC_LINKS } from '@nestaffiliate/config';
+import { SHOPEE_AFFILIATE_CAPABILITIES, SHOPEE_PINTEREST_HELP_URL } from '@nestaffiliate/integrations';
 import { useI18n } from '../lib/i18n-context';
 import { PolicyWatchPanel } from './PolicyWatchPanel';
 import { MercadoLivreSetupPanel } from './MercadoLivreSetupPanel';
@@ -78,7 +79,7 @@ function launchCopy(locale: string): LaunchCopy {
 }
 
 export function ConnectionCenter() {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const launch = launchCopy(locale);
   const cards: ConnectionCard[] = [
     {
@@ -102,11 +103,11 @@ export function ConnectionCenter() {
       safety: 'Sem scraping de painel privado.',
     },
     {
-      name: 'Shopee',
-      status: FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED ? 'guided' : 'off',
-      capability: 'Import oficial/manual · link afiliado',
-      detail: 'Produtos podem entrar por URL e link afiliado fornecidos pelo operador enquanto não houver adapter oficial seguro configurado.',
-      safety: 'Sem scraping de painel privado.',
+      name: 'Shopee + Pinterest',
+      status: FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED ? 'active' : 'off',
+      capability: t('shopeeConnectionCapability'),
+      detail: t('shopeeConnectionDetail',{n:SHOPEE_AFFILIATE_CAPABILITIES.maxProductsPerPin}),
+      safety: t('shopeeConnectionSafety'),
     },
     {
       name: 'Gemini Free',
@@ -192,6 +193,15 @@ export function ConnectionCenter() {
       </section>
 
       <MercadoLivreSetupPanel />
+
+      {FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED && (
+        <section className="surface shopee-connection-callout">
+          <p className="eyebrow">SHOPEE + PINTEREST</p>
+          <h2>{t('shopeeConnectionCalloutTitle')}</h2>
+          <p className="muted">{t('shopeeConnectionCalloutBody')}</p>
+          <a className="button secondary" href={SHOPEE_PINTEREST_HELP_URL} target="_blank" rel="noreferrer">{t('openIntegrationGuide')}</a>
+        </section>
+      )}
 
       <div className="connection-grid">
         {cards.map((card) => (
