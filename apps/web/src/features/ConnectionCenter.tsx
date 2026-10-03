@@ -1,4 +1,5 @@
 import { FEATURE_FLAGS, KILL_SWITCHES, PUBLIC_LINKS } from '@nestaffiliate/config';
+import { SHOPEE_AFFILIATE_CAPABILITIES, SHOPEE_PINTEREST_HELP_URL } from '@nestaffiliate/integrations';
 import { useI18n } from '../lib/i18n-context';
 import { PolicyWatchPanel } from './PolicyWatchPanel';
 import { MercadoLivreSetupPanel } from './MercadoLivreSetupPanel';
@@ -102,11 +103,11 @@ export function ConnectionCenter() {
       safety: 'Sem scraping de painel privado.',
     },
     {
-      name: 'Shopee',
-      status: FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED ? 'guided' : 'off',
-      capability: 'Import oficial/manual · link afiliado',
-      detail: 'Produtos podem entrar por URL e link afiliado fornecidos pelo operador enquanto não houver adapter oficial seguro configurado.',
-      safety: 'Sem scraping de painel privado.',
+      name: 'Shopee + Pinterest',
+      status: FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED ? 'active' : 'off',
+      capability: 'Busca oficial assistida · Product Tagging · Sub_id',
+      detail: `Catálogo sincronizado no Pinterest, pesquisa/colar link, estimativa de comissão e até ${SHOPEE_AFFILIATE_CAPABILITIES.maxProductsPerPin} produtos marcados por Pin. O Radar usa uma ponte oficial enquanto não existe API pública afiliada equivalente à busca do Mercado Livre.`,
+      safety: 'Sem scraping de painel privado e sem credencial Shopee no frontend.',
     },
     {
       name: 'Gemini Free',
@@ -192,6 +193,15 @@ export function ConnectionCenter() {
       </section>
 
       <MercadoLivreSetupPanel />
+
+      {FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED && (
+        <section className="surface shopee-connection-callout">
+          <p className="eyebrow">SHOPEE + PINTEREST</p>
+          <h2>Shopee pronta para a operação do Radar.</h2>
+          <p className="muted">A pesquisa acontece na fonte oficial e o produto escolhido volta ao NestAffiliate para NestScore, tracking, campanha, compliance e publicação guiada.</p>
+          <a className="button secondary" href={SHOPEE_PINTEREST_HELP_URL} target="_blank" rel="noreferrer">Ver integração oficial</a>
+        </section>
+      )}
 
       <div className="connection-grid">
         {cards.map((card) => (
