@@ -11,6 +11,7 @@ test('Radar shows automatic market status, useful suggestions and real product c
   await expect(page.getByText('JSON oficial do Mercado Livre',{exact:true})).toHaveCount(0);
   await expect(page.getByText('SINAIS OFICIAIS',{exact:true})).toHaveCount(0);
 
+  await page.getByRole('button',{name:'Mercado Livre',exact:true}).click();
   await page.getByRole('button',{name:'Analisar produtos'}).click();
 
   await expect(page.locator('.opportunity-card')).toHaveCount(3,{timeout:10_000});
