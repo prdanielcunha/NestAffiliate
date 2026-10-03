@@ -287,3 +287,84 @@ export function pinterestTrendsCapability(flags:{apiEnabled:boolean;trendsEnable
     fallback:'MARKETPLACE_AND_INTERNAL_SIGNALS' as const,
   };
 }
+
+
+export interface ShopeeAffiliateCapabilities {
+  officialPinterestIntegration: boolean;
+  pinterestCatalogSync: boolean;
+  pinterestProductSearch: boolean;
+  pinterestLinkPaste: boolean;
+  automaticAffiliateLinkOnTag: boolean;
+  commissionEstimateOnPinterest: boolean;
+  maxProductsPerPin: number;
+  subIdTracking: boolean;
+  inAppProgrammaticCatalogSearch: boolean;
+  privatePanelScrapingAllowed: boolean;
+}
+
+export const SHOPEE_AFFILIATE_CAPABILITIES: ShopeeAffiliateCapabilities = {
+  officialPinterestIntegration: true,
+  pinterestCatalogSync: true,
+  pinterestProductSearch: true,
+  pinterestLinkPaste: true,
+  automaticAffiliateLinkOnTag: true,
+  commissionEstimateOnPinterest: true,
+  maxProductsPerPin: 5,
+  subIdTracking: true,
+  // There is no documented public affiliate-catalog search API equivalent to
+  // Mercado Livre's public catalog search in the current integration contract.
+  inAppProgrammaticCatalogSearch: false,
+  privatePanelScrapingAllowed: false,
+};
+
+export const SHOPEE_PINTEREST_HELP_URL =
+  'https://help.shopee.com.br/portal/10/article/224179-Parceria-com-Afiliados-do-Pinterest';
+
+export const SHOPEE_AFFILIATE_LINK_HELP_URL =
+  'https://help.shopee.com.br/portal/10/article/128461-Passo-a-Passo-para-Gerar-Seus-Links-de-Afiliado-ou-ID-de-produto';
+
+export function buildShopeeOfficialSearchUrl(query: string) {
+  const keyword = query.trim();
+  const url = new URL('https://shopee.com.br/search');
+  if (keyword) url.searchParams.set('keyword', keyword);
+  return url.toString();
+}
+
+export interface ShopeeProductReference {
+  shopId?: string;
+  itemId?: string;
+  canonicalKey?: string;
+}
+
+export function parseShopeeProductReference(value: string): ShopeeProductReference {
+  const raw = value.trim();
+  if (!raw) return {};
+
+  const itemPath = raw.match(/-i\.(\d+)\.(\d+)(?:[/?#]|$)/i);
+  if (itemPath) {
+    return {
+      shopId: itemPath[1],
+      itemId: itemPath[2],
+      canonicalKey: `shopee:${itemPath[1]}:${itemPath[2]}`,
+    };
+  }
+
+  const productPath = raw.match(/\/product\/(\d+)\/(\d+)(?:[/?#]|$)/i);
+  if (productPath) {
+    return {
+      shopId: productPath[1],
+      itemId: productPath[2],
+      canonicalKey: `shopee:${productPath[1]}:${productPath[2]}`,
+    };
+  }
+
+  return {};
+}
+
+export function buildShopeePinterestSearchTerm(product: Pick<ProductTruth, 'title' | 'externalId'>) {
+  const title = product.title.value
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 100);
+  return title || product.externalId;
+}
