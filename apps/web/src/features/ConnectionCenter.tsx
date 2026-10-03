@@ -79,7 +79,7 @@ function launchCopy(locale: string): LaunchCopy {
 }
 
 export function ConnectionCenter() {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const launch = launchCopy(locale);
   const cards: ConnectionCard[] = [
     {
@@ -105,9 +105,9 @@ export function ConnectionCenter() {
     {
       name: 'Shopee + Pinterest',
       status: FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED ? 'active' : 'off',
-      capability: 'Busca oficial assistida · Product Tagging · Sub_id',
-      detail: `Catálogo sincronizado no Pinterest, pesquisa/colar link, estimativa de comissão e até ${SHOPEE_AFFILIATE_CAPABILITIES.maxProductsPerPin} produtos marcados por Pin. O Radar usa uma ponte oficial enquanto não existe API pública afiliada equivalente à busca do Mercado Livre.`,
-      safety: 'Sem scraping de painel privado e sem credencial Shopee no frontend.',
+      capability: t('shopeeConnectionCapability'),
+      detail: t('shopeeConnectionDetail',{n:SHOPEE_AFFILIATE_CAPABILITIES.maxProductsPerPin}),
+      safety: t('shopeeConnectionSafety'),
     },
     {
       name: 'Gemini Free',
@@ -197,9 +197,9 @@ export function ConnectionCenter() {
       {FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED && (
         <section className="surface shopee-connection-callout">
           <p className="eyebrow">SHOPEE + PINTEREST</p>
-          <h2>Shopee pronta para a operação do Radar.</h2>
-          <p className="muted">A pesquisa acontece na fonte oficial e o produto escolhido volta ao NestAffiliate para NestScore, tracking, campanha, compliance e publicação guiada.</p>
-          <a className="button secondary" href={SHOPEE_PINTEREST_HELP_URL} target="_blank" rel="noreferrer">Ver integração oficial</a>
+          <h2>{t('shopeeConnectionCalloutTitle')}</h2>
+          <p className="muted">{t('shopeeConnectionCalloutBody')}</p>
+          <a className="button secondary" href={SHOPEE_PINTEREST_HELP_URL} target="_blank" rel="noreferrer">{t('openIntegrationGuide')}</a>
         </section>
       )}
 
