@@ -1128,7 +1128,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             t('radarError')
           }</span>
         </div>
-        <button className="button secondary" type="button" onClick={()=>void search()}>{t('radarRetry')}</button>
+        {errorCode.includes('SHOPEE_API_NOT_CONNECTED')
+          ? <NavLink className="button secondary" to="/connections">{t('connections')}</NavLink>
+          : <button className="button secondary" type="button" onClick={()=>void search()}>{t('radarRetry')}</button>}
       </div>}
       {searchMeta && state==='idle' && <section className="radar-search-summary">
         <div>
