@@ -8,6 +8,7 @@ import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
 import { FEATURE_FLAGS, KILL_SWITCHES, canAttemptPinterestPublish } from '@nestaffiliate/config';
+import { buildShopeeOfficialSearchUrl, buildShopeePinterestSearchTerm, parseShopeeProductReference } from '@nestaffiliate/integrations';
 import { type Locale } from './lib/i18n';
 import { I18nProvider, useI18n } from './lib/i18n-context';
 import { demoCampaigns, initialBoards } from './lib/demo';
@@ -26,6 +27,7 @@ import { PromptStudio } from './features/PromptStudio';
 import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
 import { resolveCreativeAssetUrl } from './services/creativePackRepository';
 import { ConnectionCenter } from './features/ConnectionCenter';
+import { ShopeeResearchBridge } from './features/ShopeeResearchBridge';
 import { ensureNestAffiliateWorkspace } from './services/workspaceBootstrap';
 import { defaultPreferences, loadUserPreferences, saveUserPreferences, type UserPreferences } from './services/preferencesRepository';
 import { recordRadarSignal } from './services/radarRepository';
@@ -699,6 +701,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const identity=useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('organizador cozinha pequena');
+  const [marketplaceScope,setMarketplaceScope]=useState<'ALL'|'MELI'|'SHOPEE'>('ALL');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [marketSignals,setMarketSignals]=useState<CommerceSignal[]>([]);
   const [maxPrice,setMaxPrice]=useState('');
@@ -800,6 +803,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     if(signal.source==='MELI_BEST_SELLER') return t('marketBestSeller');
     if(signal.source==='MELI_TREND_GROWTH') return t('marketGrowing');
     if(signal.source==='MELI_TREND_DESIRED') return t('marketHighlySearched');
+    if(signal.source==='SHOPEE_SEARCH_ASSISTED') return t('shopeeSearchAssisted');
+    if(signal.source==='SHOPEE_EXTRA_COMMISSION') return t('shopeeExtraCommission');
+    if(signal.source==='SHOPEE_TOP_SALES') return t('shopeeTopSales');
+    if(signal.source==='SHOPEE_RECOMMENDATION') return t('shopeeRecommendation');
     return t('marketPopular');
   }
 
@@ -810,6 +817,15 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     setErrorCode('');
     setAnalysisNotice('');
     setState('loading');
+    if(marketplaceScope==='SHOPEE'){
+      window.open(buildShopeeOfficialSearchUrl(effectiveQuery),'_blank','noopener,noreferrer');
+      setOpportunities([]);
+      setSearchMeta(null);
+      setHasSearched(true);
+      setAnalysisNotice(t('shopeeLinked'));
+      setState('idle');
+      return;
+    }
     try {
       if(!identity.user) throw new Error('UNAUTHENTICATED');
       const result = await searchMercadoLivreBrokerDetailed({ user:identity.user, organizationId, query:effectiveQuery, limit:20 });
@@ -924,10 +940,28 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   return (
     <div className="page">
       <PageTitle eyebrow="RADAR" title={t('opportunities')} subtitle={t('opportunitiesSub')} />
+      <div className="marketplace-scope" role="group" aria-label={t('marketplaceFilter')}>
+        <span>{t('marketplaceFilter')}</span>
+        <div>
+          {(['ALL','MELI','SHOPEE'] as const).map((value)=><button
+            key={value}
+            type="button"
+            className={marketplaceScope===value ? 'active' : ''}
+            aria-pressed={marketplaceScope===value}
+            onClick={()=>{
+              setMarketplaceScope(value);
+              setOpportunities([]);
+              setSearchMeta(null);
+              setHasSearched(false);
+              setAnalysisNotice('');
+            }}
+          >{value==='ALL' ? t('marketplaceAll') : value==='MELI' ? t('marketplaceMeli') : t('marketplaceShopee')}</button>)}
+        </div>
+      </div>
       <div className="search-box">
         <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void search()} placeholder={t('radarSearchPlaceholder')} />
         <button className="button primary" disabled={state==='loading'} onClick={() => void search()}>
-          {state==='loading' ? t('analyzingProducts') : t('analyzeProducts')}
+          {state==='loading' ? t('analyzingProducts') : marketplaceScope==='SHOPEE' ? t('searchShopeeOfficial') : t('analyzeProducts')}
         </button>
       </div>
 
@@ -1028,6 +1062,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           {suggestedQueries.slice(0,4).map((suggestion)=><button key={`empty-${suggestion}`} type="button" onClick={()=>void search(suggestion)}>{suggestion}</button>)}
         </div>
       </section>}
+      {marketplaceScope!=='MELI' && <ShopeeResearchBridge query={query} />}
       {editable ? (
         <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
       ) : (
@@ -1512,6 +1547,8 @@ function Publish({
   const activeCampaign: Campaign = campaign;
   const v = activeCampaign.currentVersion;
   const destination = v.product.affiliateUrl?.value ?? v.product.url.value;
+  const shopeeSearchTerm=activeCampaign.marketplace==='SHOPEE' ? buildShopeePinterestSearchTerm(v.product) : '';
+  const shopeeReference=activeCampaign.marketplace==='SHOPEE' ? parseShopeeProductReference(v.product.url.value) : {};
   const hasFrequencyPolicy=preferences.maxPublications24h!==null || preferences.minGapMinutes!==null;
   const guard = runPublishingGuard({
     product: v.product, disclosure: v.narrative.disclosure, destinationUrl: destination,
@@ -1691,6 +1728,18 @@ function Publish({
           {activeCampaign.rankingContext?.trackingCode && <Field label={t('trackingCode')} value={activeCampaign.rankingContext.trackingCode} onCopy={() => copy(activeCampaign.rankingContext!.trackingCode!)} />}
         </section>
       </div>
+      {activeCampaign.marketplace==='SHOPEE' && <section className="shopee-tagging-pack">
+        <div>
+          <p className="eyebrow">SHOPEE + PINTEREST</p>
+          <h2>{t('shopeeTaggingPack')}</h2>
+          <p>{t('shopeeGuideBody')}</p>
+        </div>
+        <div className="shopee-tagging-fields">
+          <Field label={t('shopeeSearchAssisted')} value={shopeeSearchTerm} onCopy={() => copy(shopeeSearchTerm)} />
+          {shopeeReference.itemId ? <Field label={t('shopeeProductId')} value={shopeeReference.itemId} onCopy={() => copy(shopeeReference.itemId!)} /> : null}
+          {activeCampaign.rankingContext?.trackingCode ? <Field label={t('trackingCode')} value={activeCampaign.rankingContext.trackingCode} onCopy={() => copy(activeCampaign.rankingContext!.trackingCode!)} /> : null}
+        </div>
+      </section>}
       <section className="schedule-panel">
         <div>
           <p className="eyebrow">{t('schedulePublication')}</p>

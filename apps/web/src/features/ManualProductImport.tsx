@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ProductTruth } from '@nestaffiliate/core';
-import { createManualProductTruth } from '@nestaffiliate/integrations';
+import { createManualProductTruth, parseShopeeProductReference } from '@nestaffiliate/integrations';
 import { useI18n } from '../lib/i18n-context';
 import { buildShopeeManualSignals, type OpportunitySignals, type ShopeeManualSignalType } from '@nestaffiliate/radar';
 
@@ -80,9 +80,11 @@ export function ManualProductImport({
       if(!title.trim() || !productUrl.trim()) throw new Error(t('quickImportNeedsLinkTitle'));
       const parsedPrice=price.trim() ? Number(price.replace(/\./g,'').replace(',','.')) : undefined;
       if(parsedPrice !== undefined && !Number.isFinite(parsedPrice)) throw new Error(t('invalidPrice'));
+      const shopeeReference=marketplace==='SHOPEE' ? parseShopeeProductReference(productUrl) : {};
       const product=createManualProductTruth({
         organizationId,
         marketplace,
+        externalId:shopeeReference.itemId,
         title,
         productUrl,
         affiliateUrl:affiliateUrl || undefined,
