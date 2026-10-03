@@ -491,12 +491,57 @@ async function dailySearch(query,accessToken,limit=20){
     const catalogId=String(product?.id || candidate.id || '').trim();
     const live=itemId ? liveById.get(itemId) : undefined;
 
-    if(live && catalogId){
-      return [{
-        ...live,
-        catalogProductId:catalogId,
-        listingVerified:true,
-      }];
+    if(product && itemId && catalogId){
+      const winner=product.buy_box_winner || {};
+      const observedAt=new Date().toISOString();
+      const soldQuantity=typeof winner.sold_quantity==='number'
+        ? winner.sold_quantity
+        : live?.soldQuantity?.value;
+      const availableQuantity=typeof winner.available_quantity==='number'
+        ? winner.available_quantity
+        : live?.availableQuantity?.value;
+      const title=String(product.name || product.family_name || live?.title?.value || candidate.name || query).trim();
+      const url=String(product.permalink || candidate.permalink || live?.url?.value || '').trim();
+      const pictures=Array.isArray(product.pictures) && product.pictures.length ? product.pictures : candidate.pictures;
+      const picture=Array.isArray(pictures) ? pictures[0] : null;
+      const image=String(
+        picture?.secure_url ||
+        picture?.url ||
+        picture ||
+        live?.imageUrl?.value ||
+        '',
+      ).replace(/^http:/,'https:');
+      const price=typeof winner.price==='number' ? winner.price : live?.price?.value;
+      const currency=String(winner.currency_id || live?.currency?.value || 'BRL');
+
+      if(
+        title &&
+        url &&
+        image &&
+        typeof soldQuantity==='number' &&
+        typeof availableQuantity==='number'
+      ){
+        return [{
+          ...(live || {}),
+          productId:'meli:'+itemId,
+          organizationId:ORG_ID,
+          marketplace:'MELI',
+          externalId:itemId,
+          catalogProductId:catalogId,
+          listingVerified:true,
+          title:{value:title,source:'mercadolivre-catalog-api',observedAt},
+          url:{value:url,source:'mercadolivre-catalog-api',observedAt},
+          price:typeof price==='number' && price>0
+            ? {value:price,source:typeof winner.price==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent',observedAt}
+            : undefined,
+          currency:{value:currency,source:winner.currency_id ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent',observedAt},
+          soldQuantity:{value:soldQuantity,source:typeof winner.sold_quantity==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent',observedAt},
+          availableQuantity:{value:availableQuantity,source:typeof winner.available_quantity==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent',observedAt},
+          availability:{value:availableQuantity>0 ? 'available' : 'unavailable',source:typeof winner.available_quantity==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent',observedAt},
+          imageUrl:{value:image,source:'mercadolivre-catalog-api',observedAt},
+          assetRights:live?.assetRights || 'UNKNOWN',
+        }];
+      }
     }
 
     const research=mapCatalogResearchProduct(details[index] || candidate,candidate,query);
@@ -668,12 +713,17 @@ async function runDailyAgent(accessToken,signals,observedAt){
         continue;
       }
       let fresh=(await dailyBulkItems([previous.externalId],accessToken))[0];
-      if(!fresh){
+      if(
+        !fresh ||
+        typeof fresh.availableQuantity?.value!=='number' ||
+        typeof fresh.soldQuantity?.value!=='number'
+      ){
         const fallback=await dailySearch(previous.title?.value || campaign.currentVersion.keyword,accessToken,8);
         fresh=
           fallback.find((item)=>item.externalId===previous.externalId) ||
           fallback.find((item)=>previous.catalogProductId && item.catalogProductId===previous.catalogProductId) ||
-          fallback.find((item)=>dailySimilarity(item.title.value,previous.title?.value || '')>=0.72);
+          fallback.find((item)=>dailySimilarity(item.title.value,previous.title?.value || '')>=0.72) ||
+          fresh;
       }
       if(!fresh || fresh.listingVerified===false){
         const sourceText=[
