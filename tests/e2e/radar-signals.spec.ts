@@ -26,5 +26,5 @@ test('Radar shows automatic market status, useful suggestions and real product c
   await expect(page.getByText('Shopee vinculada ao Pinterest',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Shopee',exact:true}).click();
   await expect(page.getByText('Pesquisa oficial Shopee',{exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Pesquisar na Shopee',exact:true})).toBeVisible();
+  await expect(page.getByRole('region',{name:'Pesquisa oficial Shopee'}).getByRole('button',{name:'Abrir catálogo Shopee',exact:true})).toBeVisible();
 });
