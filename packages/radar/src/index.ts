@@ -8,6 +8,7 @@ export type CommerceSignalSource =
   | 'MELI_TREND_DESIRED'
   | 'MELI_TREND_POPULAR'
   | 'MELI_BEST_SELLER'
+  | 'SHOPEE_SEARCH_ASSISTED'
   | 'SHOPEE_RECOMMENDATION'
   | 'SHOPEE_EXTRA_COMMISSION'
   | 'SHOPEE_TOP_SALES'
@@ -202,12 +203,12 @@ export function buildSearchSignal(input:{
 }):CommerceSignal{
   return {
     id:`search:${input.marketplace}:${normalizeSearchText(input.keyword)}`,
-    source:input.marketplace==='MELI'?'MELI_SEARCH':'MANUAL',
+    source:input.marketplace==='MELI' ? 'MELI_SEARCH' : input.marketplace==='SHOPEE' ? 'SHOPEE_SEARCH_ASSISTED' : 'MANUAL',
     kind:'DEMAND',
     strength:clamp01(input.resultCount/25)*0.62,
-    confidence:clamp01(input.confidence),
+    confidence:clamp01(input.marketplace==='SHOPEE' ? Math.min(input.confidence,0.72) : input.confidence),
     observedAt:input.observedAt ?? new Date().toISOString(),
-    label:'Demanda observada na busca',
+    label:input.marketplace==='SHOPEE' ? 'Shopee · busca oficial assistida' : 'Demanda observada na busca',
     keyword:input.keyword,
     evidence:[`resultados:${input.resultCount}`],
   };
