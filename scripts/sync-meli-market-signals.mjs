@@ -479,47 +479,28 @@ async function dailySearch(query,accessToken,limit=20){
     resolvePurchasableCatalogProduct(candidate,details[index],accessToken)
   ));
 
-  const observedAt=new Date().toISOString();
+  const winnerIds=[...new Set(resolved.map((product)=>
+    String(product?.buy_box_winner?.item_id || '').trim()
+  ).filter(Boolean))].slice(0,20);
+  const liveItems=await dailyBulkItems(winnerIds,accessToken);
+  const liveById=new Map(liveItems.map((item)=>[item.externalId,item]));
+
   return candidates.flatMap((candidate,index)=>{
     const product=resolved[index];
-    const winner=product?.buy_box_winner || {};
-    const itemId=String(winner.item_id || '').trim();
-    const catalogId=String(product?.id || '').trim();
+    const itemId=String(product?.buy_box_winner?.item_id || '').trim();
+    const catalogId=String(product?.id || candidate.id || '').trim();
+    const live=itemId ? liveById.get(itemId) : undefined;
 
-    if(!product || !itemId || !catalogId){
-      const research=mapCatalogResearchProduct(details[index] || candidate,candidate,query);
-      return research ? [research] : [];
+    if(live && catalogId){
+      return [{
+        ...live,
+        catalogProductId:catalogId,
+        listingVerified:true,
+      }];
     }
 
-    const permalink=String(product.permalink || candidate.permalink || 'https://www.mercadolivre.com.br/p/'+encodeURIComponent(catalogId));
-    const title=String(product.name || product.family_name || candidate.name || query).trim();
-    if(!title || !permalink) return [];
-
-    const pictures=Array.isArray(product.pictures) && product.pictures.length ? product.pictures : candidate.pictures;
-    const picture=Array.isArray(pictures) ? pictures[0] : null;
-    const image=String(picture?.secure_url || picture?.url || picture || '').replace(/^http:/,'https:');
-    const price=typeof winner.price==='number' ? winner.price : undefined;
-    const status=String(product.status || candidate.status || '').toLowerCase();
-    const soldQuantity=typeof winner.sold_quantity==='number' ? winner.sold_quantity : undefined;
-    const availableQuantity=typeof winner.available_quantity==='number' ? winner.available_quantity : undefined;
-
-    return [{
-      productId:'meli:'+itemId,
-      organizationId:ORG_ID,
-      marketplace:'MELI',
-      externalId:itemId,
-      catalogProductId:catalogId,
-      listingVerified:true,
-      soldQuantity:typeof soldQuantity==='number' ? {value:soldQuantity,source:'mercadolivre-buy-box',observedAt} : undefined,
-      availableQuantity:typeof availableQuantity==='number' ? {value:availableQuantity,source:'mercadolivre-buy-box',observedAt} : undefined,
-      title:{value:title,source:'mercadolivre-catalog-api',observedAt},
-      url:{value:permalink,source:'mercadolivre-catalog-api',observedAt},
-      price:typeof price==='number' ? {value:price,source:'mercadolivre-buy-box',observedAt} : undefined,
-      currency:{value:String(winner.currency_id || 'BRL'),source:typeof price==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-catalog-api',observedAt},
-      availability:{value:status==='active' && typeof availableQuantity==='number' && availableQuantity>0 ? 'available' : 'unavailable',source:'mercadolivre-buy-box',observedAt},
-      imageUrl:image ? {value:image,source:'mercadolivre-catalog-api',observedAt} : undefined,
-      assetRights:'UNKNOWN',
-    }];
+    const research=mapCatalogResearchProduct(details[index] || candidate,candidate,query);
+    return research ? [research] : [];
   });
 }
 
