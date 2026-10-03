@@ -8,6 +8,7 @@ import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
 import { FEATURE_FLAGS, KILL_SWITCHES, canAttemptPinterestPublish } from '@nestaffiliate/config';
+import { buildShopeeOfficialSearchUrl, buildShopeePinterestSearchTerm, parseShopeeProductReference } from '@nestaffiliate/integrations';
 import { type Locale } from './lib/i18n';
 import { I18nProvider, useI18n } from './lib/i18n-context';
 import { demoCampaigns, initialBoards } from './lib/demo';
@@ -817,6 +818,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     setAnalysisNotice('');
     setState('loading');
     if(marketplaceScope==='SHOPEE'){
+      window.open(buildShopeeOfficialSearchUrl(effectiveQuery),'_blank','noopener,noreferrer');
       setOpportunities([]);
       setSearchMeta(null);
       setHasSearched(true);
@@ -1545,6 +1547,8 @@ function Publish({
   const activeCampaign: Campaign = campaign;
   const v = activeCampaign.currentVersion;
   const destination = v.product.affiliateUrl?.value ?? v.product.url.value;
+  const shopeeSearchTerm=activeCampaign.marketplace==='SHOPEE' ? buildShopeePinterestSearchTerm(v.product) : '';
+  const shopeeReference=activeCampaign.marketplace==='SHOPEE' ? parseShopeeProductReference(v.product.url.value) : {};
   const hasFrequencyPolicy=preferences.maxPublications24h!==null || preferences.minGapMinutes!==null;
   const guard = runPublishingGuard({
     product: v.product, disclosure: v.narrative.disclosure, destinationUrl: destination,
@@ -1724,6 +1728,18 @@ function Publish({
           {activeCampaign.rankingContext?.trackingCode && <Field label={t('trackingCode')} value={activeCampaign.rankingContext.trackingCode} onCopy={() => copy(activeCampaign.rankingContext!.trackingCode!)} />}
         </section>
       </div>
+      {activeCampaign.marketplace==='SHOPEE' && <section className="shopee-tagging-pack">
+        <div>
+          <p className="eyebrow">SHOPEE + PINTEREST</p>
+          <h2>{t('shopeeTaggingPack')}</h2>
+          <p>{t('shopeeGuideBody')}</p>
+        </div>
+        <div className="shopee-tagging-fields">
+          <Field label={t('shopeeSearchAssisted')} value={shopeeSearchTerm} onCopy={() => copy(shopeeSearchTerm)} />
+          {shopeeReference.itemId ? <Field label={t('shopeeProductId')} value={shopeeReference.itemId} onCopy={() => copy(shopeeReference.itemId!)} /> : null}
+          {activeCampaign.rankingContext?.trackingCode ? <Field label={t('trackingCode')} value={activeCampaign.rankingContext.trackingCode} onCopy={() => copy(activeCampaign.rankingContext!.trackingCode!)} /> : null}
+        </div>
+      </section>}
       <section className="schedule-panel">
         <div>
           <p className="eyebrow">{t('schedulePublication')}</p>
