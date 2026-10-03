@@ -290,3 +290,13 @@ Implemented for release validation:
 - architecture/release/rollback documentation.
 
 Production promotion remains gated by CI, rules QA and branch reconciliation. No paid AI provider was enabled.
+
+
+### Radar product-quality gate — 2026-10-02
+- live Mercado Livre Radar only surfaces listings that are confirmed active, have stock, an image, a working marketplace URL and at least 50 verified sales;
+- product truth stores verified sold quantity and available quantity with source/timestamp;
+- low-sales, out-of-stock and insufficiently verified candidates are rejected before ranking and reported in search metadata;
+- the browser repeats the quality gate defensively before rendering cards;
+- Radar shows explicit processing feedback while checking the marketplace and a success state after completion;
+- result cards expose availability, verified sales and stock as compact proof chips;
+- Daily Agent uses the same 50-sale/stock/listing gate before creating new review campaigns.

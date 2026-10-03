@@ -17,6 +17,8 @@ export interface ProductTruth {
   externalId: string;
   catalogProductId?: string;
   listingVerified?: boolean;
+  soldQuantity?: TruthValue<number>;
+  availableQuantity?: TruthValue<number>;
   title: TruthValue<string>;
   url: TruthValue<string>;
   affiliateUrl?: TruthValue<string>;

@@ -14,6 +14,9 @@ test('Radar shows automatic market status, useful suggestions and real product c
   await page.getByRole('button',{name:'Analisar produtos'}).click();
 
   await expect(page.locator('.opportunity-card')).toHaveCount(3,{timeout:10_000});
+  await expect(page.getByText('Análise concluída',{exact:true})).toBeVisible();
+  await expect(page.getByText(/passaram pela validação de estoque e prova social/)).toBeVisible();
+  await expect(page.locator('.proof-chip.success').first()).toContainText('Disponível agora');
   await expect(page.getByText(/143 encontrados no catálogo/)).toBeVisible();
   await expect(page.getByRole('link',{name:'Organizador de Gavetas Ajustável'})).toBeVisible();
   await expect(page.getByRole('link',{name:'Prateleira Extensível para Armário'})).toBeVisible();
