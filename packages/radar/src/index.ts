@@ -206,9 +206,9 @@ export function buildSearchSignal(input:{
     source:input.marketplace==='MELI' ? 'MELI_SEARCH' : input.marketplace==='SHOPEE' ? 'SHOPEE_SEARCH_ASSISTED' : 'MANUAL',
     kind:'DEMAND',
     strength:clamp01(input.resultCount/25)*0.62,
-    confidence:clamp01(input.marketplace==='SHOPEE' ? Math.min(input.confidence,0.72) : input.confidence),
+    confidence:clamp01(input.confidence),
     observedAt:input.observedAt ?? new Date().toISOString(),
-    label:input.marketplace==='SHOPEE' ? 'Shopee · busca oficial assistida' : 'Demanda observada na busca',
+    label:input.marketplace==='SHOPEE' ? 'Shopee · Affiliate Open API' : 'Demanda observada na busca',
     keyword:input.keyword,
     evidence:[`resultados:${input.resultCount}`],
   };
@@ -340,6 +340,48 @@ export function buildShopeeManualSignals(input:{
       productExternalId:input.productExternalId,
       commissionRate:input.commissionRate,
       evidence:[`comissão informada:${(input.commissionRate*100).toFixed(2)}%`],
+    });
+  }
+  return signals;
+}
+
+
+export function buildShopeeOfferSignals(input:{
+  keyword:string;
+  productExternalId:string;
+  sales?:number;
+  commissionRate?:number;
+  observedAt?:string;
+}):CommerceSignal[]{
+  const observedAt=input.observedAt ?? new Date().toISOString();
+  const signals:CommerceSignal[]=[];
+  if(typeof input.sales==='number' && input.sales>=0){
+    signals.push({
+      id:`shopee-api-sales:${input.productExternalId}`,
+      source:'SHOPEE_TOP_SALES',
+      kind:'BEST_SELLER',
+      strength:clamp01(0.48+Math.log10(input.sales+1)*0.12),
+      confidence:0.97,
+      observedAt,
+      label:'Shopee · vendas via Affiliate Open API',
+      keyword:input.keyword,
+      productExternalId:input.productExternalId,
+      evidence:[`vendas oficiais:${Math.round(input.sales)}`],
+    });
+  }
+  if(typeof input.commissionRate==='number' && input.commissionRate>=0){
+    signals.push({
+      id:`shopee-api-commission:${input.productExternalId}`,
+      source:'SHOPEE_EXTRA_COMMISSION',
+      kind:'YIELD',
+      strength:clamp01(input.commissionRate/0.2),
+      confidence:0.99,
+      observedAt,
+      label:'Shopee · comissão via Affiliate Open API',
+      keyword:input.keyword,
+      productExternalId:input.productExternalId,
+      commissionRate:input.commissionRate,
+      evidence:[`comissão oficial:${(input.commissionRate*100).toFixed(2)}%`],
     });
   }
   return signals;

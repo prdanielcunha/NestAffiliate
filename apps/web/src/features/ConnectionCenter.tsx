@@ -3,6 +3,7 @@ import { SHOPEE_AFFILIATE_CAPABILITIES, SHOPEE_PINTEREST_HELP_URL } from '@nesta
 import { useI18n } from '../lib/i18n-context';
 import { PolicyWatchPanel } from './PolicyWatchPanel';
 import { MercadoLivreSetupPanel } from './MercadoLivreSetupPanel';
+import { ShopeeSetupPanel } from './ShopeeSetupPanel';
 
 type Status = 'active' | 'guided' | 'external' | 'off' | 'blocked';
 
@@ -103,7 +104,7 @@ export function ConnectionCenter() {
       safety: 'Sem scraping de painel privado.',
     },
     {
-      name: 'Shopee + Pinterest',
+      name: 'Shopee Affiliate + Pinterest',
       status: FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED ? 'active' : 'off',
       capability: t('shopeeConnectionCapability'),
       detail: t('shopeeConnectionDetail',{n:SHOPEE_AFFILIATE_CAPABILITIES.maxProductsPerPin}),
@@ -193,6 +194,8 @@ export function ConnectionCenter() {
       </section>
 
       <MercadoLivreSetupPanel />
+
+      {FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED && <ShopeeSetupPanel />}
 
       {FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED && (
         <section className="surface shopee-connection-callout">

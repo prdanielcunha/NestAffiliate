@@ -3,12 +3,12 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
-import { buildOpportunity, buildSearchSignal, isCommerceReadyProduct, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
+import { buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isCommerceReadyProduct, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
 import { FEATURE_FLAGS, KILL_SWITCHES, canAttemptPinterestPublish } from '@nestaffiliate/config';
-import { buildShopeeOfficialSearchUrl, buildShopeePinterestSearchTerm, parseShopeeProductReference } from '@nestaffiliate/integrations';
+import { buildShopeePinterestSearchTerm, parseShopeeProductReference } from '@nestaffiliate/integrations';
 import { type Locale } from './lib/i18n';
 import { I18nProvider, useI18n } from './lib/i18n-context';
 import { demoCampaigns, initialBoards } from './lib/demo';
@@ -27,7 +27,6 @@ import { PromptStudio } from './features/PromptStudio';
 import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
 import { resolveCreativeAssetUrl } from './services/creativePackRepository';
 import { ConnectionCenter } from './features/ConnectionCenter';
-import { ShopeeResearchBridge } from './features/ShopeeResearchBridge';
 import { ensureNestAffiliateWorkspace } from './services/workspaceBootstrap';
 import { defaultPreferences, loadUserPreferences, saveUserPreferences, type UserPreferences } from './services/preferencesRepository';
 import { recordRadarSignal } from './services/radarRepository';
@@ -38,6 +37,7 @@ import { freshValidateProduct } from './services/freshValidation';
 import { completePublicationSchedule, listPublicationSchedules, savePublicationSchedule } from './services/publicationScheduleRepository';
 import { listMarketSignals, saveMarketSignals } from './services/marketSignalRepository';
 import { searchMercadoLivreBroker, searchMercadoLivreBrokerDetailed } from './services/mercadoLivreBroker';
+import { searchShopeeBroker, searchShopeeBrokerDetailed } from './services/shopeeBroker';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
 
@@ -711,6 +711,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [hasSearched,setHasSearched]=useState(false);
   const [analysisNotice,setAnalysisNotice]=useState('');
   const [searchMeta,setSearchMeta]=useState<{
+    provider:'MELI'|'SHOPEE'|'ALL';
     query:string;
     catalogTotal:number;
     candidates:number;
@@ -817,66 +818,162 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     setErrorCode('');
     setAnalysisNotice('');
     setState('loading');
-    if(marketplaceScope==='SHOPEE'){
-      window.open(buildShopeeOfficialSearchUrl(effectiveQuery),'_blank','noopener,noreferrer');
-      setOpportunities([]);
-      setSearchMeta(null);
-      setHasSearched(true);
-      setAnalysisNotice(t('shopeeLinked'));
-      setState('idle');
-      return;
-    }
+
     try {
       if(!identity.user) throw new Error('UNAUTHENTICATED');
-      const result = await searchMercadoLivreBrokerDetailed({ user:identity.user, organizationId, query:effectiveQuery, limit:20 });
-      const found=result.products.filter((product)=>isCommerceReadyProduct(product,result.meta.minSoldQuantity));
-      if(db && identity.user?.uid){
+
+      type ProviderResult={
+        provider:'MELI'|'SHOPEE';
+        products:ProductTruth[];
+        observedAt:string;
+        meta:{
+          catalogTotal:number;
+          candidates:number;
+          usable:number;
+          minSoldQuantity:number;
+          rejectedUnavailable:number;
+          rejectedLowSales:number;
+          rejectedUnverified:number;
+        };
+      };
+      const providerResults:ProviderResult[]=[];
+      const providerErrors:Error[]=[];
+
+      if(marketplaceScope==='MELI' || marketplaceScope==='ALL'){
+        try{
+          const result=await searchMercadoLivreBrokerDetailed({
+            user:identity.user,
+            organizationId,
+            query:effectiveQuery,
+            limit:20,
+          });
+          providerResults.push({
+            provider:'MELI',
+            products:result.products,
+            observedAt:result.observedAt,
+            meta:result.meta,
+          });
+        }catch(error){
+          providerErrors.push(error instanceof Error ? error : new Error('MELI_BROKER_UNAVAILABLE'));
+        }
+      }
+
+      if(marketplaceScope==='SHOPEE' || marketplaceScope==='ALL'){
+        try{
+          const result=await searchShopeeBrokerDetailed({
+            user:identity.user,
+            organizationId,
+            query:effectiveQuery,
+            limit:20,
+          });
+          providerResults.push({
+            provider:'SHOPEE',
+            products:result.products,
+            observedAt:result.observedAt,
+            meta:result.meta,
+          });
+        }catch(error){
+          const normalized=error instanceof Error ? error : new Error('SHOPEE_BROKER_UNAVAILABLE');
+          providerErrors.push(normalized);
+          if(marketplaceScope==='SHOPEE') throw normalized;
+        }
+      }
+
+      if(!providerResults.length){
+        throw providerErrors[0] ?? new Error('RADAR_PROVIDERS_UNAVAILABLE');
+      }
+
+      const found=providerResults.flatMap((result)=>
+        result.products.filter((product)=>isCommerceReadyProduct(product,result.meta.minSoldQuantity))
+      );
+
+      if(db && identity.user?.uid && found.length){
         const currentDb=db;
         void recordRadarSignal({db:currentDb,organizationId,query:effectiveQuery,products:found}).catch(()=>undefined);
       }
+
       const ceiling=maxPrice.trim() ? Number(maxPrice.replace(',','.')) : null;
       const snapshotResolver=signalResolverFromSnapshots(signalOverride ?? marketSignals);
       const ranked=shortlist(found,effectiveQuery,20,(product)=>{
         const stored=snapshotResolver(product,effectiveQuery);
+        const officialShopeeSignals=product.marketplace==='SHOPEE'
+          ? buildShopeeOfferSignals({
+              keyword:effectiveQuery,
+              productExternalId:product.externalId,
+              sales:product.soldQuantity?.value,
+              commissionRate:product.commissionRate?.value,
+              observedAt:product.title.observedAt,
+            })
+          : [];
         return {
           ...stored,
+          commissionRate:product.commissionRate?.value ?? stored.commissionRate,
           signals:[
             ...stored.signals,
+            ...officialShopeeSignals,
             buildSearchSignal({
               marketplace:product.marketplace,
               keyword:effectiveQuery,
               resultCount:found.length,
-              confidence:0.76,
+              confidence:product.marketplace==='SHOPEE' ? 0.98 : 0.76,
+              observedAt:product.title.observedAt,
             }),
           ],
         };
       })
         .filter((opportunity)=>ceiling===null || !opportunity.product.price || opportunity.product.price.value<=ceiling)
         .filter((opportunity)=>!requireImage || Boolean(opportunity.product.imageUrl));
+
       const visible=ranked.slice(0,12);
+      const provider:ProviderResult['provider']|'ALL'=
+        providerResults.length>1 ? 'ALL' : providerResults[0]!.provider;
+      const observedAt=providerResults
+        .map((result)=>result.observedAt)
+        .sort((a,b)=>Date.parse(b)-Date.parse(a))[0] ?? new Date().toISOString();
+      const aggregate=providerResults.reduce((acc,result)=>({
+        catalogTotal:acc.catalogTotal+result.meta.catalogTotal,
+        candidates:acc.candidates+result.meta.candidates,
+        usable:acc.usable+result.meta.usable,
+        rejectedUnavailable:acc.rejectedUnavailable+result.meta.rejectedUnavailable,
+        rejectedLowSales:acc.rejectedLowSales+result.meta.rejectedLowSales,
+        rejectedUnverified:acc.rejectedUnverified+result.meta.rejectedUnverified,
+      }),{
+        catalogTotal:0,
+        candidates:0,
+        usable:0,
+        rejectedUnavailable:0,
+        rejectedLowSales:0,
+        rejectedUnverified:0,
+      });
+      const meliResult=providerResults.find((result)=>result.provider==='MELI');
+
       setOpportunities(visible);
       setSearchMeta({
+        provider,
         query:effectiveQuery,
-        catalogTotal:result.meta.catalogTotal,
-        candidates:result.meta.candidates,
-        usable:result.meta.usable,
+        ...aggregate,
         visible:visible.length,
-        minSoldQuantity:result.meta.minSoldQuantity,
-        rejectedUnavailable:result.meta.rejectedUnavailable,
-        rejectedLowSales:result.meta.rejectedLowSales,
-        rejectedUnverified:result.meta.rejectedUnverified,
-        observedAt:result.observedAt,
+        minSoldQuantity:meliResult?.meta.minSoldQuantity ?? 0,
+        observedAt,
       });
       setHasSearched(true);
       setAnalysisNotice(
         visible.length
-          ? t('radarAnalysisSuccess',{n:visible.length,min:result.meta.minSoldQuantity})
-          : t('radarAnalysisNoQualified',{min:result.meta.minSoldQuantity})
+          ? provider==='SHOPEE'
+            ? t('radarShopeeAnalysisSuccess',{n:visible.length})
+            : provider==='MELI'
+              ? t('radarAnalysisSuccess',{n:visible.length,min:meliResult?.meta.minSoldQuantity ?? 0})
+              : t('radarProductsShown',{n:visible.length})
+          : provider==='SHOPEE'
+            ? t('radarNoProductsBody')
+            : t('radarAnalysisNoQualified',{min:meliResult?.meta.minSoldQuantity ?? 0})
       );
       setState('idle');
     } catch (error) {
       setHasSearched(true);
       setAnalysisNotice('');
+      setOpportunities([]);
+      setSearchMeta(null);
       setErrorCode(error instanceof Error ? error.message : 'UNKNOWN');
       setState('error');
     }
@@ -933,8 +1030,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   }
 
   function prepareAffiliate(opportunity:Opportunity){
-    window.open(opportunity.product.url.value,'_blank','noopener,noreferrer');
-    void navigator.clipboard.writeText(opportunity.product.url.value).catch(()=>undefined);
+    const destination=opportunity.product.affiliateUrl?.value ?? opportunity.product.url.value;
+    window.open(destination,'_blank','noopener,noreferrer');
+    void navigator.clipboard.writeText(destination).catch(()=>undefined);
   }
 
   return (
@@ -1021,13 +1119,18 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         <div>
           <strong>{t('radarErrorTitle')}</strong>
           <span>{
+            errorCode.includes('SHOPEE_API_NOT_CONNECTED') ? t('radarShopeeErrorReconnect') :
+            errorCode.includes('SHOPEE_CREDENTIALS_STALE') || errorCode.includes('SHOPEE_CREDENTIALS_REJECTED') ? t('radarShopeeErrorStale') :
+            errorCode.includes('SHOPEE_') ? t('radarShopeeErrorGeneric') :
             errorCode.includes('MELI_NOT_CONNECTED') ? t('radarErrorReconnect') :
             errorCode.includes('MELI_TOKEN_STALE') ? t('radarErrorRefreshing') :
             errorCode.includes('FORBIDDEN') ? t('radarErrorAccess') :
             t('radarError')
           }</span>
         </div>
-        <button className="button secondary" type="button" onClick={()=>void search()}>{t('radarRetry')}</button>
+        {errorCode.includes('SHOPEE_API_NOT_CONNECTED')
+          ? <NavLink className="button secondary" to="/connections">{t('connections')}</NavLink>
+          : <button className="button secondary" type="button" onClick={()=>void search()}>{t('radarRetry')}</button>}
       </div>}
       {searchMeta && state==='idle' && <section className="radar-search-summary">
         <div>
@@ -1040,15 +1143,24 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             analyzed:searchMeta.candidates,
             usable:searchMeta.usable,
           })}</p>
-          <small>{t('radarQualityGate',{
-            min:searchMeta.minSoldQuantity,
-            unavailable:searchMeta.rejectedUnavailable,
-            lowSales:searchMeta.rejectedLowSales,
-            unverified:searchMeta.rejectedUnverified,
-          })}</small>
+          <small>{searchMeta.provider==='SHOPEE'
+            ? t('radarShopeeQualityGate',{
+                unavailable:searchMeta.rejectedUnavailable,
+                unverified:searchMeta.rejectedUnverified,
+              })
+            : t('radarQualityGate',{
+                min:searchMeta.minSoldQuantity,
+                unavailable:searchMeta.rejectedUnavailable,
+                lowSales:searchMeta.rejectedLowSales,
+                unverified:searchMeta.rejectedUnverified,
+              })}</small>
           <small className="ranking-order-note">{t('radarRankingOrder')}</small>
         </div>
-        <span className="search-source">Mercado Livre · {new Intl.DateTimeFormat(locale,{timeStyle:'short'}).format(Date.parse(searchMeta.observedAt))}</span>
+        <span className="search-source">{searchMeta.provider==='SHOPEE'
+          ? t('shopeeOfficialApiSource')
+          : searchMeta.provider==='ALL'
+            ? `Mercado Livre + ${t('shopeeOfficialApiSource')}`
+            : 'Mercado Livre'} · {new Intl.DateTimeFormat(locale,{timeStyle:'short'}).format(Date.parse(searchMeta.observedAt))}</span>
       </section>}
       {!hasSearched && !opportunities.length && state === 'idle' && <Empty title={t('radarEmpty')} body={t('radarEmptyBody')} />}
       {hasSearched && !opportunities.length && state==='idle' && <section className="radar-zero-results">
@@ -1062,7 +1174,6 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           {suggestedQueries.slice(0,4).map((suggestion)=><button key={`empty-${suggestion}`} type="button" onClick={()=>void search(suggestion)}>{suggestion}</button>)}
         </div>
       </section>}
-      {marketplaceScope!=='MELI' && <ShopeeResearchBridge query={query} />}
       {editable ? (
         <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
       ) : (
@@ -1098,6 +1209,18 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   : null}
                 {typeof product.availableQuantity?.value==='number'
                   ? <span className="proof-chip subtle">{t('stockProof',{n:new Intl.NumberFormat(locale).format(product.availableQuantity.value)})}</span>
+                  : null}
+                {typeof product.rating?.value==='number'
+                  ? <span className="proof-chip subtle">★ {product.rating.value.toFixed(1)}</span>
+                  : null}
+                {typeof product.commissionRate?.value==='number'
+                  ? <span className="proof-chip success">{t('shopeeCommission',{rate:new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:1}).format(product.commissionRate.value)})}</span>
+                  : null}
+                {typeof product.estimatedCommission?.value==='number'
+                  ? <span className="proof-chip subtle">{t('shopeeEstimatedCommission',{value:new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.estimatedCommission.value)})}</span>
+                  : null}
+                {product.marketplace==='SHOPEE' && product.affiliateUrl?.value
+                  ? <span className="proof-chip success">{t('shopeeAffiliateReady')}</span>
                   : null}
               </div>
               <div className="ranking-reasons">
@@ -1218,12 +1341,19 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     setSwapOptions([]);
     try {
       if(!identity.user) throw new Error('UNAUTHENTICATED');
-      const alternatives = await searchMercadoLivreBroker({
-        user: identity.user,
-        organizationId: campaign.organizationId,
-        query: v.keyword,
-        limit: 8,
-      });
+      const alternatives = campaign.marketplace==='SHOPEE'
+        ? await searchShopeeBroker({
+            user:identity.user,
+            organizationId:campaign.organizationId,
+            query:v.keyword,
+            limit:8,
+          })
+        : await searchMercadoLivreBroker({
+            user:identity.user,
+            organizationId:campaign.organizationId,
+            query:v.keyword,
+            limit:8,
+          });
       setSwapOptions(alternatives.filter((item) => item.externalId !== v.product.externalId));
     } catch {
       setAffiliateError(t('radarError'));

@@ -537,3 +537,17 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
   .shopee-research-head{display:grid}
   .shopee-research-query{grid-template-columns:1fr}
 }
+
+
+/* Shopee Affiliate Open API */
+.shopee-api-status{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin:4px 0 18px;
+}
+.shopee-api-status small{
+  color:var(--muted);
+  font-weight:650;
+}
