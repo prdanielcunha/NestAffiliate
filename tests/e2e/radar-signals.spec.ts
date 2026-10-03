@@ -33,7 +33,7 @@ test('Radar shows automatic market status, useful suggestions and real product c
   await expect(page.getByRole('link',{name:'Prateleira Extensível para Cozinha Shopee'})).toBeVisible();
   await expect(page.getByText('Link afiliado oficial pronto').first()).toBeVisible();
   await expect(page.getByText(/Comissão 12%/).first()).toBeVisible();
-  await expect(page.getByText('Shopee Affiliate Open API',{exact:true}).last()).toBeVisible();
+  await expect(page.locator('.search-source')).toContainText('Shopee Affiliate Open API');
   await expect(page.getByRole('button',{name:'Abrir catálogo Shopee',exact:true})).toHaveCount(0);
   await expect(page).toHaveURL(/\/radar$/);
 });
