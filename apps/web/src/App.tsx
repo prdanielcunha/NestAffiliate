@@ -1058,8 +1058,12 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
               <div className="product-proof-row">
                 <span className="proof-chip success">{t('availableNow')}</span>
-                <span className="proof-chip">{t('salesProof',{n:new Intl.NumberFormat(locale,{notation:'compact',maximumFractionDigits:1}).format(product.soldQuantity?.value ?? 0)})}</span>
-                <span className="proof-chip subtle">{t('stockProof',{n:new Intl.NumberFormat(locale).format(product.availableQuantity?.value ?? 0)})}</span>
+                {typeof product.soldQuantity?.value==='number'
+                  ? <span className="proof-chip">{t('salesProof',{n:new Intl.NumberFormat(locale,{notation:'compact',maximumFractionDigits:1}).format(product.soldQuantity.value)})}</span>
+                  : null}
+                {typeof product.availableQuantity?.value==='number'
+                  ? <span className="proof-chip subtle">{t('stockProof',{n:new Intl.NumberFormat(locale).format(product.availableQuantity.value)})}</span>
+                  : null}
               </div>
               <div className="ranking-reasons">
                 <strong>{t('whyRanked')}</strong>
