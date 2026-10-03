@@ -85,12 +85,12 @@ export function isCommerceReadyProduct(
 ){
   const sold=product.soldQuantity?.value;
   const available=product.availableQuantity?.value;
+  const stockPasses=typeof available!=='number' || available>0;
+  const salesPass=typeof sold!=='number' || sold>=minSoldQuantity;
   return product.listingVerified!==false &&
     product.availability.value==='available' &&
-    typeof available==='number' &&
-    available>0 &&
-    typeof sold==='number' &&
-    sold>=minSoldQuantity &&
+    stockPasses &&
+    salesPass &&
     Boolean(product.url.value) &&
     Boolean(product.imageUrl?.value);
 }

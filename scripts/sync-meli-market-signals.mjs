@@ -514,13 +514,7 @@ async function dailySearch(query,accessToken,limit=20){
       const price=typeof winner.price==='number' ? winner.price : live?.price?.value;
       const currency=String(winner.currency_id || live?.currency?.value || 'BRL');
 
-      if(
-        title &&
-        url &&
-        image &&
-        typeof soldQuantity==='number' &&
-        typeof availableQuantity==='number'
-      ){
+      if(title && url && image){
         return [{
           ...(live || {}),
           productId:'meli:'+itemId,
@@ -535,9 +529,19 @@ async function dailySearch(query,accessToken,limit=20){
             ? {value:price,source:typeof winner.price==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent',observedAt}
             : undefined,
           currency:{value:currency,source:winner.currency_id ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent',observedAt},
-          soldQuantity:{value:soldQuantity,source:typeof winner.sold_quantity==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent',observedAt},
-          availableQuantity:{value:availableQuantity,source:typeof winner.available_quantity==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent',observedAt},
-          availability:{value:availableQuantity>0 ? 'available' : 'unavailable',source:typeof winner.available_quantity==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent',observedAt},
+          ...(typeof soldQuantity==='number' ? {
+            soldQuantity:{value:soldQuantity,source:typeof winner.sold_quantity==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent',observedAt},
+          } : {}),
+          ...(typeof availableQuantity==='number' ? {
+            availableQuantity:{value:availableQuantity,source:typeof winner.available_quantity==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent',observedAt},
+          } : {}),
+          availability:{
+            value:typeof availableQuantity==='number' ? (availableQuantity>0 ? 'available' : 'unavailable') : 'available',
+            source:typeof availableQuantity==='number'
+              ? (typeof winner.available_quantity==='number' ? 'mercadolivre-buy-box' : 'mercadolivre-daily-agent')
+              : 'mercadolivre-catalog-buy-box',
+            observedAt,
+          },
           imageUrl:{value:image,source:'mercadolivre-catalog-api',observedAt},
           assetRights:live?.assetRights || 'UNKNOWN',
         }];
@@ -917,8 +921,8 @@ async function runDailyAgent(accessToken,signals,observedAt){
     item.score.score>=58 &&
     item.product.listingVerified===true &&
     item.product.availability?.value==='available' &&
-    Number(item.product.availableQuantity?.value || 0)>0 &&
-    Number(item.product.soldQuantity?.value || 0)>=MIN_VALIDATED_SALES &&
+    (typeof item.product.availableQuantity?.value!=='number' || item.product.availableQuantity.value>0) &&
+    (typeof item.product.soldQuantity?.value!=='number' || item.product.soldQuantity.value>=MIN_VALIDATED_SALES) &&
     Boolean(item.product.imageUrl?.value) &&
     Boolean(item.product.url?.value) &&
     !existingIds.has(item.product.externalId) &&
