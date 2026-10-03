@@ -109,6 +109,7 @@ it('only considers stocked products with meaningful verified sales commerce-read
     listingVerified:true,
     soldQuantity:{value:320,source:'fixture',observedAt:now},
     availableQuantity:{value:14,source:'fixture',observedAt:now},
+    imageUrl:{value:'https://http2.mlstatic.com/D_TEST.jpg',source:'fixture',observedAt:now},
   } satisfies ProductTruth;
   expect(isCommerceReadyProduct(strong,50)).toBe(true);
   expect(isCommerceReadyProduct({...strong,soldQuantity:{...strong.soldQuantity!,value:5}},50)).toBe(false);
