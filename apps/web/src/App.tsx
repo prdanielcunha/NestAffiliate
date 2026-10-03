@@ -26,6 +26,7 @@ import { PromptStudio } from './features/PromptStudio';
 import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
 import { resolveCreativeAssetUrl } from './services/creativePackRepository';
 import { ConnectionCenter } from './features/ConnectionCenter';
+import { ShopeeResearchBridge } from './features/ShopeeResearchBridge';
 import { ensureNestAffiliateWorkspace } from './services/workspaceBootstrap';
 import { defaultPreferences, loadUserPreferences, saveUserPreferences, type UserPreferences } from './services/preferencesRepository';
 import { recordRadarSignal } from './services/radarRepository';
@@ -699,6 +700,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const identity=useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('organizador cozinha pequena');
+  const [marketplaceScope,setMarketplaceScope]=useState<'ALL'|'MELI'|'SHOPEE'>('ALL');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [marketSignals,setMarketSignals]=useState<CommerceSignal[]>([]);
   const [maxPrice,setMaxPrice]=useState('');
@@ -800,6 +802,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     if(signal.source==='MELI_BEST_SELLER') return t('marketBestSeller');
     if(signal.source==='MELI_TREND_GROWTH') return t('marketGrowing');
     if(signal.source==='MELI_TREND_DESIRED') return t('marketHighlySearched');
+    if(signal.source==='SHOPEE_SEARCH_ASSISTED') return t('shopeeSearchAssisted');
+    if(signal.source==='SHOPEE_EXTRA_COMMISSION') return t('shopeeExtraCommission');
+    if(signal.source==='SHOPEE_TOP_SALES') return t('shopeeTopSales');
+    if(signal.source==='SHOPEE_RECOMMENDATION') return t('shopeeRecommendation');
     return t('marketPopular');
   }
 
@@ -810,6 +816,14 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     setErrorCode('');
     setAnalysisNotice('');
     setState('loading');
+    if(marketplaceScope==='SHOPEE'){
+      setOpportunities([]);
+      setSearchMeta(null);
+      setHasSearched(true);
+      setAnalysisNotice(t('shopeeLinked'));
+      setState('idle');
+      return;
+    }
     try {
       if(!identity.user) throw new Error('UNAUTHENTICATED');
       const result = await searchMercadoLivreBrokerDetailed({ user:identity.user, organizationId, query:effectiveQuery, limit:20 });
@@ -924,10 +938,28 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   return (
     <div className="page">
       <PageTitle eyebrow="RADAR" title={t('opportunities')} subtitle={t('opportunitiesSub')} />
+      <div className="marketplace-scope" role="group" aria-label={t('marketplaceFilter')}>
+        <span>{t('marketplaceFilter')}</span>
+        <div>
+          {(['ALL','MELI','SHOPEE'] as const).map((value)=><button
+            key={value}
+            type="button"
+            className={marketplaceScope===value ? 'active' : ''}
+            aria-pressed={marketplaceScope===value}
+            onClick={()=>{
+              setMarketplaceScope(value);
+              setOpportunities([]);
+              setSearchMeta(null);
+              setHasSearched(false);
+              setAnalysisNotice('');
+            }}
+          >{value==='ALL' ? t('marketplaceAll') : value==='MELI' ? t('marketplaceMeli') : t('marketplaceShopee')}</button>)}
+        </div>
+      </div>
       <div className="search-box">
         <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void search()} placeholder={t('radarSearchPlaceholder')} />
         <button className="button primary" disabled={state==='loading'} onClick={() => void search()}>
-          {state==='loading' ? t('analyzingProducts') : t('analyzeProducts')}
+          {state==='loading' ? t('analyzingProducts') : marketplaceScope==='SHOPEE' ? t('searchShopeeOfficial') : t('analyzeProducts')}
         </button>
       </div>
 
@@ -1028,6 +1060,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           {suggestedQueries.slice(0,4).map((suggestion)=><button key={`empty-${suggestion}`} type="button" onClick={()=>void search(suggestion)}>{suggestion}</button>)}
         </div>
       </section>}
+      {marketplaceScope!=='MELI' && <ShopeeResearchBridge query={query} />}
       {editable ? (
         <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
       ) : (
