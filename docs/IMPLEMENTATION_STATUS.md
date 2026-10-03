@@ -300,3 +300,10 @@ Production promotion remains gated by CI, rules QA and branch reconciliation. No
 - Radar shows explicit processing feedback while checking the marketplace and a success state after completion;
 - result cards expose availability, verified sales and stock as compact proof chips;
 - Daily Agent uses the same 50-sale/stock/listing gate before creating new review campaigns.
+
+
+### Ranked opportunity ladder — 2026-10-03
+- minimum validated sales raised from 50 to 100 for live Radar and Daily Agent campaign eligibility;
+- qualified products are explicitly ordered from highest to lowest commercial potential, not just raw NestScore;
+- potential bands combine verified sales volume with NestScore: Exceptional, Very High, High and Validated;
+- verified sales are a first-class ranking signal and remain visible beside live stock/availability proof.

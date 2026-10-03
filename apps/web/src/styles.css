@@ -487,3 +487,10 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .search-box .button:disabled{opacity:.68;cursor:wait}
 @media(max-width:620px){.radar-processing{grid-template-columns:auto 1fr;padding:16px}.processing-stages{display:grid;grid-template-columns:1fr}.product-proof-row{gap:5px}.radar-analysis-success{align-items:start}}
 @media(prefers-reduced-motion:reduce){.processing-orb{animation:none}}
+
+.ranking-order-note{margin-top:5px;font-weight:650;color:var(--text)!important}
+.potential-chip{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;border:1px solid var(--border);font-size:9px;font-weight:850;letter-spacing:.01em}
+.potential-exceptional{border-color:color-mix(in srgb,var(--success) 52%,var(--border));background:color-mix(in srgb,var(--success) 14%,var(--surface2));color:var(--success)}
+.potential-very_high{border-color:color-mix(in srgb,var(--accent) 48%,var(--border));background:color-mix(in srgb,var(--accent) 11%,var(--surface2));color:var(--text)}
+.potential-high{background:var(--surface2);color:var(--text)}
+.potential-validated{background:var(--surface2);color:var(--muted)}

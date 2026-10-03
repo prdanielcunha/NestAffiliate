@@ -77,7 +77,7 @@ const stopwords = new Set([
 ]);
 
 const clamp01=(value:number)=>Math.max(0,Math.min(1,value));
-export const DEFAULT_MIN_VALIDATED_SALES=50;
+export const DEFAULT_MIN_VALIDATED_SALES=100;
 
 export function isCommerceReadyProduct(
   product:ProductTruth,
@@ -93,6 +93,22 @@ export function isCommerceReadyProduct(
     sold>=minSoldQuantity &&
     Boolean(product.url.value) &&
     Boolean(product.imageUrl?.value);
+}
+
+export type ProductPotentialBand='EXCEPTIONAL'|'VERY_HIGH'|'HIGH'|'VALIDATED';
+
+export function productPotentialBand(opportunity:Pick<Opportunity,'score'|'product'>):ProductPotentialBand{
+  const sold=Number(opportunity.product.soldQuantity?.value || 0);
+  const score=opportunity.score.score;
+  if(sold>=5000 && score>=65) return 'EXCEPTIONAL';
+  if(sold>=1000 && score>=60) return 'VERY_HIGH';
+  if(sold>=500 && score>=58) return 'HIGH';
+  return 'VALIDATED';
+}
+
+function productPotentialPriority(opportunity:Opportunity){
+  const band=productPotentialBand(opportunity);
+  return band==='EXCEPTIONAL' ? 4 : band==='VERY_HIGH' ? 3 : band==='HIGH' ? 2 : 1;
 }
 
 export function normalizeSearchText(value: string) {
@@ -499,7 +515,12 @@ export function shortlist(
         confidence:dataConfidence(product),
       })],
     }))
-    .sort((a,b)=>b.score.score-a.score.score || b.confidence-a.confidence)
+    .sort((a,b)=>
+      productPotentialPriority(b)-productPotentialPriority(a) ||
+      b.score.score-a.score.score ||
+      Number(b.product.soldQuantity?.value || 0)-Number(a.product.soldQuantity?.value || 0) ||
+      b.confidence-a.confidence
+    )
     .slice(0,limit)
     .map((opportunity)=>({
       ...opportunity,
