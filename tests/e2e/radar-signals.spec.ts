@@ -23,8 +23,16 @@ test('Radar shows automatic market status, useful suggestions and real product c
 
   await expect(page.getByText('ADICIONAR PRODUTO (OPCIONAL)',{exact:true})).toBeVisible();
 
-  await expect(page.getByText('Shopee vinculada ao Pinterest',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Shopee',exact:true}).click();
-  await expect(page.getByText('Pesquisa oficial Shopee',{exact:true})).toBeVisible();
-  await expect(page.getByRole('region',{name:'Pesquisa oficial Shopee'}).getByRole('button',{name:'Abrir catálogo Shopee',exact:true})).toBeVisible();
+  await expect(page).toHaveURL(/\/radar$/);
+  await page.getByRole('button',{name:'Buscar produtos Shopee',exact:true}).click();
+
+  await expect(page.locator('.opportunity-card')).toHaveCount(3,{timeout:10_000});
+  await expect(page.getByRole('link',{name:'Organizador Giratório Multiuso Shopee'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Prateleira Extensível para Cozinha Shopee'})).toBeVisible();
+  await expect(page.getByText('Link afiliado oficial pronto').first()).toBeVisible();
+  await expect(page.getByText(/Comissão 12%/).first()).toBeVisible();
+  await expect(page.getByText('Shopee Affiliate Open API',{exact:true}).last()).toBeVisible();
+  await expect(page.getByRole('button',{name:'Abrir catálogo Shopee',exact:true})).toHaveCount(0);
+  await expect(page).toHaveURL(/\/radar$/);
 });
