@@ -654,7 +654,17 @@ async function runDailyAgent(accessToken,signals,observedAt){
     try{
       const previous=campaign.currentVersion.product;
       if(previous.listingVerified===false){
-        report.skipped+=1;
+        if(campaign.status==='READY'){
+          const blocked={
+            ...campaign,
+            status:'BLOCKED',
+          };
+          await persistDailyCampaign(blocked);
+          report.blocked+=1;
+          report.messages.push(campaign.currentVersion.keyword+': removida da fila porque o anúncio não possui validação atual de estoque e vendas.');
+        }else{
+          report.skipped+=1;
+        }
         continue;
       }
       let fresh=(await dailyBulkItems([previous.externalId],accessToken))[0];
