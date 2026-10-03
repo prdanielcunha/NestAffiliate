@@ -87,8 +87,15 @@ export function isCommerceReadyProduct(
   const available=product.availableQuantity?.value;
   const stockPasses=typeof available!=='number' || available>0;
   const salesPass=typeof sold!=='number' || sold>=minSoldQuantity;
-  return product.listingVerified!==false &&
-    product.availability.value==='available' &&
+  const officialCatalogFallback=
+    product.listingVerified===false &&
+    Boolean(product.catalogProductId);
+  const identityPasses=product.listingVerified!==false || officialCatalogFallback;
+  const availabilityPasses=
+    product.availability.value==='available' ||
+    (officialCatalogFallback && product.availability.value==='unknown');
+  return identityPasses &&
+    availabilityPasses &&
     stockPasses &&
     salesPass &&
     Boolean(product.url.value) &&

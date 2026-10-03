@@ -702,7 +702,7 @@ async function runDailyAgent(accessToken,signals,observedAt){
   for(const campaign of campaigns.filter((item)=>item?.status==='READY' && item?.marketplace==='MELI' && item?.currentVersion?.product && observed(item.currentVersion.product)<=cutoff).slice(0,20)){
     try{
       const previous=campaign.currentVersion.product;
-      if(previous.listingVerified===false){
+      if(previous.listingVerified===false && !previous.catalogProductId){
         if(campaign.status==='READY'){
           const blocked={
             ...campaign,
@@ -710,7 +710,7 @@ async function runDailyAgent(accessToken,signals,observedAt){
           };
           await persistDailyCampaign(blocked);
           report.blocked+=1;
-          report.messages.push(campaign.currentVersion.keyword+': removida da fila porque o anúncio não possui validação atual de estoque e vendas.');
+          report.messages.push(campaign.currentVersion.keyword+': removida da fila porque o produto não possui item nem catálogo oficial verificável.');
         }else{
           report.skipped+=1;
         }
@@ -917,17 +917,23 @@ async function runDailyAgent(accessToken,signals,observedAt){
   report.queueTarget=queueTarget;
   const creationSlots=Math.max(0,queueTarget-readyBeforeCreation);
   const existingTitles=campaigns.map((campaign)=>campaign?.currentVersion?.product?.title?.value).filter(Boolean);
-  const eligible=ranked.filter((item)=>
-    item.score.score>=58 &&
-    item.product.listingVerified===true &&
-    item.product.availability?.value==='available' &&
+  const eligible=ranked.filter((item)=>{
+    const verifiedOffer=
+      item.product.listingVerified===true &&
+      item.product.availability?.value==='available';
+    const officialCatalogFallback=
+      item.product.listingVerified===false &&
+      Boolean(item.product.catalogProductId) &&
+      item.product.availability?.value==='unknown';
+    return item.score.score>=58 &&
+    (verifiedOffer || officialCatalogFallback) &&
     (typeof item.product.availableQuantity?.value!=='number' || item.product.availableQuantity.value>0) &&
     (typeof item.product.soldQuantity?.value!=='number' || item.product.soldQuantity.value>=MIN_VALIDATED_SALES) &&
     Boolean(item.product.imageUrl?.value) &&
     Boolean(item.product.url?.value) &&
     !existingIds.has(item.product.externalId) &&
-    !existingTitles.some((title)=>dailySimilarity(title,item.product.title.value)>=0.72)
-  ).sort((a,b)=>
+    !existingTitles.some((title)=>dailySimilarity(title,item.product.title.value)>=0.72);
+  }).sort((a,b)=>
     Number(b.product.listingVerified===true)-Number(a.product.listingVerified===true) ||
     b.score.score-a.score.score
   );
