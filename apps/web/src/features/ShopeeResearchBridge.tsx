@@ -61,7 +61,7 @@ export function ShopeeResearchBridge({ query }: { query: string }) {
           onClick={openOfficialSearch}
           disabled={!searchTerm}
         >
-          {t('searchShopeeOfficial')}
+          {t('openShopeeCatalog')}
         </button>
         <button
           className="button secondary"
