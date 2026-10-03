@@ -298,6 +298,8 @@ export interface ShopeeAffiliateCapabilities {
   commissionEstimateOnPinterest: boolean;
   maxProductsPerPin: number;
   subIdTracking: boolean;
+  affiliateOpenApi: boolean;
+  requiresOpenApiCredentials: boolean;
   inAppProgrammaticCatalogSearch: boolean;
   privatePanelScrapingAllowed: boolean;
 }
@@ -311,7 +313,9 @@ export const SHOPEE_AFFILIATE_CAPABILITIES: ShopeeAffiliateCapabilities = {
   commissionEstimateOnPinterest: true,
   maxProductsPerPin: 5,
   subIdTracking: true,
-  inAppProgrammaticCatalogSearch: false,
+  affiliateOpenApi: true,
+  requiresOpenApiCredentials: true,
+  inAppProgrammaticCatalogSearch: true,
   privatePanelScrapingAllowed: false,
 };
 
