@@ -77,6 +77,23 @@ const stopwords = new Set([
 ]);
 
 const clamp01=(value:number)=>Math.max(0,Math.min(1,value));
+export const DEFAULT_MIN_VALIDATED_SALES=50;
+
+export function isCommerceReadyProduct(
+  product:ProductTruth,
+  minSoldQuantity=DEFAULT_MIN_VALIDATED_SALES,
+){
+  const sold=product.soldQuantity?.value;
+  const available=product.availableQuantity?.value;
+  return product.listingVerified!==false &&
+    product.availability.value==='available' &&
+    typeof available==='number' &&
+    available>0 &&
+    typeof sold==='number' &&
+    sold>=minSoldQuantity &&
+    Boolean(product.url.value) &&
+    Boolean(product.imageUrl?.value);
+}
 
 export function normalizeSearchText(value: string) {
   return value
@@ -376,7 +393,12 @@ export function opportunityDimensions(
     ? 0.94
     : 0.74;
 
-  const demand=weightedSignalStrength(signals.signals,['DEMAND','BEST_SELLER','PINTEREST_DEMAND']) ?? 0.55;
+  const signalDemand=weightedSignalStrength(signals.signals,['DEMAND','BEST_SELLER','PINTEREST_DEMAND']) ?? 0.55;
+  const soldQuantity=product.soldQuantity?.value;
+  const salesDemand=typeof soldQuantity==='number' && soldQuantity>0
+    ? clamp01(0.45+Math.log10(soldQuantity+1)*0.16)
+    : 0;
+  const demand=Math.max(signalDemand,salesDemand);
   const competition=weightedSignalStrength(signals.signals,['COMPETITION_GAP']) ?? 0.7;
   const creative=product.imageUrl ? 0.88 : 0.6;
   const yieldScore=yieldStrength(product,signals);
@@ -429,7 +451,11 @@ export function buildOpportunity(
   const rankedSignals=[...signalInput.signals]
     .filter((signal)=>!signal.futureProvider)
     .sort((a,b)=>(b.strength*b.confidence)-(a.strength*a.confidence));
+  const salesReason=typeof product.soldQuantity?.value==='number'
+    ? [`Vendas verificadas: ${Math.round(product.soldQuantity.value).toLocaleString('pt-BR')}`]
+    : [];
   const rankingReasons=[
+    ...salesReason,
     ...rankedSignals.slice(0,3).map(signalReason),
     ...score.reasons.slice(0,2),
   ];

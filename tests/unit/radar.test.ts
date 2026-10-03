@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ProductTruth } from '../../packages/core/src/index';
-import { affiliateTrackingCode, buildMeliBestSellerSignal, buildMeliTrendSignal, buildOpportunity, buildShopeeManualSignals, dedupeProducts, keywordCluster, normalizeSearchText, parseMeliHighlightsPayload, parseMeliTrendsPayload, shortlist } from '../../packages/radar/src/index';
+import { affiliateTrackingCode, buildMeliBestSellerSignal, buildMeliTrendSignal, buildOpportunity, buildShopeeManualSignals, dedupeProducts, isCommerceReadyProduct, keywordCluster, normalizeSearchText, parseMeliHighlightsPayload, parseMeliTrendsPayload, shortlist } from '../../packages/radar/src/index';
 
 const now = new Date().toISOString();
 function product(id:string,title:string): ProductTruth {
@@ -100,4 +100,19 @@ it('parses official Mercado Livre highlights into product-specific bestseller ev
   expect(signals[0]?.productExternalId).toBe('MLB111');
   expect(signals[0]?.rank).toBe(1);
   expect(signals[0]?.source).toBe('MELI_BEST_SELLER');
+});
+
+
+it('only considers stocked products with meaningful verified sales commerce-ready',()=>{
+  const strong={
+    ...product('MLB-STRONG','Organizador forte'),
+    listingVerified:true,
+    soldQuantity:{value:320,source:'fixture',observedAt:now},
+    availableQuantity:{value:14,source:'fixture',observedAt:now},
+    imageUrl:{value:'https://http2.mlstatic.com/D_TEST.jpg',source:'fixture',observedAt:now},
+  } satisfies ProductTruth;
+  expect(isCommerceReadyProduct(strong,50)).toBe(true);
+  expect(isCommerceReadyProduct({...strong,soldQuantity:{...strong.soldQuantity!,value:5}},50)).toBe(false);
+  expect(isCommerceReadyProduct({...strong,availableQuantity:{...strong.availableQuantity!,value:0}},50)).toBe(false);
+  expect(isCommerceReadyProduct({...strong,availability:{...strong.availability,value:'unavailable'}},50)).toBe(false);
 });

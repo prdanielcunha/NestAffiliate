@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
-import { buildOpportunity, buildSearchSignal, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
+import { buildOpportunity, buildSearchSignal, isCommerceReadyProduct, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
@@ -706,14 +706,25 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
   const [errorCode,setErrorCode]=useState('');
   const [hasSearched,setHasSearched]=useState(false);
+  const [analysisNotice,setAnalysisNotice]=useState('');
   const [searchMeta,setSearchMeta]=useState<{
     query:string;
     catalogTotal:number;
     candidates:number;
     usable:number;
     visible:number;
+    minSoldQuantity:number;
+    rejectedUnavailable:number;
+    rejectedLowSales:number;
+    rejectedUnverified:number;
     observedAt:string;
   }|null>(null);
+
+  useEffect(()=>{
+    if(!analysisNotice) return;
+    const timer=window.setTimeout(()=>setAnalysisNotice(''),7000);
+    return ()=>window.clearTimeout(timer);
+  },[analysisNotice]);
 
   useEffect(()=>{
     if(!db || !organizationId) return;
@@ -797,11 +808,12 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     if(!effectiveQuery) return;
     setQuery(effectiveQuery);
     setErrorCode('');
+    setAnalysisNotice('');
     setState('loading');
     try {
       if(!identity.user) throw new Error('UNAUTHENTICATED');
       const result = await searchMercadoLivreBrokerDetailed({ user:identity.user, organizationId, query:effectiveQuery, limit:20 });
-      const found=result.products;
+      const found=result.products.filter((product)=>isCommerceReadyProduct(product,result.meta.minSoldQuantity));
       if(db && identity.user?.uid){
         const currentDb=db;
         void recordRadarSignal({db:currentDb,organizationId,query:effectiveQuery,products:found}).catch(()=>undefined);
@@ -833,12 +845,22 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         candidates:result.meta.candidates,
         usable:result.meta.usable,
         visible:visible.length,
+        minSoldQuantity:result.meta.minSoldQuantity,
+        rejectedUnavailable:result.meta.rejectedUnavailable,
+        rejectedLowSales:result.meta.rejectedLowSales,
+        rejectedUnverified:result.meta.rejectedUnverified,
         observedAt:result.observedAt,
       });
       setHasSearched(true);
+      setAnalysisNotice(
+        visible.length
+          ? t('radarAnalysisSuccess',{n:visible.length,min:result.meta.minSoldQuantity})
+          : t('radarAnalysisNoQualified',{min:result.meta.minSoldQuantity})
+      );
       setState('idle');
     } catch (error) {
       setHasSearched(true);
+      setAnalysisNotice('');
       setErrorCode(error instanceof Error ? error.message : 'UNKNOWN');
       setState('error');
     }
@@ -904,7 +926,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       <PageTitle eyebrow="RADAR" title={t('opportunities')} subtitle={t('opportunitiesSub')} />
       <div className="search-box">
         <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void search()} placeholder={t('radarSearchPlaceholder')} />
-        <button className="button primary" onClick={() => void search()}>{t('analyzeProducts')}</button>
+        <button className="button primary" disabled={state==='loading'} onClick={() => void search()}>
+          {state==='loading' ? t('analyzingProducts') : t('analyzeProducts')}
+        </button>
       </div>
 
       <div className="radar-suggestions">
@@ -955,6 +979,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         </label>
       </div>
       {state === 'loading' && <ProgressSteps />}
+      {analysisNotice && state==='idle' && <div className="radar-analysis-success" role="status" aria-live="polite">
+        <span className="radar-success-mark">✓</span>
+        <div><strong>{t('radarAnalysisDone')}</strong><span>{analysisNotice}</span></div>
+      </div>}
       {state === 'error' && <div className="notice danger radar-error">
         <div>
           <strong>{t('radarErrorTitle')}</strong>
@@ -978,6 +1006,12 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             analyzed:searchMeta.candidates,
             usable:searchMeta.usable,
           })}</p>
+          <small>{t('radarQualityGate',{
+            min:searchMeta.minSoldQuantity,
+            unavailable:searchMeta.rejectedUnavailable,
+            lowSales:searchMeta.rejectedLowSales,
+            unverified:searchMeta.rejectedUnverified,
+          })}</small>
         </div>
         <span className="search-source">Mercado Livre · {new Intl.DateTimeFormat(locale,{timeStyle:'short'}).format(Date.parse(searchMeta.observedAt))}</span>
       </section>}
@@ -1015,6 +1049,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               </div>
               <h3><a className="product-title-link" href={product.url.value} target="_blank" rel="noreferrer">{product.title.value}</a></h3>
               <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
+              <div className="product-proof-row">
+                <span className="proof-chip success">{t('availableNow')}</span>
+                <span className="proof-chip">{t('salesProof',{n:new Intl.NumberFormat(locale,{notation:'compact',maximumFractionDigits:1}).format(product.soldQuantity?.value ?? 0)})}</span>
+                <span className="proof-chip subtle">{t('stockProof',{n:new Intl.NumberFormat(locale).format(product.availableQuantity?.value ?? 0)})}</span>
+              </div>
               <div className="ranking-reasons">
                 <strong>{t('whyRanked')}</strong>
                 {opportunity.rankingReasons.slice(0,3).map((reason)=><span key={reason}>{reason}</span>)}
@@ -1766,7 +1805,17 @@ function SimpleList({ eyebrow,title,subtitle,rows }: { eyebrow:string; title:str
 function Metric({ label,value }: { label:string; value:string }) { return <div className="metric-card"><span>{label}</span><strong>{value}</strong></div>; }
 function Empty({ title,body }: { title:string; body:string }) { return <div className="empty"><span className="empty-orb" /><h3>{title}</h3><p>{body}</p></div>; }
 function PageTitle({ eyebrow,title,subtitle }: { eyebrow:string; title:string; subtitle:string }) { return <header className="page-title"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{subtitle}</p></header>; }
-function ProgressSteps() { const { t } = useI18n(); return <div className="progress-steps"><span>{t('comparing')}</span><span>{t('validatingFacts')}</span><span>{t('calculating')}</span></div>; }
+function ProgressSteps() {
+  const { t } = useI18n();
+  return <div className="progress-steps radar-processing" role="status" aria-live="polite">
+    <span className="processing-orb" aria-hidden="true" />
+    <div className="processing-copy">
+      <strong>{t('analyzingProducts')}</strong>
+      <span>{t('radarProcessingBody')}</span>
+      <div className="processing-stages"><em>{t('comparing')}</em><em>{t('validatingFacts')}</em><em>{t('calculating')}</em></div>
+    </div>
+  </div>;
+}
 
 export function App() {
   const auth = useAuth();

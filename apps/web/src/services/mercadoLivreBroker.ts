@@ -8,6 +8,10 @@ export interface MercadoLivreSearchMeta {
   candidates:number;
   detailed:number;
   usable:number;
+  minSoldQuantity:number;
+  rejectedUnavailable:number;
+  rejectedLowSales:number;
+  rejectedUnverified:number;
 }
 
 export interface MercadoLivreSearchResult {
@@ -38,7 +42,10 @@ export async function searchMercadoLivreBrokerDetailed(input:{
       url:{value:`https://www.mercadolivre.com.br/p/${id}`,source:'mercadolivre-catalog-api',observedAt},
       price:{value:price,source:'mercadolivre-buy-box',observedAt},
       currency:{value:'BRL',source:'mercadolivre-buy-box',observedAt},
-      availability:{value:'available',source:'mercadolivre-catalog-api',observedAt},
+      listingVerified:true,
+      soldQuantity:{value:id==='MLB-A1'?1850:id==='MLB-B2'?640:280,source:'mercadolivre-items-bulk',observedAt},
+      availableQuantity:{value:id==='MLB-A1'?36:id==='MLB-B2'?18:12,source:'mercadolivre-items-bulk',observedAt},
+      availability:{value:'available',source:'mercadolivre-items-bulk',observedAt},
       imageUrl:{value:`https://http2.mlstatic.com/D_${id}.jpg`,source:'mercadolivre-catalog-api',observedAt},
       assetRights:'UNKNOWN',
     });
@@ -53,7 +60,7 @@ export async function searchMercadoLivreBrokerDetailed(input:{
       provider:'MELI',
       source:'mercadolivre-catalog-api',
       observedAt,
-      meta:{catalogTotal:143,candidates:20,detailed:18,usable:3},
+      meta:{catalogTotal:143,candidates:20,detailed:18,usable:3,minSoldQuantity:50,rejectedUnavailable:4,rejectedLowSales:9,rejectedUnverified:4},
     };
   }
 
@@ -64,7 +71,7 @@ export async function searchMercadoLivreBrokerDetailed(input:{
       provider:'MELI',
       source:'mercadolivre-catalog-api',
       observedAt:new Date().toISOString(),
-      meta:{catalogTotal:0,candidates:0,detailed:0,usable:0},
+      meta:{catalogTotal:0,candidates:0,detailed:0,usable:0,minSoldQuantity:50,rejectedUnavailable:0,rejectedLowSales:0,rejectedUnverified:0},
     };
   }
 
@@ -106,6 +113,10 @@ export async function searchMercadoLivreBrokerDetailed(input:{
       candidates:Number(rawMeta?.candidates ?? products.length),
       detailed:Number(rawMeta?.detailed ?? products.length),
       usable:Number(rawMeta?.usable ?? products.length),
+      minSoldQuantity:Number(rawMeta?.minSoldQuantity ?? 50),
+      rejectedUnavailable:Number(rawMeta?.rejectedUnavailable ?? 0),
+      rejectedLowSales:Number(rawMeta?.rejectedLowSales ?? 0),
+      rejectedUnverified:Number(rawMeta?.rejectedUnverified ?? 0),
     },
   };
 }

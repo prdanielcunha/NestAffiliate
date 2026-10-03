@@ -468,3 +468,22 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
   .market-intelligence>summary>b{grid-column:2}
   .market-insight-grid{grid-template-columns:1fr}
 }
+
+
+/* Radar quality gate / analysis feedback */
+.radar-processing{
+  position:relative;display:grid;grid-template-columns:auto 1fr;align-items:start;gap:14px;
+  margin:16px 0;padding:18px 20px;border:1px solid color-mix(in srgb,var(--accent) 28%,var(--border));
+  background:linear-gradient(135deg,var(--accent-soft),var(--surface));box-shadow:0 12px 34px rgba(0,0,0,.08)
+}
+.processing-orb{width:16px;height:16px;margin-top:3px;border-radius:50%;border:2px solid color-mix(in srgb,var(--accent) 28%,transparent);border-top-color:var(--accent);animation:radar-spin .8s linear infinite}
+.processing-copy{display:grid;gap:5px;min-width:0}.processing-copy strong{font-size:14px;color:var(--text)}.processing-copy>span{font-size:11px;line-height:1.5;color:var(--muted)}
+.processing-stages{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}.processing-stages em{font-style:normal;font-size:9px;padding:5px 7px;border:1px solid var(--border);border-radius:999px;background:var(--surface2);color:var(--muted)}
+@keyframes radar-spin{to{transform:rotate(360deg)}}
+.radar-analysis-success{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;margin:16px 0;padding:15px 17px;border-radius:16px;border:1px solid color-mix(in srgb,var(--success) 36%,var(--border));background:color-mix(in srgb,var(--success) 9%,var(--surface));box-shadow:0 10px 30px rgba(0,0,0,.06)}
+.radar-success-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:color-mix(in srgb,var(--success) 16%,var(--surface2));color:var(--success);font-weight:900}.radar-analysis-success div{display:grid;gap:3px}.radar-analysis-success strong{font-size:12px}.radar-analysis-success span:not(.radar-success-mark){font-size:11px;color:var(--muted);line-height:1.45}
+.radar-search-summary small{display:block;margin-top:7px;color:var(--muted);font-size:10px;line-height:1.45}
+.product-proof-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:-2px}.proof-chip{display:inline-flex;align-items:center;min-height:25px;padding:5px 8px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);font-size:9px;font-weight:750;color:var(--text)}.proof-chip.success{border-color:color-mix(in srgb,var(--success) 34%,var(--border));background:color-mix(in srgb,var(--success) 8%,var(--surface2));color:var(--success)}.proof-chip.subtle{color:var(--muted);font-weight:650}
+.search-box .button:disabled{opacity:.68;cursor:wait}
+@media(max-width:620px){.radar-processing{grid-template-columns:auto 1fr;padding:16px}.processing-stages{display:grid;grid-template-columns:1fr}.product-proof-row{gap:5px}.radar-analysis-success{align-items:start}}
+@media(prefers-reduced-motion:reduce){.processing-orb{animation:none}}
