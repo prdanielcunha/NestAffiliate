@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n-context';
 import { configureShopeeApi, getShopeeApiStatus, type ShopeeApiStatus } from '../services/shopeeBroker';
@@ -73,11 +74,19 @@ export function ShopeeSetupPanel(){
     </div>
 
     <div className="shopee-api-status">
-      <span className={`connection-status ${status?.configured ? 'active' : 'external'}`}>
-        {state==='loading' ? t('shopeeCheckingApi') : status?.configured ? t('shopeeApiConnected') : t('shopeeApiNotConnected')}
+      <span className={`connection-status ${status?.configured ? 'active' : 'guided'}`}>
+        {state==='loading' ? t('shopeeCheckingApi') : status?.configured ? t('shopeeApiConnected') : t('shopeeApiPendingCredentials')}
       </span>
       {status?.appIdHint ? <small>{t('shopeeConfiguredApp',{id:status.appIdHint})}</small> : null}
     </div>
+
+    {!status?.configured && <div className="shopee-now-card">
+      <div>
+        <strong>{t('shopeeWorksNowTitle')}</strong>
+        <span>{t('shopeeWorksNowBody')}</span>
+      </div>
+      <NavLink className="button primary" to="/radar">{t('shopeeUseNow')}</NavLink>
+    </div>}
 
     {!status?.configured && <div className="meli-setup-grid">
       <label>
@@ -104,6 +113,7 @@ export function ShopeeSetupPanel(){
       </label>
     </div>}
 
+    {!status?.configured && <p className="field-hint shopee-upgrade-copy">{t('shopeeApiUpgrade')}</p>}
     {errorText && <p className="field-error">{errorText}</p>}
 
     <div className="opportunity-actions">
@@ -116,15 +126,15 @@ export function ShopeeSetupPanel(){
     <div className="list-surface">
       <div className="list-row">
         <div><h3>{t('shopeeSetupStep1Title')}</h3><p>{t('shopeeSetupStep1Body')}</p></div>
-        <span>UMA VEZ</span>
+        <span>{status?.configured ? '✓' : '01'}</span>
       </div>
       <div className="list-row">
         <div><h3>{t('shopeeSetupStep2Title')}</h3><p>{t('shopeeSetupStep2Body')}</p></div>
-        <span>SEGURO</span>
+        <span>02</span>
       </div>
       <div className="list-row">
         <div><h3>{t('shopeeSetupStep3Title')}</h3><p>{t('shopeeSetupStep3Body')}</p></div>
-        <span>RADAR</span>
+        <span>03</span>
       </div>
     </div>
 
