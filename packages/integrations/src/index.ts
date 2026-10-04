@@ -380,7 +380,9 @@ function sharedMarketplace(value:string){
 export function inferShopeeTitleFromUrl(value:string){
   try{
     const url=new URL(value);
-    if(!url.hostname.toLowerCase().includes('shopee.')) return '';
+    const hostname=url.hostname.toLowerCase();
+    if(!hostname.includes('shopee.') || hostname.startsWith('s.shopee.')) return '';
+    if(!/-i\.\d+\.\d+(?:[/?#]|$)/i.test(url.pathname) && !/\/product\/\d+\/\d+(?:[/?#]|$)/i.test(url.pathname)) return '';
     const segment=decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() ?? '');
     const withoutIds=segment
       .replace(/-i\.\d+\.\d+(?:.*)?$/i,'')
