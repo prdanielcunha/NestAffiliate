@@ -86,12 +86,16 @@ export async function getShopeeApiStatus(input:{
   organizationId:string;
 }):Promise<ShopeeApiStatus>{
   if(import.meta.env.VITE_E2E_MOCK_AUTH==='true'){
-    return {
-      provider:'SHOPEE',
-      configured:true,
-      appIdHint:'******1234',
-      verifiedAt:'2026-10-03T19:30:00.000Z',
-    };
+    const forcedPending=typeof window!=='undefined' &&
+      new URLSearchParams(window.location.search).get('shopeeApi')==='pending';
+    return forcedPending
+      ? {provider:'SHOPEE',configured:false}
+      : {
+          provider:'SHOPEE',
+          configured:true,
+          appIdHint:'******1234',
+          verifiedAt:'2026-10-03T19:30:00.000Z',
+        };
   }
 
   const url=new URL(`${HUB_BASE}/api/v1/nestaffiliate/shopee/status`);
