@@ -58,6 +58,7 @@ test('Radar keeps Shopee usable while Open API credentials are pending', async (
   ].join('\n');
   await page.getByLabel('Cole aqui o produto da Shopee').fill(shared);
   await expect(page.getByDisplayValue('Organizador Giratório Multiuso')).toBeVisible();
+  await page.getByText('Melhorar análise (opcional)',{exact:true}).click();
   await expect(page.getByDisplayValue('59,90')).toBeVisible();
 
   await page.getByRole('button',{name:'Analisar e criar oportunidade',exact:true}).click();
