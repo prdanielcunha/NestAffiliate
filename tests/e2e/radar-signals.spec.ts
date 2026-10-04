@@ -57,9 +57,9 @@ test('Radar keeps Shopee usable while Open API credentials are pending', async (
     'https://shopee.com.br/Organizador-Giratorio-Multiuso-i.12345.987654321',
   ].join('\n');
   await page.getByLabel('Cole aqui o produto da Shopee').fill(shared);
-  await expect(page.getByDisplayValue('Organizador Giratório Multiuso')).toBeVisible();
+  await expect(page.getByRole('textbox',{name:/Título/})).toHaveValue('Organizador Giratório Multiuso');
   await page.getByText('Melhorar análise (opcional)',{exact:true}).click();
-  await expect(page.getByDisplayValue('59,90')).toBeVisible();
+  await expect(page.getByRole('textbox',{name:'Preço opcional',exact:true})).toHaveValue('59,90');
 
   await page.getByRole('button',{name:'Analisar e criar oportunidade',exact:true}).click();
   await expect(page).toHaveURL(/\/review\/campaign-/);
