@@ -105,7 +105,7 @@ export function ConnectionCenter() {
     },
     {
       name: 'Shopee Affiliate + Pinterest',
-      status: FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED ? 'active' : 'off',
+      status: FEATURE_FLAGS.SHOPEE_ENABLED && !KILL_SWITCHES.SHOPEE_DISABLED ? 'guided' : 'off',
       capability: t('shopeeConnectionCapability'),
       detail: t('shopeeConnectionDetail',{n:SHOPEE_AFFILIATE_CAPABILITIES.maxProductsPerPin}),
       safety: t('shopeeConnectionSafety'),
