@@ -4,6 +4,8 @@ import {
   SHOPEE_AFFILIATE_CAPABILITIES,
   buildShopeeOfficialSearchUrl,
   buildShopeePinterestSearchTerm,
+  inferShopeeTitleFromUrl,
+  parseSharedProductText,
   parseShopeeProductReference,
 } from '../../packages/integrations/src/index';
 import { buildSearchSignal } from '../../packages/radar/src/index';
@@ -27,6 +29,22 @@ describe('Shopee integration contract', () => {
       itemId:'987654321',
       canonicalKey:'shopee:12345:987654321',
     });
+  });
+
+
+
+  it('parses a shared Shopee product without scraping and infers the title from a canonical URL', () => {
+    const shared=[
+      'R$ 59,90',
+      'https://shopee.com.br/Organizador-Giratorio-Multiuso-i.12345.987654321',
+    ].join('\n');
+    expect(parseSharedProductText(shared)).toEqual({
+      productUrl:'https://shopee.com.br/Organizador-Giratorio-Multiuso-i.12345.987654321',
+      marketplace:'SHOPEE',
+      title:'Organizador Giratorio Multiuso',
+      priceText:'59,90',
+    });
+    expect(inferShopeeTitleFromUrl('https://s.shopee.com.br/abc123')).toBe('');
   });
 
   it('declares official Affiliate Open API search without allowing private-panel scraping', () => {
