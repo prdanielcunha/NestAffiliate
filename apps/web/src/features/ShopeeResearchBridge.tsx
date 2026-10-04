@@ -1,6 +1,5 @@
 import {
   buildShopeeOfficialSearchUrl,
-  SHOPEE_AFFILIATE_CAPABILITIES,
   SHOPEE_PINTEREST_HELP_URL,
 } from '@nestaffiliate/integrations';
 import { useI18n } from '../lib/i18n-context';
@@ -22,46 +21,43 @@ export function ShopeeResearchBridge({ query }: { query: string }) {
     await navigator.clipboard.writeText(searchTerm);
   }
 
-  const capabilities = [
-    t('shopeeCapabilitySearch'),
-    t('shopeeCapabilityCommission'),
-    t('shopeeCapabilityTags',{n:SHOPEE_AFFILIATE_CAPABILITIES.maxProductsPerPin}),
-    t('shopeeCapabilityTracking'),
-  ];
-
   return (
-    <section className="shopee-research-bridge" aria-label={t('shopeeOfficialResearch')}>
+    <section id="shopee-quick-mode" className="shopee-research-bridge shopee-quick-mode" aria-label={t('shopeeQuickModeTitle')}>
       <div className="shopee-research-head">
         <div>
           <div className="shopee-live-row">
             <span className="health-dot" aria-hidden="true" />
-            <span>{t('shopeeLinked')}</span>
+            <span>{t('shopeeQuickModeActive')}</span>
           </div>
-          <h2>{t('shopeeOfficialResearch')}</h2>
-          <p>{t('shopeeOfficialResearchBody')}</p>
+          <h2>{t('shopeeQuickModeTitle')}</h2>
+          <p>{t('shopeeQuickModeBody')}</p>
         </div>
-        <span className="connection-status active">{t('active')}</span>
+        <span className="connection-status guided">{t('availableNow')}</span>
       </div>
 
-      <div className="shopee-capability-grid">
-        {capabilities.map((capability) => (
-          <span key={capability}>{capability}</span>
-        ))}
+      <div className="shopee-capability-grid quick-capability-grid">
+        <span>{t('shopeeQuickBenefit1')}</span>
+        <span>{t('shopeeQuickBenefit2')}</span>
+        <span>{t('shopeeQuickBenefit3')}</span>
+        <span>{t('shopeeQuickBenefit4')}</span>
       </div>
 
       <div className="shopee-research-query">
-        <span>{t('shopeeSearchAssisted')}</span>
+        <span>{t('searchIntent')}</span>
         <strong>{searchTerm || '—'}</strong>
       </div>
 
       <div className="shopee-research-actions">
+        <a className="button primary" href="#shopee-quick-import">
+          {t('shopeeQuickPasteNow')}
+        </a>
         <button
-          className="button primary"
+          className="button secondary"
           type="button"
           onClick={openOfficialSearch}
           disabled={!searchTerm}
         >
-          {t('openShopeeCatalog')}
+          {t('shopeeQuickSearchExternal')}
         </button>
         <button
           className="button secondary"
@@ -72,7 +68,7 @@ export function ShopeeResearchBridge({ query }: { query: string }) {
           {t('copySearchTerm')}
         </button>
         <a
-          className="button secondary"
+          className="text-button shopee-guide-link"
           href={SHOPEE_PINTEREST_HELP_URL}
           target="_blank"
           rel="noreferrer"
@@ -82,12 +78,12 @@ export function ShopeeResearchBridge({ query }: { query: string }) {
       </div>
 
       <ol className="shopee-research-steps">
-        <li>{t('shopeeResearchStep1')}</li>
-        <li>{t('shopeeResearchStep2')}</li>
-        <li>{t('shopeeResearchStep3')}</li>
+        <li>{t('shopeeQuickStep1')}</li>
+        <li>{t('shopeeQuickStep2')}</li>
+        <li>{t('shopeeQuickStep3')}</li>
       </ol>
 
-      <p className="shopee-research-note">{t('shopeeSearchNotice')}</p>
+      <p className="shopee-research-note">{t('shopeeQuickModeNotice')}</p>
     </section>
   );
 }
