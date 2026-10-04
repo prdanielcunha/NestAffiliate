@@ -298,6 +298,8 @@ export interface ShopeeAffiliateCapabilities {
   commissionEstimateOnPinterest: boolean;
   maxProductsPerPin: number;
   subIdTracking: boolean;
+  affiliateOpenApi: boolean;
+  requiresOpenApiCredentials: boolean;
   inAppProgrammaticCatalogSearch: boolean;
   privatePanelScrapingAllowed: boolean;
 }
@@ -311,7 +313,9 @@ export const SHOPEE_AFFILIATE_CAPABILITIES: ShopeeAffiliateCapabilities = {
   commissionEstimateOnPinterest: true,
   maxProductsPerPin: 5,
   subIdTracking: true,
-  inAppProgrammaticCatalogSearch: false,
+  affiliateOpenApi: true,
+  requiresOpenApiCredentials: true,
+  inAppProgrammaticCatalogSearch: true,
   privatePanelScrapingAllowed: false,
 };
 
@@ -357,6 +361,64 @@ export function parseShopeeProductReference(value: string): ShopeeProductReferen
   }
 
   return {};
+}
+
+export interface SharedProductFacts {
+  productUrl: string;
+  marketplace: 'SHOPEE' | 'MELI' | null;
+  title: string;
+  priceText: string;
+}
+
+function sharedMarketplace(value:string){
+  const normalized=value.toLowerCase();
+  if(normalized.includes('mercadolivre.') || normalized.includes('mercadolibre.com')) return 'MELI' as const;
+  if(normalized.includes('shopee.')) return 'SHOPEE' as const;
+  return null;
+}
+
+export function inferShopeeTitleFromUrl(value:string){
+  try{
+    const url=new URL(value);
+    const hostname=url.hostname.toLowerCase();
+    if(!hostname.includes('shopee.') || hostname.startsWith('s.shopee.')) return '';
+    if(!/-i\.\d+\.\d+(?:[/?#]|$)/i.test(url.pathname) && !/\/product\/\d+\/\d+(?:[/?#]|$)/i.test(url.pathname)) return '';
+    const segment=decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() ?? '');
+    const withoutIds=segment
+      .replace(/-i\.\d+\.\d+(?:.*)?$/i,'')
+      .replace(/^product$/i,'')
+      .replace(/[-_]+/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+    return withoutIds.length>=6 ? withoutIds : '';
+  }catch{
+    return '';
+  }
+}
+
+export function parseSharedProductText(value:string):SharedProductFacts{
+  const urls=value.match(/https:\/\/[^\s<>"']+/gi) ?? [];
+  const productUrl=urls.find((url)=>/mercadolivre\.|mercadolibre\.com|shopee\./i.test(url)) ?? urls[0] ?? '';
+  const marketplace=sharedMarketplace(productUrl || value);
+  const priceMatch=value.match(/R\$\s*([\d.]+(?:,\d{2})?)/i);
+  const titleFromText=value
+    .split(/\r?\n/)
+    .map((line)=>line.trim())
+    .find((line)=>
+      line.length>=6 &&
+      !/^https?:\/\//i.test(line) &&
+      !/^R\$/i.test(line) &&
+      !/^compartilh/i.test(line) &&
+      !/^copiar\s+link/i.test(line) &&
+      !/^link/i.test(line)
+    ) ?? '';
+  const title=titleFromText || (marketplace==='SHOPEE' ? inferShopeeTitleFromUrl(productUrl) : '');
+  return {
+    productUrl,
+    marketplace,
+    title,
+    priceText:priceMatch?.[1] ?? '',
+  };
 }
 
 export function buildShopeePinterestSearchTerm(product: Pick<ProductTruth, 'title' | 'externalId'>) {

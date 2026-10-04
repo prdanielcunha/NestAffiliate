@@ -28,6 +28,11 @@ export interface ProductTruth {
   sellerReputation?: TruthValue<number>;
   rating?: TruthValue<number>;
   reviewCount?: TruthValue<number>;
+  commissionRate?: TruthValue<number>;
+  sellerCommissionRate?: TruthValue<number>;
+  shopeeCommissionRate?: TruthValue<number>;
+  estimatedCommission?: TruthValue<number>;
+  discountRate?: TruthValue<number>;
   availability: TruthValue<'available' | 'unavailable' | 'unknown'>;
   imageUrl?: TruthValue<string>;
   assetRights: AssetRightsStatus;

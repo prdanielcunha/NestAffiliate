@@ -4,6 +4,8 @@ import {
   SHOPEE_AFFILIATE_CAPABILITIES,
   buildShopeeOfficialSearchUrl,
   buildShopeePinterestSearchTerm,
+  inferShopeeTitleFromUrl,
+  parseSharedProductText,
   parseShopeeProductReference,
 } from '../../packages/integrations/src/index';
 import { buildSearchSignal } from '../../packages/radar/src/index';
@@ -29,16 +31,34 @@ describe('Shopee integration contract', () => {
     });
   });
 
-  it('keeps official Pinterest capabilities separate from a nonexistent public affiliate search API', () => {
+
+
+  it('parses a shared Shopee product without scraping and infers the title from a canonical URL', () => {
+    const shared=[
+      'R$ 59,90',
+      'https://shopee.com.br/Organizador-Giratorio-Multiuso-i.12345.987654321',
+    ].join('\n');
+    expect(parseSharedProductText(shared)).toEqual({
+      productUrl:'https://shopee.com.br/Organizador-Giratorio-Multiuso-i.12345.987654321',
+      marketplace:'SHOPEE',
+      title:'Organizador Giratorio Multiuso',
+      priceText:'59,90',
+    });
+    expect(inferShopeeTitleFromUrl('https://s.shopee.com.br/abc123')).toBe('');
+  });
+
+  it('declares official Affiliate Open API search without allowing private-panel scraping', () => {
     expect(SHOPEE_AFFILIATE_CAPABILITIES.pinterestProductSearch).toBe(true);
     expect(SHOPEE_AFFILIATE_CAPABILITIES.automaticAffiliateLinkOnTag).toBe(true);
     expect(SHOPEE_AFFILIATE_CAPABILITIES.maxProductsPerPin).toBe(5);
     expect(SHOPEE_AFFILIATE_CAPABILITIES.subIdTracking).toBe(true);
-    expect(SHOPEE_AFFILIATE_CAPABILITIES.inAppProgrammaticCatalogSearch).toBe(false);
+    expect(SHOPEE_AFFILIATE_CAPABILITIES.affiliateOpenApi).toBe(true);
+    expect(SHOPEE_AFFILIATE_CAPABILITIES.requiresOpenApiCredentials).toBe(true);
+    expect(SHOPEE_AFFILIATE_CAPABILITIES.inAppProgrammaticCatalogSearch).toBe(true);
     expect(SHOPEE_AFFILIATE_CAPABILITIES.privatePanelScrapingAllowed).toBe(false);
   });
 
-  it('labels assisted Shopee research with conservative confidence', () => {
+  it('keeps provider confidence when Shopee search is verified by the Open API broker', () => {
     const signal=buildSearchSignal({
       marketplace:'SHOPEE',
       keyword:'organizador cozinha',
@@ -46,7 +66,8 @@ describe('Shopee integration contract', () => {
       confidence:0.95,
     });
     expect(signal.source).toBe('SHOPEE_SEARCH_ASSISTED');
-    expect(signal.confidence).toBeLessThanOrEqual(0.72);
+    expect(signal.label).toContain('Affiliate Open API');
+    expect(signal.confidence).toBe(0.95);
   });
 
   it('builds a compact Pinterest product search term from Product Truth', () => {
