@@ -22,6 +22,7 @@ import { appendApprovalEvent, markPublication, markPublicationScheduled, saveFre
 import { saveLearningInsights } from './services/learningRepository';
 import { listApprovalEvents } from './services/approvalRepository';
 import { ManualProductImport } from './features/ManualProductImport';
+import { ShopeeResearchBridge } from './features/ShopeeResearchBridge';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
 import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
@@ -37,7 +38,7 @@ import { freshValidateProduct } from './services/freshValidation';
 import { completePublicationSchedule, listPublicationSchedules, savePublicationSchedule } from './services/publicationScheduleRepository';
 import { listMarketSignals, saveMarketSignals } from './services/marketSignalRepository';
 import { searchMercadoLivreBroker, searchMercadoLivreBrokerDetailed } from './services/mercadoLivreBroker';
-import { searchShopeeBroker, searchShopeeBrokerDetailed } from './services/shopeeBroker';
+import { getShopeeApiStatus, searchShopeeBroker, searchShopeeBrokerDetailed } from './services/shopeeBroker';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
 
@@ -710,6 +711,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [errorCode,setErrorCode]=useState('');
   const [hasSearched,setHasSearched]=useState(false);
   const [analysisNotice,setAnalysisNotice]=useState('');
+  const [shopeeApiConfigured,setShopeeApiConfigured]=useState<boolean|null>(null);
   const [searchMeta,setSearchMeta]=useState<{
     provider:'MELI'|'SHOPEE'|'ALL';
     query:string;
@@ -739,6 +741,18 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       .catch(()=>undefined);
     return ()=>{active=false;};
   },[organizationId]);
+
+  useEffect(()=>{
+    if(!identity.user || !organizationId){
+      setShopeeApiConfigured(null);
+      return;
+    }
+    let active=true;
+    void getShopeeApiStatus({user:identity.user,organizationId})
+      .then((status)=>{if(active)setShopeeApiConfigured(status.configured);})
+      .catch(()=>{if(active)setShopeeApiConfigured(null);});
+    return ()=>{active=false;};
+  },[identity.user,organizationId]);
 
   const suggestedQueries=useMemo(()=>{
     const current=query.trim();
@@ -816,6 +830,19 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     if(!effectiveQuery) return;
     setQuery(effectiveQuery);
     setErrorCode('');
+
+    if(marketplaceScope==='SHOPEE' && shopeeApiConfigured===false){
+      setHasSearched(false);
+      setOpportunities([]);
+      setSearchMeta(null);
+      setState('idle');
+      setAnalysisNotice(t('shopeeQuickModeNotice'));
+      window.requestAnimationFrame(()=>{
+        document.getElementById('shopee-quick-mode')?.scrollIntoView({behavior:'smooth',block:'start'});
+      });
+      return;
+    }
+
     setAnalysisNotice('');
     setState('loading');
 
@@ -858,7 +885,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         }
       }
 
-      if(marketplaceScope==='SHOPEE' || marketplaceScope==='ALL'){
+      if((marketplaceScope==='SHOPEE' || marketplaceScope==='ALL') && shopeeApiConfigured!==false){
         try{
           const result=await searchShopeeBrokerDetailed({
             user:identity.user,
@@ -970,11 +997,25 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       );
       setState('idle');
     } catch (error) {
+      const code=error instanceof Error ? error.message : 'UNKNOWN';
+      if(code.includes('SHOPEE_API_NOT_CONNECTED')){
+        setShopeeApiConfigured(false);
+        setHasSearched(false);
+        setOpportunities([]);
+        setSearchMeta(null);
+        setErrorCode('');
+        setAnalysisNotice(t('shopeeQuickModeNotice'));
+        setState('idle');
+        window.requestAnimationFrame(()=>{
+          document.getElementById('shopee-quick-mode')?.scrollIntoView({behavior:'smooth',block:'start'});
+        });
+        return;
+      }
       setHasSearched(true);
       setAnalysisNotice('');
       setOpportunities([]);
       setSearchMeta(null);
-      setErrorCode(error instanceof Error ? error.message : 'UNKNOWN');
+      setErrorCode(code);
       setState('error');
     }
   }
@@ -1059,9 +1100,28 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       <div className="search-box">
         <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void search()} placeholder={t('radarSearchPlaceholder')} />
         <button className="button primary" disabled={state==='loading'} onClick={() => void search()}>
-          {state==='loading' ? t('analyzingProducts') : marketplaceScope==='SHOPEE' ? t('searchShopeeOfficial') : t('analyzeProducts')}
+          {state==='loading'
+            ? t('analyzingProducts')
+            : marketplaceScope==='SHOPEE' && shopeeApiConfigured===false
+              ? t('shopeeUseQuickMode')
+              : marketplaceScope==='SHOPEE'
+                ? t('searchShopeeOfficial')
+                : t('analyzeProducts')}
         </button>
       </div>
+
+      {marketplaceScope==='SHOPEE' && shopeeApiConfigured===false && <>
+        <ShopeeResearchBridge query={query} />
+        {editable
+          ? <ManualProductImport
+              organizationId={organizationId}
+              featured
+              defaultMarketplace="SHOPEE"
+              seedKeyword={query}
+              onImported={(product, keyword, signals) => create(product, keyword, signals)}
+            />
+          : <div className="notice">{t('readOnlyRadar')}</div>}
+      </>}
 
       <div className="radar-suggestions">
         <span>{t('suggestedSearches')}</span>
@@ -1174,7 +1234,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           {suggestedQueries.slice(0,4).map((suggestion)=><button key={`empty-${suggestion}`} type="button" onClick={()=>void search(suggestion)}>{suggestion}</button>)}
         </div>
       </section>}
-      {editable ? (
+      {marketplaceScope==='SHOPEE' && shopeeApiConfigured===false ? null : editable ? (
         <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
       ) : (
         <div className="notice">{t('readOnlyRadar')}</div>
