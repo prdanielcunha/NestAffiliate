@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "appId": "nestaffiliate",
+  "name": "NestAffiliate",
+  "ai": {
+    "enabled": true,
+    "tasks": [
+      "affiliate.product.analyze",
+      "affiliate.pin.copy",
+      "affiliate.creative.generate"
+    ],
+    "defaultSensitivity": "P0_PUBLIC"
+  },
+  "locales": [
+    "pt-BR",
+    "en",
+    "es"
+  ],
+  "owner": {
+    "repository": "prdanielcunha/NestAffiliate"
+  }
+}
