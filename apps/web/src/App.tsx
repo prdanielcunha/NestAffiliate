@@ -600,8 +600,8 @@ function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; s
     <div className="page">
       <section className="hero">
         <p className="eyebrow">{t('today').toUpperCase()}</p>
-        <h1>{t('workedForYou')}</h1>
-        <p className="hero-sub">{t('heroSub')}</p>
+        <h1>{FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? t('r3HomeTitle') : t('workedForYou')}</h1>
+        <p className="hero-sub">{FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? t('r3HomeSubtitle') : t('heroSub')}</p>
         {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? <NextBestAction campaigns={campaigns} schedules={schedules} agentReport={agentReport} /> : <>
         <div className="stat-row">
           <Stat value={String(productCount)} label={t('productsInCampaigns')} />

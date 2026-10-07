@@ -33,3 +33,6 @@ All seven new flags default OFF. No production deployment, no paid provider or a
 
 ## Rollout invariant
 An exploratory/unknown offer remains ineligible for campaign creation whenever the top-level Revenue Radar 3 flag is enabled, even if the optional assessment detail panel flag is disabled. Signals from the same provider family are not double-counted as independent demand evidence.
+
+## Production safety rollout
+After CI + isolated preview + authenticated smoke, production workflow enables the *safe* client surfaces P1–P4 and P6 behind its build flags. Facebook–Shopee guided integration and remote NestAI remain disabled until verified authorization. All paid APIs and Pinterest auto publish remain blocked. Changing build-time flags requires a controlled deploy and rollback, not a client toggle. Never promote on E2E failures or unverified IAM/Firestore Rules.
