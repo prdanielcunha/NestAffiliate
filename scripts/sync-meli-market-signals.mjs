@@ -333,8 +333,14 @@ function dailyScore(product,keyword,signals){
     if(!signal.keyword) return false;
     return Math.max(dailySimilarity(signal.keyword,keyword),dailySimilarity(signal.keyword,product.title.value))>=0.28;
   }).sort((a,b)=>(Number(b.strength||0)*Number(b.confidence||0))-(Number(a.strength||0)*Number(a.confidence||0)));
-  const strongest=relevant[0];
-  const support=relevant.slice(1,3).reduce((sum,signal)=>sum+(Number(signal.strength||0)*Number(signal.confidence||0)*0.12),0);
+  // Demand must come from an official trend or bestseller, never a generic
+  // offer-count, yield or other commercial signal (including legacy snapshots).
+  const demandSignals=relevant.filter((signal)=>
+    ['DEMAND','BEST_SELLER','PINTEREST_DEMAND'].includes(signal.kind) &&
+    !['MELI_SEARCH','SHOPEE_SEARCH_ASSISTED'].includes(signal.source)
+  );
+  const strongest=demandSignals[0];
+  const support=demandSignals.slice(1,3).reduce((sum,signal)=>sum+(Number(signal.strength||0)*Number(signal.confidence||0)*0.12),0);
   const demand=strongest ? Math.min(1,Number(strongest.strength||0)*Number(strongest.confidence||0)+support) : 0.55;
   const factual=dailyDataConfidence(product);
   const signalConfidence=relevant.length ? relevant.reduce((sum,signal)=>sum+Number(signal.confidence||0),0)/relevant.length : 0;
@@ -921,14 +927,13 @@ async function runDailyAgent(accessToken,signals,observedAt){
     const verifiedOffer=
       item.product.listingVerified===true &&
       item.product.availability?.value==='available';
-    const officialCatalogFallback=
-      item.product.listingVerified===false &&
-      Boolean(item.product.catalogProductId) &&
-      item.product.availability?.value==='unknown';
+    // Unresolved catalogs and UNKNOWN_SALES remain research opportunities,
+    // never READY campaigns for affiliate publication.
+    const sold=item.product.soldQuantity?.value;
     return item.score.score>=58 &&
-    (verifiedOffer || officialCatalogFallback) &&
+    verifiedOffer &&
     (typeof item.product.availableQuantity?.value!=='number' || item.product.availableQuantity.value>0) &&
-    (typeof item.product.soldQuantity?.value!=='number' || item.product.soldQuantity.value>=MIN_VALIDATED_SALES) &&
+    typeof sold==='number' && Number.isFinite(sold) && sold>=MIN_VALIDATED_SALES &&
     Boolean(item.product.imageUrl?.value) &&
     Boolean(item.product.url?.value) &&
     !existingIds.has(item.product.externalId) &&
