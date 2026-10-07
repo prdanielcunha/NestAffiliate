@@ -40,6 +40,8 @@ import { listMarketSignals, saveMarketSignals } from './services/marketSignalRep
 import { searchMercadoLivreBroker, searchMercadoLivreBrokerDetailed } from './services/mercadoLivreBroker';
 import { getShopeeApiStatus, searchShopeeBroker, searchShopeeBrokerDetailed } from './services/shopeeBroker';
 import { NextBestAction } from './features/NextBestAction';
+import { ReelKitPanel } from './features/ReelKitPanel';
+import { RevenueTruthPanel } from './features/RevenueTruthPanel';
 import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
 import './features/revenue3.css';
 
@@ -1538,6 +1540,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   return (
     <div className="review-page">
       <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
+      {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <ReelKitPanel campaign={activeCampaign} />}
       {creativeApprovalError && <div className="notice danger creative-approval-error">{t('creativeImageRequired')}</div>}
       <div className="review-grid">
         <PinPreview campaign={activeCampaign} />
@@ -1722,6 +1725,10 @@ function Publish({
   const identity = useAuth();
   const campaign = campaigns.find((c) => c.id === id);
   const [step, setStep] = useState(0);
+  const [publishedUrl,setPublishedUrl]=useState('');
+  const [publishedUrlError,setPublishedUrlError]=useState('');
+  const [tagConfirmed,setTagConfirmed]=useState(false);
+  const [publishing,setPublishing]=useState(false);
   const [frequency,setFrequency]=useState<PublicationFrequencyState>({publications24h:0});
   const [freshState,setFreshState]=useState<'idle'|'loading'|'pass'|'review'|'block'|'manual'|'error'>('idle');
   const [freshResult,setFreshResult]=useState<FreshValidationResult|null>(null);
@@ -1793,6 +1800,7 @@ function Publish({
   if (!campaign) return <Navigate to="/campaigns" replace />;
   const activeCampaign: Campaign = campaign;
   const v = activeCampaign.currentVersion;
+  const progressKey=`nestaffiliate:publish:v3:${activeCampaign.organizationId}:${activeCampaign.id}:${v.version}`;
   const destination = v.product.affiliateUrl?.value ?? v.product.url.value;
   const shopeeSearchTerm=activeCampaign.marketplace==='SHOPEE' ? buildShopeePinterestSearchTerm(v.product) : '';
   const shopeeReference=activeCampaign.marketplace==='SHOPEE' ? parseShopeeProductReference(v.product.url.value) : {};
@@ -1852,6 +1860,14 @@ function Publish({
     [t('guideMarkTitle'), t('guideMarkBody')],
   ];
 
+  // Progress holds no sensitive data; it is scoped by organization and approved version.
+  // A restored checklist never implies an actual marketplace publication.
+  function nextStep(){
+    persistPackage();
+    const following=Math.min(step+1,steps.length-1);
+    setStep(following);
+    if(FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED)localStorage.setItem(progressKey,String(following));
+  }
   async function copy(text: string) { await navigator.clipboard.writeText(text); }
 
   function persistPackage() {
@@ -1918,8 +1934,38 @@ function Publish({
     link.remove();
   }
 
-  function markPublished() {
-    if(publisherBlocked || !online) return;
+  async function markPublished() {
+    if(publisherBlocked || !online || publishing || activeCampaign.status!=='PUBLICATION_READY') return;
+    if(FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED){
+      let proofValid=false;
+      try{
+        const url=new URL(publishedUrl.trim());
+        proofValid=url.protocol==='https:' && !url.username && !url.password &&
+          /(^|\\.)pinterest\\.[a-z.]+$/i.test(url.hostname) && /^\\/pin\\/\\d+\\/?$/.test(url.pathname);
+      }catch{proofValid=false;}
+      if(!proofValid || (activeCampaign.marketplace==='SHOPEE' && !tagConfirmed)){
+        setPublishedUrlError(t('r3InvalidPinProof'));return;
+      }
+      if(!db || !identity.organizationId){
+        setPublishedUrlError(t('r3ImportFailed'));return;
+      }
+      setPublishing(true);setPublishedUrlError('');
+      try{
+        // Persist external publication proof before mutating the local campaign state.
+        await markPublication(db,{
+          organizationId:identity.organizationId,
+          campaign:activeCampaign,
+          source:'GUIDED',
+          externalUrl:publishedUrl.trim(),
+        });
+        update({...activeCampaign,status:'PUBLISHED'});
+        completeSchedule(activeCampaign.id,v.version);
+        localStorage.removeItem(progressKey);
+      }catch{
+        setPublishedUrlError(t('r3ImportFailed'));
+      }finally{setPublishing(false);}
+      return;
+    }
     const published: Campaign = { ...activeCampaign, status: 'PUBLISHED' };
     update(published);
     completeSchedule(activeCampaign.id,v.version);
@@ -2000,6 +2046,17 @@ function Publish({
           {scheduleMessage && <span className={scheduleMessage===t('scheduled')?'success-text':'field-error'}>{scheduleMessage}</span>}
         </div>
       </section>
+      {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && <section className="surface publication-proof">
+        <p className="eyebrow">{t('r3PublishedProof')}</p>
+        <p className="muted">{t('r3PublishedProofHelp')}</p>
+        <input inputMode="url" type="url" aria-label={t('r3PublishedProof')} placeholder="https://www.pinterest.com/pin/123456789/" value={publishedUrl} onChange={(e)=>{setPublishedUrl(e.target.value);setPublishedUrlError('');}}/>
+        {activeCampaign.marketplace==='SHOPEE' && <label className="manual-confirm">
+          <input type="checkbox" checked={tagConfirmed} onChange={(e)=>setTagConfirmed(e.target.checked)}/>
+          {t('r3ShopeeTagProof')}
+        </label>}
+        <p className="muted">{t('r3ChannelEligibility')}</p>
+        {publishedUrlError && <p className="field-error" role="alert">{publishedUrlError}</p>}
+      </section>}
       <section className="guided">
         <div className="guided-copy">
           <p className="eyebrow">{t('guidedMode')}</p>
@@ -2010,9 +2067,9 @@ function Publish({
         <div className="guided-actions">
           {step > 0 && <button className="button secondary" onClick={() => setStep(step - 1)}>{t('back')}</button>}
           {step < steps.length - 1 ? (
-            <button className="button primary" disabled={publisherBlocked} onClick={() => { persistPackage(); setStep(step + 1); }}>{t('next')}</button>
+            <button className="button primary" disabled={publisherBlocked} onClick={nextStep}>{t('next')}</button>
           ) : (
-            <button className="button primary" disabled={publisherBlocked || !online} onClick={markPublished}>{t('markPublished')}</button>
+            <button className="button primary" disabled={publisherBlocked || !online || publishing || (FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && (!publishedUrl.trim() || (activeCampaign.marketplace==='SHOPEE' && !tagConfirmed)))} onClick={() => void markPublished()}>{publishing?t('r3PublishingSync'):t('markPublished')}</button>
           )}
         </div>
       </section>
@@ -2075,6 +2132,7 @@ function Results({
   return (
     <div className="page">
       <PageTitle eyebrow={t('results').toUpperCase()} title={t('resultsTitle')} subtitle={t('resultsSub')} />
+      {FEATURE_FLAGS.REVENUE_IMPORT_V2_ENABLED && <RevenueTruthPanel organizationId={organizationId} campaigns={campaigns} />}
       <PerformancePanel organizationId={organizationId} campaigns={campaigns} rows={rows} approvalEvents={approvalEvents} onSave={onSave} />
     </div>
   );
