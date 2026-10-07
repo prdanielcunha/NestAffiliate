@@ -76,7 +76,7 @@ export function parseAffiliateStatement(input:{
     const matched=campaignById ?? campaignByTracking;
     const channel=raw.channel?.toUpperCase()??'UNKNOWN';
     if(!['PINTEREST','FACEBOOK_REELS','UNKNOWN',''].includes(channel))throw new Error('CHANNEL_INVALID');
-    const id=`${market}:${input.statementId}:${transactionId}`;
+    const id=`${market}:${transactionId}`;
     if(existing.has(id))throw new Error('DUPLICATE_TRANSACTION_IN_STATEMENT');
     existing.add(id);
     return {
