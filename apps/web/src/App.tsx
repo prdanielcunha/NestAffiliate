@@ -39,6 +39,11 @@ import { completePublicationSchedule, listPublicationSchedules, savePublicationS
 import { listMarketSignals, saveMarketSignals } from './services/marketSignalRepository';
 import { searchMercadoLivreBroker, searchMercadoLivreBrokerDetailed } from './services/mercadoLivreBroker';
 import { getShopeeApiStatus, searchShopeeBroker, searchShopeeBrokerDetailed } from './services/shopeeBroker';
+import { NextBestAction } from './features/NextBestAction';
+import { assessRevenueOpportunity } from '@nestaffiliate/radar/revenueAssessment';
+import { findComparableOffers } from '@nestaffiliate/radar/offerCompare';
+import type { RevenueAssessment } from '@nestaffiliate/radar/revenueAssessment';
+import './features/revenue3.css';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
 
@@ -595,6 +600,7 @@ function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; s
         <p className="eyebrow">{t('today').toUpperCase()}</p>
         <h1>{t('workedForYou')}</h1>
         <p className="hero-sub">{t('heroSub')}</p>
+        {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? <NextBestAction campaigns={campaigns} schedules={schedules} agentReport={agentReport} /> : <>
         <div className="stat-row">
           <Stat value={String(productCount)} label={t('productsInCampaigns')} />
           <Stat value={String(campaigns.length)} label={t('opportunitiesSaved')} />
@@ -602,7 +608,7 @@ function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; s
         </div>
         <NavLink to={ready[0] ? `/review/${ready[0].id}` : '/radar'} className="button primary hero-cta">
           {ready.length ? t('reviewCount',{n:ready.length}) : t('findOpportunities')}
-        </NavLink>
+        </NavLink></>}
       </section>
       <section className="section">
         <div className="section-heading"><h2>{t('needsYou')}</h2><span>{ready.length ? '~2 min' : t('allDone')}</span></div>
@@ -704,6 +710,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [query, setQuery] = useState('organizador cozinha pequena');
   const [marketplaceScope,setMarketplaceScope]=useState<'ALL'|'MELI'|'SHOPEE'>('ALL');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [comparisonProducts,setComparisonProducts]=useState<ProductTruth[]>([]);
   const [marketSignals,setMarketSignals]=useState<CommerceSignal[]>([]);
   const [maxPrice,setMaxPrice]=useState('');
   const [requireImage,setRequireImage]=useState(false);
@@ -911,8 +918,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       }
 
       const found=providerResults.flatMap((result)=>
-        result.products.filter((product)=>isCommerceReadyProduct(product,result.meta.minSoldQuantity))
+        result.products.filter((product)=>FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
+          ? Boolean(product.url?.value && product.title?.value && product.availability?.value!=='unavailable')
+          : isCommerceReadyProduct(product,result.meta.minSoldQuantity))
       );
+      if(FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED) setComparisonProducts(found);
 
       if(db && identity.user?.uid && found.length){
         const currentDb=db;
@@ -1242,6 +1252,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       <div className="opportunity-grid">
         {opportunities.map((opportunity,index) => {
           const product=opportunity.product;
+          const assessment=FEATURE_FLAGS.REVENUE_ASSESSMENT_ENABLED ? assessRevenueOpportunity(opportunity) : null;
+          const comparisons=FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED
+            ? findComparableOffers(product,comparisonProducts) : [];
           const potential=productPotentialBand(opportunity);
           const potentialLabel=potential==='EXCEPTIONAL' ? t('potentialExceptional') :
             potential==='VERY_HIGH' ? t('potentialVeryHigh') :
@@ -1283,6 +1296,22 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   ? <span className="proof-chip success">{t('shopeeAffiliateReady')}</span>
                   : null}
               </div>
+              {assessment && <RevenueAssessmentPanel assessment={assessment}/>}
+              {FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED && <details className="revenue-assessment">
+                <summary>{t('r3Compare')} ({comparisons.length})</summary>
+                <p>{t('r3EquivalenceCaution')}</p>
+                {comparisons.map((item)=><div key={item.product.marketplace+item.product.externalId} className="compare-offer">
+                  <strong>{item.product.marketplace==='MELI'?'Mercado Livre':'Shopee'} · {item.product.title.value}</strong>
+                  <p>{item.priceKnown && item.product.price
+                    ? new Intl.NumberFormat(locale,{style:'currency',currency:item.product.currency.value}).format(item.product.price.value)
+                    : t('priceUnknown')}</p>
+                  <p>{item.estimatedCommissionPerSale!==null
+                    ? t('shopeeEstimatedCommission',{value:new Intl.NumberFormat(locale,{style:'currency',currency:item.product.currency.value}).format(item.estimatedCommissionPerSale)})
+                    : t('r3CommissionUnknown')}</p>
+                  <p>{item.affiliateLinkReady?t('r3AffiliatePresent'):t('r3AffiliateMissing')}</p>
+                  <a className="button secondary" href={item.product.url.value} rel="noreferrer" target="_blank">{t('r3SeeOffer')}</a>
+                </div>)}
+              </details>}
               <div className="ranking-reasons">
                 <strong>{t('whyRanked')}</strong>
                 {opportunity.rankingReasons.slice(0,3).map((reason)=><span key={reason}>{reason}</span>)}
@@ -1291,7 +1320,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               <div className="opportunity-actions">
                 <a className="button secondary" href={product.url.value} target="_blank" rel="noreferrer">{t('openProduct')}</a>
                 <button className="button secondary" onClick={()=>prepareAffiliate(opportunity)}>{t('affiliatePrep')}</button>
-                <button className="button primary" disabled={!editable} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{t('createCampaign')}</button>
+                <button className="button primary" disabled={!editable || Boolean(assessment && assessment.track!=='VALIDATED')} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{assessment && assessment.track!=='VALIDATED' ? t('r3ReviewFirst') : t('createCampaign')}</button>
               </div>
             </div>
           </article>
@@ -1299,6 +1328,36 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       </div>
     </div>
   );
+}
+
+
+function RevenueAssessmentPanel({assessment}:{assessment:RevenueAssessment}) {
+  const {t,locale}=useI18n();
+  const trackLabel={
+    VALIDATED:'r3TrackValidated',EXPLORATORY:'r3TrackExploratory',
+    REVIEW_REQUIRED:'r3TrackReview',BLOCKED:'r3TrackBlocked',
+  } as const;
+  const confidenceLabel=(value:string)=>value==='UNKNOWN'?t('r3Unknown'):t(value.toLowerCase() as 'high'|'medium'|'low');
+  const uncertaintyLabels={
+    LISTING_NOT_VERIFIED:'r3LISTING_NOT_VERIFIED',UNKNOWN_SALES:'r3UNKNOWN_SALES',
+    COMMISSION_UNCONFIRMED:'r3COMMISSION_UNCONFIRMED',DEMAND_NOT_VERIFIED:'r3DEMAND_NOT_VERIFIED',
+    OFFER_STALE:'r3OFFER_STALE',ASSET_RIGHTS_UNKNOWN:'r3ASSET_RIGHTS_UNKNOWN',
+    AFFILIATE_LINK_NOT_CONFIRMED:'r3AFFILIATE_LINK_NOT_CONFIRMED',
+  } as const;
+  return <section className="revenue-assessment" aria-label={t('r3Track')}>
+    <strong>{t('r3Track')}: <span className="assessment-status">{t(trackLabel[assessment.track])}</span></strong>
+    <p>{t('r3DemandConfidence')}: {confidenceLabel(assessment.demandConfidence)} · {t('r3OfferConfidence')}: {confidenceLabel(assessment.offerConfidence)}</p>
+    <p>{t('r3RevenueConfidence')}: {confidenceLabel(assessment.revenueConfidence)}</p>
+    <details><summary>{t('r3Reasons')}</summary>
+      {assessment.evidence.length>0 && <ul>{assessment.evidence.slice(0,8).map((item)=><li key={item.provenanceId}>
+        {t('r3Source')}: {item.source} · {item.evidenceType} · {Number.isFinite(Date.parse(item.observedAt))?new Date(item.observedAt).toLocaleDateString(locale):t('todayUnknown')}
+      </li>)}</ul>}
+      {assessment.uncertainties.length>0 && <><strong>{t('r3Uncertainty')}</strong><ul>
+        {assessment.uncertainties.map((item)=><li key={item}>{t(uncertaintyLabels[item as keyof typeof uncertaintyLabels] || 'r3Unknown')}</li>)}
+      </ul></>}
+      <p>{t('r3SupplyNotDemand')}</p>
+    </details>
+  </section>;
 }
 
 function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update: (c: Campaign) => void; editable: boolean }) {
