@@ -22,3 +22,5 @@
 
 .facebook-reel-guide{display:grid;gap:16px}.facebook-reel-guide h2{margin:0}.facebook-reel-guide details summary{cursor:pointer;font-weight:750}.facebook-reel-guide ol{padding-left:23px;color:var(--muted);line-height:1.7}
 .facebook-reel-guide .fb-confirmations{display:grid;gap:14px}.facebook-reel-guide .fb-confirmations label{display:flex;align-items:flex-start;gap:11px;font-size:13px;line-height:1.45}.facebook-reel-guide>label{display:grid;gap:8px;font-size:13px}.facebook-reel-guide input[type=url]{padding:12px;min-height:46px;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface2);color:var(--text)}.facebook-reel-guide .button{justify-self:start}
+
+.reel-kit-actions{display:flex;flex-wrap:wrap;gap:12px}.reel-kit-actions .button{min-width:180px}@media(max-width:520px){.reel-kit-actions{display:grid}.reel-kit-actions .button{width:100%}}

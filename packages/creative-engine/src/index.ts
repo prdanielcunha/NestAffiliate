@@ -332,3 +332,5 @@ export {
 
 export { createReelKit } from './reelKit';
 export type { ReelKit } from './reelKit';
+
+export {renderReelCover,REEL_COVER_HEIGHT,REEL_COVER_WIDTH} from './reelCover';
