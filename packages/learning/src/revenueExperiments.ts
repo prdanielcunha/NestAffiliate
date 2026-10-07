@@ -29,10 +29,14 @@ export function deriveRevenueCohortObservation(
     bucket.push({campaignId:campaign.id,clicks,orders:orders.length,approved});
     groups.set(key,bucket);
   }
-  const comparable=[...groups.values()].filter((group)=>group.length>=2)
-    .flatMap((group)=>group.filter((row)=>row.clicks>=100 && row.orders>=3));
+  // Compare a cohort WITHIN one exact marketplace + keyword group only.
+  // Never mix unrelated products/channels just to reach the sample minimum.
+  const eligibleGroups=[...groups.values()]
+    .map((group)=>group.filter((row)=>row.clicks>=100 && row.orders>=3))
+    .filter((group)=>group.length>=2);
+  const comparable=eligibleGroups.sort((a,b)=>b.length-a.length)[0]??[];
   const attributedOrders=comparable.reduce((sum,row)=>sum+row.orders,0);
-  if(comparable.length<2)return {...base,matchedCampaigns:comparable.length,attributedOrders};
+  if(comparable.length<2)return {...base,matchedCampaigns:0,attributedOrders:0};
   const ordered=[...comparable].sort((a,b)=>b.approved/b.clicks-a.approved/a.clicks);
   return {
     status:'COMPARABLE',

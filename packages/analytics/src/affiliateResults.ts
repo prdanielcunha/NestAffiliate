@@ -12,7 +12,7 @@ export interface AffiliateResult {
   observedAt:string;
   importedAt:string;
   statementId:string;
-  source:'MANUAL_OFFICIAL_EXPORT';
+  source:'MANUAL_CSV_REPORTED';
   campaignId?:string;
   trackingCode?:string;
   channel:AffiliateResultChannel;
@@ -84,7 +84,7 @@ export function parseAffiliateStatement(input:{
       transactionId,status:status as AffiliateResultStatus,
       commission:money(raw.commission!),currency:'BRL' as const,
       observedAt,importedAt:now.toISOString(),statementId:input.statementId,
-      source:'MANUAL_OFFICIAL_EXPORT' as const,
+      source:'MANUAL_CSV_REPORTED' as const,
       ...(matched ? {campaignId:matched.id} : {}),
       ...(trackingCode ? {trackingCode} : {}),
       channel:(channel||'UNKNOWN') as AffiliateResultChannel,

@@ -67,3 +67,13 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: E2E smoke
         run: pnpm e2e
+      - name: Revenue OS 3.0 opt-in E2E (mobile and desktop)
+        env:
+          VITE_REVENUE_RADAR_3_ENABLED: 'true'
+          VITE_REVENUE_ASSESSMENT_ENABLED: 'true'
+          VITE_CROSS_MARKET_OFFER_COMPARE_ENABLED: 'true'
+          VITE_MULTICHANNEL_CREATIVE_KIT_ENABLED: 'true'
+          VITE_REVENUE_IMPORT_V2_ENABLED: 'true'
+          VITE_NESTAI_OPPORTUNITY_ENRICHMENT_ENABLED: 'false'
+          VITE_PAID_SERVICES_DISABLED: 'true'
+        run: pnpm exec playwright test --grep 'Revenue 3'
