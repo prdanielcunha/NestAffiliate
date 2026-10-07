@@ -15,7 +15,7 @@ export async function saveAffiliateResults(db:Firestore,organizationId:string,ro
   // Stable ids make repeated imports idempotent: no extra orders or fake commissions.
   const batch=writeBatch(db);
   for(const row of rows){
-    if(!/^(MELI|SHOPEE):[a-zA-Z0-9_.-]{2,80}:[a-zA-Z0-9_.:-]{1,96}$/.test(row.id))throw new Error('TRANSACTION_ID_INVALID');
+    if(!/^(MELI|SHOPEE):[a-zA-Z0-9_.:-]{1,96}$/.test(row.id))throw new Error('TRANSACTION_ID_INVALID');
     batch.set(doc(resultsCollection(db,organizationId),row.id),{...row,updatedAt:serverTimestamp()},{merge:true});
   }
   await batch.commit();
