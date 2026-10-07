@@ -1275,7 +1275,8 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       <div className="opportunity-grid">
         {visibleOpportunities.map((opportunity,index) => {
           const product=opportunity.product;
-          const assessment=FEATURE_FLAGS.REVENUE_ASSESSMENT_ENABLED ? assessRevenueOpportunity(opportunity) : null;
+          // A partial rollout must never allow unverified research items into a campaign.
+          const assessment=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? assessRevenueOpportunity(opportunity) : null;
           const comparisons=FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED
             ? findComparableOffers(product,comparisonProducts) : [];
           const potential=productPotentialBand(opportunity);
@@ -1319,7 +1320,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   ? <span className="proof-chip success">{t('shopeeAffiliateReady')}</span>
                   : null}
               </div>
-              {assessment && <RevenueAssessmentPanel assessment={assessment}/>}
+              {assessment && FEATURE_FLAGS.REVENUE_ASSESSMENT_ENABLED && <RevenueAssessmentPanel assessment={assessment}/>}
               {FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED && <details className="revenue-assessment">
                 <summary>{t('r3Compare')} ({comparisons.length})</summary>
                 <p>{t('r3EquivalenceCaution')}</p>

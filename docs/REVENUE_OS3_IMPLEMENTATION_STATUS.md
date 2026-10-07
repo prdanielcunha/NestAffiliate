@@ -30,3 +30,6 @@ All seven new flags default OFF. No production deployment, no paid provider or a
 - Reference baseline `production` SHA `a0ce5c932e04e0ac5b1a6d2275922b18ab8bbb11`.
 - Default off flags keep original flow.
 - Rollback means not merging the draft PR or reverting its commits. No destructive schema migration.
+
+## Rollout invariant
+An exploratory/unknown offer remains ineligible for campaign creation whenever the top-level Revenue Radar 3 flag is enabled, even if the optional assessment detail panel flag is disabled. Signals from the same provider family are not double-counted as independent demand evidence.

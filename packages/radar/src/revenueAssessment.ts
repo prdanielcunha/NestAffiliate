@@ -71,7 +71,14 @@ export function assessRevenueOpportunity(
   const corroborating=evidence.filter((item)=>
     ['BESTSELLER','SEARCH_TREND','OWN_PERFORMANCE'].includes(item.evidenceType) && item.status==='REPORTED'
   );
-  const independentSources=new Set(corroborating.map((item)=>item.source));
+  // Multiple rankings from the same provider do not count as independent
+  // demand sources. The best-seller signal remains commercial evidence, not
+  // proof of growth in search volume.
+  const independentSources=new Set(corroborating.map((item)=>
+    item.source.startsWith('MELI_') ? 'MELI' :
+      item.source.startsWith('PINTEREST_') ? 'PINTEREST' :
+        item.source==='INTERNAL_PERFORMANCE' ? 'OWN_PERFORMANCE' : item.source
+  ));
   const demandConfidence=independentSources.size>=2 ? 'HIGH' : independentSources.size===1 ? 'MEDIUM' : 'LOW';
   const uncertainties:string[]=[];
   const reasons:string[]=[];
