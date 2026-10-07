@@ -70,14 +70,22 @@ jobs:
       - name: Build production assets
         run: pnpm build
 
-      - name: Deploy preview Hosting
-        run: pnpm dlx firebase-tools@15.26.0 deploy --only hosting --project "$FIREBASE_PROJECT" --non-interactive
-
-      - name: Smoke
+      - name: Deploy to an ISOLATED Firebase preview channel (never live)
         shell: bash
         run: |
           set -euo pipefail
-          BASE="https://$FIREBASE_SITE.web.app"
+          pnpm dlx firebase-tools@15.26.0 hosting:channel:deploy na-main-review --project "$FIREBASE_PROJECT" --expires 7d --non-interactive | tee /tmp/na-preview-deploy.log
+          BASE="$(grep -oE 'https://[[:alnum:].-]+\\.web\\.app' /tmp/na-preview-deploy.log | tail -n1)"
+          test -n "$BASE"
+          echo "NESTAFFILIATE_PREVIEW_URL=$BASE" >> "$GITHUB_ENV"
+
+      - name: Smoke preview channel only
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="$NESTAFFILIATE_PREVIEW_URL"
+          test -n "$BASE"
+          [[ "$BASE" == https://*--na-main-review-*.web.app ]]
           ok=false
           for attempt in $(seq 1 15); do
             status="$(curl --silent --show-error --location --output /tmp/nestaffiliate.html --write-out '%{http_code}' "$BASE/" || true)"
