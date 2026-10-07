@@ -6,8 +6,10 @@ import {
   versionPinterestCreativePack,
 } from '@nestaffiliate/creative-engine';
 import { CREATIVE_TEMPLATES } from '@nestaffiliate/creative-engine';
-import { buildPromptPackage, routeAI } from '@nestaffiliate/ai-router';
+import { buildPromptPackage } from '@nestaffiliate/ai-router';
 import { useI18n } from '../lib/i18n-context';
+import { useAuth } from '../lib/auth';
+import { analyzeAffiliateProduct, generateAffiliatePinCopy, type AffiliateProductAnalysis } from '../services/nestAiClient';
 import { AIImageImport } from './AIImageImport';
 import { CreativeConceptPicker } from './CreativeConceptPicker';
 import { ImagePromptPanel } from './ImagePromptPanel';
@@ -69,12 +71,16 @@ export function PromptStudio({
   onUpdate:(campaign:Campaign)=>void;
 }){
   const { t, locale } = useI18n();
+  const { user, organizationId } = useAuth();
   const [campaignId,setCampaignId]=useState(campaigns[0]?.id ?? '');
   const [tab,setTab]=useState<'image'|'copy'|'analysis'>('image');
   const [instruction,setInstruction]=useState('Crie três ângulos de campanha Pinterest, mantendo linguagem premium e prática.');
   const [copied,setCopied]=useState(false);
   const [aiResult,setAiResult]=useState('');
   const [importState,setImportState]=useState<'idle'|'ok'|'error'>('idle');
+  const [nestAiState,setNestAiState]=useState<'idle'|'loading'|'ready'|'fallback'>('idle');
+  const [productAnalysis,setProductAnalysis]=useState<AffiliateProductAnalysis|null>(null);
+  const [analysisLoading,setAnalysisLoading]=useState(false);
   const campaign=campaigns.find((item)=>item.id===campaignId) ?? campaigns[0];
 
   const pack=useMemo(()=>campaign?ephemeralPack(campaign,locale):null,[campaign,locale]);
@@ -82,10 +88,9 @@ export function PromptStudio({
   const copyPkg=useMemo(()=>{
     if(!campaign) return null;
     const p=campaign.currentVersion.product;
-    const provider=routeAI('copy_generation');
     return buildPromptPackage({
       capability:'copy_generation',
-      provider,
+      provider:'RULE_ENGINE',
       instruction,
       facts:{
         title:p.title.value,
@@ -130,6 +135,69 @@ export function PromptStudio({
     await navigator.clipboard.writeText(copyPkg.system+'\n\n'+copyPkg.prompt);
     setCopied(true);
     window.setTimeout(()=>setCopied(false),1500);
+  }
+
+  async function generateNestAiDraft(){
+    if(!campaign || !pack || !user || !organizationId || nestAiState==='loading') return;
+    setNestAiState('loading');
+    setImportState('idle');
+    try{
+      const p=campaign.currentVersion.product;
+      const result=await generateAffiliatePinCopy({
+        user,
+        organizationId,
+        locale,
+        instruction,
+        product:{
+          title:p.title.value,
+          marketplace:p.marketplace,
+          ...(p.price?.value !== undefined ? {price:p.price.value} : {}),
+          currency:p.currency.value,
+          ...(p.sellerName?.value ? {seller:p.sellerName.value} : {}),
+          availability:p.availability.value,
+          sourceNotes:[p.title.source,p.price?.source,p.url.source].filter(Boolean) as string[],
+        },
+        deterministicPack:{
+          primaryKeyword:pack.copy.primaryKeyword,
+          keywords:pack.copy.keywords,
+          recommendedAngle:pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId)?.title,
+        },
+      });
+      setAiResult(JSON.stringify({
+        pinterestTitle:result.title,
+        description:result.description,
+      },null,2));
+      setNestAiState('ready');
+    }catch{
+      setNestAiState('fallback');
+    }
+  }
+
+  async function analyzeWithNestAi(){
+    if(!campaign || !user || !organizationId || analysisLoading) return;
+    setAnalysisLoading(true);
+    try{
+      const p=campaign.currentVersion.product;
+      const result=await analyzeAffiliateProduct({
+        user,
+        organizationId,
+        locale,
+        product:{
+          title:p.title.value,
+          marketplace:p.marketplace,
+          ...(p.price?.value !== undefined ? {price:p.price.value} : {}),
+          currency:p.currency.value,
+          ...(p.sellerName?.value ? {seller:p.sellerName.value} : {}),
+          availability:p.availability.value,
+          ...(p.rating?.value !== undefined ? {rating:p.rating.value} : {}),
+          ...(p.reviewCount?.value !== undefined ? {reviewCount:p.reviewCount.value} : {}),
+          sources:[p.title.source,p.price?.source,p.url.source].filter(Boolean),
+        },
+      });
+      setProductAnalysis(result);
+    }finally{
+      setAnalysisLoading(false);
+    }
   }
 
   function importResult(){
@@ -211,12 +279,26 @@ export function PromptStudio({
             <div><h3>{t('descriptions')}</h3>{pack.copy.descriptions.map((value)=><p className="copy-readonly" key={value}>{value}</p>)}</div>
           </div>
           <div className="prompt-meta">
-            <span>{t('providerSuggested')}: {copyPkg?.provider}</span>
+            <span>{t('providerSuggested')}: NestAI</span>
             <span>{t('requiredCost')}: R$ 0</span>
             <span>{t('keywords')}: {pack.copy.keywords.length}</span>
           </div>
           <label className="prompt-instruction">{t('whatChange')}<textarea value={instruction} onChange={(e)=>setInstruction(e.target.value)} rows={3}/></label>
-          {copyPkg && <><pre className="prompt-box">{copyPkg.system}{'\n\n'}{copyPkg.prompt}</pre><button className="button secondary" onClick={()=>void copyPackage()}>{copied?t('copied'):t('copyPackage')}</button></>}
+          {copyPkg && <>
+            <pre className="prompt-box">{copyPkg.system}{'\n\n'}{copyPkg.prompt}</pre>
+            <div className="import-result-row">
+              <button
+                className="button"
+                disabled={!editable || !user || !organizationId || nestAiState==='loading'}
+                onClick={()=>void generateNestAiDraft()}
+              >
+                {nestAiState==='loading' ? t('generatingWithNestAi') : t('generateWithNestAi')}
+              </button>
+              <button className="button secondary" onClick={()=>void copyPackage()}>{copied?t('copied'):t('copyPackage')}</button>
+            </div>
+            {nestAiState==='ready' && <span className="success-text">{t('nestAiDraftReady')}</span>}
+            {nestAiState==='fallback' && <span className="field-error">{t('nestAiFallback')}</span>}
+          </>}
 
           <div className="prompt-import-copy">
             <p className="eyebrow">{t('importResult')}</p>
@@ -239,6 +321,18 @@ export function PromptStudio({
         </div>}
 
         {tab==='analysis' && <div className="prompt-studio-pane analysis-grid">
+          <article>
+            <p className="eyebrow">{t('nestAiAnalysis')}</p>
+            <h3>NestAI</h3>
+            <button className="button secondary" disabled={!user || !organizationId || analysisLoading} onClick={()=>void analyzeWithNestAi()}>
+              {analysisLoading?t('generatingWithNestAi'):t('analyzeWithNestAi')}
+            </button>
+            {productAnalysis && <>
+              <p>{productAnalysis.facts.join(' · ')}</p>
+              <ul>{productAnalysis.opportunities.map((item)=><li key={item}>{item}</li>)}</ul>
+              {productAnalysis.unknowns.length>0 && <small>{productAnalysis.unknowns.join(' · ')}</small>}
+            </>}
+          </article>
           <article><p className="eyebrow">{t('environment')}</p><h3>{pack.creativeDirection.roomOrEnvironment}</h3><p>{pack.imageConcepts[0]?.sceneProfile.explanation}</p></article>
           <article><p className="eyebrow">{t('recommendedAngle')}</p><h3>{pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId)?.title}</h3><p>{pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId)?.rationale}</p></article>
           <article><p className="eyebrow">PRODUCT TRUTH</p><h3>{t('truthRestrictions')}</h3><ul>{pack.truthConstraints.map((item)=><li key={item}>{item}</li>)}</ul></article>

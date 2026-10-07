@@ -8,6 +8,8 @@ import {
 } from '@nestaffiliate/creative-engine';
 import { db, storage as firebaseStorage } from '../lib/firebase';
 import { useI18n } from '../lib/i18n-context';
+import { useAuth } from '../lib/auth';
+import { generateAffiliateCreative } from '../services/nestAiClient';
 import {
   findCreativeAssetByHash,
   uploadCreativeAsset,
@@ -64,7 +66,8 @@ export function AIImageImport({
   disabled?:boolean;
   onImported:(asset:CreativeAsset)=>void;
 }){
-  const { t }=useI18n();
+  const { t, locale }=useI18n();
+  const { user }=useAuth();
   const inputRef=useRef<HTMLInputElement>(null);
   const [prepared,setPrepared]=useState<PreparedImage|null>(null);
   const [bias,setBias]=useState<'top'|'center'|'bottom'>('center');
@@ -73,6 +76,7 @@ export function AIImageImport({
   const [busy,setBusy]=useState(false);
   const [reviewed,setReviewed]=useState(false);
   const [duplicate,setDuplicate]=useState(false);
+  const [origin,setOrigin]=useState<'manual'|'nestai'>('manual');
 
   useEffect(()=>()=>{ if(prepared?.previewUrl.startsWith('blob:')) URL.revokeObjectURL(prepared.previewUrl); },[prepared?.previewUrl]);
 
@@ -129,10 +133,35 @@ export function AIImageImport({
     }
   }
 
-  async function choose(nextFile:File|null){
+  async function choose(nextFile:File|null, nextOrigin:'manual'|'nestai'='manual'){
     if(!nextFile) return;
+    setOrigin(nextOrigin);
     setFile(nextFile);
     await prepare(nextFile,bias);
+  }
+
+  async function generateWithNestAi(){
+    if(disabled || busy || !user) return;
+    const concept=pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId) ?? pack.imageConcepts[0];
+    if(!concept?.imagePrompt?.prompt) return;
+    setBusy(true);
+    setError('');
+    try{
+      const generated=await generateAffiliateCreative({
+        user,
+        organizationId,
+        locale,
+        prompt:concept.imagePrompt.prompt,
+      });
+      const binary=atob(generated.imageBase64);
+      const bytes=Uint8Array.from(binary,(char)=>char.charCodeAt(0));
+      const nextFile=new File([bytes],'nestai-generated.jpg',{type:generated.mimeType});
+      setBusy(false);
+      await choose(nextFile,'nestai');
+    }catch{
+      setBusy(false);
+      setError(t('nestAiFallback'));
+    }
   }
 
   async function changeBias(next:'top'|'center'|'bottom'){
@@ -150,7 +179,7 @@ export function AIImageImport({
         id:campaignId+'-'+prepared.hash.slice(0,20),
         organizationId,
         campaignId,
-        origin:'MANUAL_CHATGPT',
+        origin:origin==='nestai'?'NESTAI_GENERATED':'MANUAL_CHATGPT',
         rightsStatus:'GENERATED',
         mimeType:(prepared.blob.type==='image/jpeg'?'image/jpeg':prepared.blob.type==='image/png'?'image/png':'image/webp'),
         width:1000,
@@ -183,7 +212,7 @@ export function AIImageImport({
       const pasted=item?.getAsFile() ?? null;
       if(pasted){
         event.preventDefault();
-        void choose(pasted);
+        void choose(pasted,'manual');
       }
     }}
   >
@@ -193,15 +222,20 @@ export function AIImageImport({
         <h3>{t('importGeneratedImage')}</h3>
         <p>{t('importGeneratedImageBody')}</p>
       </div>
-      <button className="button secondary" type="button" disabled={disabled || busy} onClick={()=>inputRef.current?.click()}>
-        {prepared?t('replaceImage'):t('selectImage')}
-      </button>
+      <div className="import-result-row">
+        <button className="button" type="button" disabled={disabled || busy || !user} onClick={()=>void generateWithNestAi()}>
+          {busy?t('generatingWithNestAi'):t('generateWithNestAi')}
+        </button>
+        <button className="button secondary" type="button" disabled={disabled || busy} onClick={()=>inputRef.current?.click()}>
+          {prepared?t('replaceImage'):t('selectImage')}
+        </button>
+      </div>
       <input
         ref={inputRef}
         type="file"
         hidden
         accept="image/png,image/jpeg,image/webp"
-        onChange={(event)=>void choose(event.target.files?.[0] ?? null)}
+        onChange={(event)=>void choose(event.target.files?.[0] ?? null,'manual')}
       />
     </div>
 
@@ -213,7 +247,7 @@ export function AIImageImport({
       onDragOver={(event)=>event.preventDefault()}
       onDrop={(event)=>{
         event.preventDefault();
-        void choose(event.dataTransfer.files?.[0] ?? null);
+        void choose(event.dataTransfer.files?.[0] ?? null,'manual');
       }}
     >
       {busy ? t('processingImage') : prepared ? t('imageReady') : t('dropImage')}

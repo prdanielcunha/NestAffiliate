@@ -22,6 +22,7 @@
     "react-router-dom": "^7.9.1",
     "@nestaffiliate/radar": "workspace:*",
     "@nestaffiliate/analytics": "workspace:*",
-    "@nestaffiliate/learning": "workspace:*"
+    "@nestaffiliate/learning": "workspace:*",
+    "@millionsnest/ai": "https://github.com/prdanielcunha/NestAI/releases/download/sdk-v0.2.0/millionsnest-ai-0.2.0.tgz"
   }
 }
