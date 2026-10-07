@@ -717,11 +717,23 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [marketSignals,setMarketSignals]=useState<CommerceSignal[]>([]);
   const [maxPrice,setMaxPrice]=useState('');
   const [requireImage,setRequireImage]=useState(false);
+  const [onlyValidated,setOnlyValidated]=useState(false);
+  const [confirmedCommissionOnly,setConfirmedCommissionOnly]=useState(false);
+  const [authorizedAssetsOnly,setAuthorizedAssetsOnly]=useState(false);
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
   const [errorCode,setErrorCode]=useState('');
   const [hasSearched,setHasSearched]=useState(false);
   const [analysisNotice,setAnalysisNotice]=useState('');
   const [shopeeApiConfigured,setShopeeApiConfigured]=useState<boolean|null>(null);
+  const visibleOpportunities=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
+    ? opportunities.filter((opportunity)=>{
+        const assessment=assessRevenueOpportunity(opportunity);
+        if(onlyValidated && assessment.track!=='VALIDATED')return false;
+        if(confirmedCommissionOnly && assessment.revenueConfidence==='UNKNOWN')return false;
+        if(authorizedAssetsOnly && !['AUTHORIZED','PLATFORM_PROVIDED','USER_PROVIDED','GENERATED'].includes(opportunity.product.assetRights))return false;
+        return true;
+      })
+    : opportunities;
   const [searchMeta,setSearchMeta]=useState<{
     provider:'MELI'|'SHOPEE'|'ALL';
     query:string;
@@ -1184,6 +1196,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           <span>{t('withImageOnly')}</span>
         </label>
       </div>
+      {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && <div className="radar-filters r3-filters">
+        <label className="filter-check"><input type="checkbox" checked={onlyValidated} onChange={(e)=>setOnlyValidated(e.target.checked)}/><span>{t('r3OnlyValidated')}</span></label>
+        <label className="filter-check"><input type="checkbox" checked={confirmedCommissionOnly} onChange={(e)=>setConfirmedCommissionOnly(e.target.checked)}/><span>{t('r3OnlyConfirmedCommission')}</span></label>
+        <label className="filter-check"><input type="checkbox" checked={authorizedAssetsOnly} onChange={(e)=>setAuthorizedAssetsOnly(e.target.checked)}/><span>{t('r3OnlyAuthorizedAssets')}</span></label>
+      </div>}
       {state === 'loading' && <ProgressSteps />}
       {analysisNotice && state==='idle' && <div className="radar-analysis-success" role="status" aria-live="polite">
         <span className="radar-success-mark">✓</span>
@@ -1253,8 +1270,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       ) : (
         <div className="notice">{t('readOnlyRadar')}</div>
       )}
+      {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && hasSearched && opportunities.length>0 && visibleOpportunities.length===0 && <Empty title={t('r3FilterNoMatch')} body={t('r3FilterClearHelp')}/>}
       <div className="opportunity-grid">
-        {opportunities.map((opportunity,index) => {
+        {visibleOpportunities.map((opportunity,index) => {
           const product=opportunity.product;
           const assessment=FEATURE_FLAGS.REVENUE_ASSESSMENT_ENABLED ? assessRevenueOpportunity(opportunity) : null;
           const comparisons=FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED
