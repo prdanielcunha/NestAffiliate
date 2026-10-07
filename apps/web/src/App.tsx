@@ -40,9 +40,7 @@ import { listMarketSignals, saveMarketSignals } from './services/marketSignalRep
 import { searchMercadoLivreBroker, searchMercadoLivreBrokerDetailed } from './services/mercadoLivreBroker';
 import { getShopeeApiStatus, searchShopeeBroker, searchShopeeBrokerDetailed } from './services/shopeeBroker';
 import { NextBestAction } from './features/NextBestAction';
-import { assessRevenueOpportunity } from '@nestaffiliate/radar/revenueAssessment';
-import { findComparableOffers } from '@nestaffiliate/radar/offerCompare';
-import type { RevenueAssessment } from '@nestaffiliate/radar/revenueAssessment';
+import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
 import './features/revenue3.css';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
