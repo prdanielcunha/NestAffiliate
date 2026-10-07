@@ -10,3 +10,12 @@
 .revenue-assessment ul{padding-left:19px;margin:8px 0;color:var(--muted)}.revenue-assessment li{margin:4px 0}.revenue-assessment details{margin-top:8px}.revenue-assessment summary{cursor:pointer;color:var(--text)}
 .revenue-assessment .assessment-status{color:var(--accent);font-weight:750}
 @media(max-width:520px){.next-action-panel{padding:20px 16px;margin:16px 0}.next-action-footer{display:grid;grid-template-columns:1fr}.next-action-footer .button{width:100%}.next-action-telemetry{display:grid;gap:10px}}
+
+.compare-offer{padding:14px 0;border-top:1px solid var(--border);display:grid;gap:4px}.compare-offer strong{font-size:13px}.compare-offer p{margin:0}.compare-offer .button{margin-top:8px;max-width:230px}
+.reel-kit-panel details{margin:16px 0;color:var(--muted)}.reel-kit-panel summary{cursor:pointer;color:var(--text);font-weight:750}.reel-kit-panel ol{padding-left:23px}.reel-kit-panel li{padding:8px 0}.reel-kit-panel p{font-size:13px;line-height:1.5}
+.revenue-truth-panel{display:grid;gap:16px}.revenue-truth-metrics{margin:8px 0}.revenue-import-form code{display:block;white-space:normal;overflow-wrap:anywhere;margin:12px 0;font-size:11px;color:var(--muted)}
+.revenue-import-form details summary,.revenue-truth-history summary{cursor:pointer;font-weight:750}
+.revenue-import-form label{display:grid;gap:7px;color:var(--muted);font-size:13px;margin:14px 0}
+.revenue-import-form input,.revenue-import-form textarea,.publication-proof input[type="url"]{width:100%;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface2);color:var(--text);min-height:46px;padding:12px;font:inherit}
+.revenue-truth-row{padding:12px 0;display:grid;grid-template-columns:1fr auto;gap:4px;border-bottom:1px solid var(--border)}.revenue-truth-row small{color:var(--muted);grid-column:1/-1}.revenue-truth-records{padding:14px 0;max-height:360px;overflow-y:auto}
+.publication-proof{display:grid;gap:12px}.publication-proof .manual-confirm{display:flex;align-items:center;gap:10px;font-size:13px;line-height:1.5}.publication-proof p{margin:0}
