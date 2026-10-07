@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ProductTruth } from '../../packages/core/src/index';
-import { affiliateTrackingCode, buildMeliBestSellerSignal, buildMeliTrendSignal, buildOpportunity, buildShopeeManualSignals, dedupeProducts, isCommerceReadyProduct, keywordCluster, normalizeSearchText, parseMeliHighlightsPayload, parseMeliTrendsPayload, shortlist } from '../../packages/radar/src/index';
+import { affiliateTrackingCode, buildMeliBestSellerSignal, buildMeliTrendSignal, buildOpportunity, buildSearchSignal, buildShopeeManualSignals, dedupeProducts, isCommerceReadyProduct, keywordCluster, normalizeSearchText, parseMeliHighlightsPayload, parseMeliTrendsPayload, shortlist } from '../../packages/radar/src/index';
 
 const now = new Date().toISOString();
 function product(id:string,title:string): ProductTruth {
@@ -115,4 +115,37 @@ it('only considers stocked products with meaningful verified sales commerce-read
   expect(isCommerceReadyProduct({...strong,soldQuantity:{...strong.soldQuantity!,value:5}},100)).toBe(false);
   expect(isCommerceReadyProduct({...strong,availableQuantity:{...strong.availableQuantity!,value:0}},100)).toBe(false);
   expect(isCommerceReadyProduct({...strong,availability:{...strong.availability,value:'unavailable'}},100)).toBe(false);
+});
+
+it('treats search results as supply density, not verified demand',()=>{
+  const many=buildSearchSignal({marketplace:'MELI',keyword:'organizador',resultCount:200,confidence:0.95});
+  const few=buildSearchSignal({marketplace:'MELI',keyword:'organizador',resultCount:2,confidence:0.95});
+  expect(many.kind).toBe('SUPPLY_DENSITY');
+  expect(many.label).toContain('não comprova demanda');
+  expect(many.evidence).toEqual(['anúncios retornados:200']);
+  const item=product('MLB-1','Organizador');
+  const manyDemand=buildOpportunity(item,'organizador',{signals:[many]});
+  const fewDemand=buildOpportunity(item,'organizador',{signals:[few]});
+  expect(manyDemand.score.dimensions.trend).toBe(fewDemand.score.dimensions.trend);
+});
+
+it('ignores legacy demand claims built from search result counts',()=>{
+  const legacy={...buildSearchSignal({marketplace:'MELI',keyword:'organizador',resultCount:200,confidence:1}),kind:'DEMAND' as const};
+  const item=product('MLB-1','Organizador');
+  const baseline=buildOpportunity(item,'organizador',{signals:[]});
+  const legacyRanked=buildOpportunity(item,'organizador',{signals:[legacy]});
+  expect(legacyRanked.score.dimensions.trend).toBe(baseline.score.dimensions.trend);
+});
+
+it('never promotes unknown sales or unresolved catalog items as verified offers',()=>{
+  const item={...product('MLB-1','Organizador'),listingVerified:true,
+    imageUrl:{value:'https://example.com/item.jpg',source:'fixture',observedAt:now},
+    soldQuantity:{value:160,source:'fixture',observedAt:now}
+  } satisfies ProductTruth;
+  expect(isCommerceReadyProduct(item)).toBe(true);
+  expect(isCommerceReadyProduct({...item,soldQuantity:undefined})).toBe(false);
+  expect(isCommerceReadyProduct({...item,soldQuantity:{...item.soldQuantity,value:Number.NaN}})).toBe(false);
+  expect(isCommerceReadyProduct({...item,listingVerified:undefined})).toBe(false);
+  expect(isCommerceReadyProduct({...item,listingVerified:false,catalogProductId:'MLB-CATALOG'})).toBe(false);
+  expect(isCommerceReadyProduct({...item,availability:{...item.availability,value:'unknown'}})).toBe(false);
 });
