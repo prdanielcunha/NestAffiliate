@@ -4,7 +4,7 @@ test.describe('Revenue 3 feature flags',()=>{
   test.skip(process.env.VITE_REVENUE_RADAR_3_ENABLED!=='true','Revenue 3 suite only runs in opt-in builds.');
   test('Revenue 3: next best action and revenue statement UI',async({page})=>{
     await page.goto('/');
-    await expect(page.getByRole('heading',{name:'NestAffiliate trabalhou por você.'})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Suas próximas decisões, com evidências.'})).toBeVisible();
     await expect(page.locator('.next-action-panel')).toBeVisible({timeout:10000});
     await page.goto('/results');
     await expect(page.getByText('Comissões informadas pelo programa')).toBeVisible();
