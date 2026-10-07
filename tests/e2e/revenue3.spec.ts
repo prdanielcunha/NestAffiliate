@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 
 test.describe('Revenue 3 feature flags',()=>{
+  test.skip(process.env.VITE_REVENUE_RADAR_3_ENABLED!=='true','Revenue 3 suite requires explicit feature flags; baseline remains unchanged.');
   test('Revenue 3: next best action and truthful revenue metrics',async({page})=>{
     await page.goto('/');
     await expect(page.getByLabel('SUA MELHOR PRÓXIMA AÇÃO')).toBeVisible();
