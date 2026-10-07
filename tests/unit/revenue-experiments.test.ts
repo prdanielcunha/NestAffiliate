@@ -1,6 +1,5 @@
 import {describe,it,expect} from 'vitest';
 import {deriveRevenueCohortObservation} from '../../packages/learning/src/revenueExperiments';
-import type {Campaign} from '../../packages/core/src/index';
 import type {AffiliateResult,PerformanceDaily} from '../../packages/analytics/src/index';
 describe('Revenue learning guards',()=>{
   it('will not declare a winner with zero evidence',()=>{
