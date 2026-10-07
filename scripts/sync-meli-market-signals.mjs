@@ -1,3 +1,4 @@
+import { isReadyCampaignOffer } from './revenue-offer-gates.mjs';
 const PROJECT_ID=process.env.FIREBASE_PROJECT_ID || 'millionsnest';
 const ORG_ID=process.env.NESTAFFILIATE_SIGNAL_ORG_ID || '';
 const GCP_TOKEN=process.env.GOOGLE_OAUTH_ACCESS_TOKEN || '';
@@ -924,18 +925,10 @@ async function runDailyAgent(accessToken,signals,observedAt){
   const creationSlots=Math.max(0,queueTarget-readyBeforeCreation);
   const existingTitles=campaigns.map((campaign)=>campaign?.currentVersion?.product?.title?.value).filter(Boolean);
   const eligible=ranked.filter((item)=>{
-    const verifiedOffer=
-      item.product.listingVerified===true &&
-      item.product.availability?.value==='available';
     // Unresolved catalogs and UNKNOWN_SALES remain research opportunities,
     // never READY campaigns for affiliate publication.
-    const sold=item.product.soldQuantity?.value;
     return item.score.score>=58 &&
-    verifiedOffer &&
-    (typeof item.product.availableQuantity?.value!=='number' || item.product.availableQuantity.value>0) &&
-    typeof sold==='number' && Number.isFinite(sold) && sold>=MIN_VALIDATED_SALES &&
-    Boolean(item.product.imageUrl?.value) &&
-    Boolean(item.product.url?.value) &&
+    isReadyCampaignOffer(item.product, MIN_VALIDATED_SALES) &&
     !existingIds.has(item.product.externalId) &&
     !existingTitles.some((title)=>dailySimilarity(title,item.product.title.value)>=0.72);
   }).sort((a,b)=>
