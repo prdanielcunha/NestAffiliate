@@ -18,7 +18,7 @@ describe('Revenue Truth CSV import',()=>{
   it('idempotently summarizes repeated imports by stable identifier',()=>{
     const csv=[header,'MELI,order-1,APPROVED,12,2026-10-05,BRL,,UNKNOWN'].join('\n');
     const a=parseAffiliateStatement({...common,csv});
-    const b=parseAffiliateStatement({...common,csv});
+    const b=parseAffiliateStatement({...common,csv,statementId:'other-statement'});
     expect(summarizeAffiliateResults([...a,...b]).approved).toBe(12);
   });
   it('fails closed on invalid price, unknown campaign and duplicate ID',()=>{
