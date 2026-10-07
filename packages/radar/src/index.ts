@@ -655,3 +655,8 @@ export function parseMeliOfficialSignals(input:{
     ? parseMeliTrendsPayload(payload,input.observedAt)
     : parseMeliHighlightsPayload(payload,input.observedAt);
 }
+
+export { assessRevenueOpportunity, revenueEvidence } from './revenueAssessment';
+export type { RevenueAssessment, DemandEvidence, EvidenceStatus, OpportunityTrack, RevenueConfidence } from './revenueAssessment';
+export { findComparableOffers } from './offerCompare';
+export type { ComparableOffer } from './offerCompare';
