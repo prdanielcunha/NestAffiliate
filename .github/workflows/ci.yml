@@ -33,6 +33,8 @@ jobs:
         run: pnpm typecheck
       - name: Unit and integration tests
         run: pnpm test
+      - name: Cloud agent regression and syntax checks
+        run: pnpm scripts:check
       - name: Dependency audit
         run: pnpm audit --audit-level=moderate
 
