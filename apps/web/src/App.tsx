@@ -2185,7 +2185,7 @@ function Results({
   return (
     <div className="page">
       <PageTitle eyebrow={t('results').toUpperCase()} title={t('resultsTitle')} subtitle={t('resultsSub')} />
-      {FEATURE_FLAGS.REVENUE_IMPORT_V2_ENABLED && <RevenueTruthPanel organizationId={organizationId} campaigns={campaigns} />}
+      {FEATURE_FLAGS.REVENUE_IMPORT_V2_ENABLED && <RevenueTruthPanel organizationId={organizationId} campaigns={campaigns} performance={rows} />}
       <PerformancePanel organizationId={organizationId} campaigns={campaigns} rows={rows} approvalEvents={approvalEvents} onSave={onSave} />
     </div>
   );
