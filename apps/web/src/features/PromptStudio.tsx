@@ -9,7 +9,7 @@ import { CREATIVE_TEMPLATES } from '@nestaffiliate/creative-engine';
 import { buildPromptPackage } from '@nestaffiliate/ai-router';
 import { useI18n } from '../lib/i18n-context';
 import { useAuth } from '../lib/auth';
-import { generateAffiliatePinCopy } from '../services/nestAiClient';
+import { analyzeAffiliateProduct, generateAffiliatePinCopy, type AffiliateProductAnalysis } from '../services/nestAiClient';
 import { AIImageImport } from './AIImageImport';
 import { CreativeConceptPicker } from './CreativeConceptPicker';
 import { ImagePromptPanel } from './ImagePromptPanel';
@@ -79,6 +79,8 @@ export function PromptStudio({
   const [aiResult,setAiResult]=useState('');
   const [importState,setImportState]=useState<'idle'|'ok'|'error'>('idle');
   const [nestAiState,setNestAiState]=useState<'idle'|'loading'|'ready'|'fallback'>('idle');
+  const [productAnalysis,setProductAnalysis]=useState<AffiliateProductAnalysis|null>(null);
+  const [analysisLoading,setAnalysisLoading]=useState(false);
   const campaign=campaigns.find((item)=>item.id===campaignId) ?? campaigns[0];
 
   const pack=useMemo(()=>campaign?ephemeralPack(campaign,locale):null,[campaign,locale]);
@@ -168,6 +170,33 @@ export function PromptStudio({
       setNestAiState('ready');
     }catch{
       setNestAiState('fallback');
+    }
+  }
+
+  async function analyzeWithNestAi(){
+    if(!campaign || !user || !organizationId || analysisLoading) return;
+    setAnalysisLoading(true);
+    try{
+      const p=campaign.currentVersion.product;
+      const result=await analyzeAffiliateProduct({
+        user,
+        organizationId,
+        locale,
+        product:{
+          title:p.title.value,
+          marketplace:p.marketplace,
+          ...(p.price?.value !== undefined ? {price:p.price.value} : {}),
+          currency:p.currency.value,
+          ...(p.sellerName?.value ? {seller:p.sellerName.value} : {}),
+          availability:p.availability.value,
+          ...(p.rating?.value !== undefined ? {rating:p.rating.value} : {}),
+          ...(p.reviewCount?.value !== undefined ? {reviewCount:p.reviewCount.value} : {}),
+          sources:[p.title.source,p.price?.source,p.url.source].filter(Boolean),
+        },
+      });
+      setProductAnalysis(result);
+    }finally{
+      setAnalysisLoading(false);
     }
   }
 
@@ -292,6 +321,18 @@ export function PromptStudio({
         </div>}
 
         {tab==='analysis' && <div className="prompt-studio-pane analysis-grid">
+          <article>
+            <p className="eyebrow">{t('nestAiAnalysis')}</p>
+            <h3>NestAI</h3>
+            <button className="button secondary" disabled={!user || !organizationId || analysisLoading} onClick={()=>void analyzeWithNestAi()}>
+              {analysisLoading?t('generatingWithNestAi'):t('analyzeWithNestAi')}
+            </button>
+            {productAnalysis && <>
+              <p>{productAnalysis.facts.join(' · ')}</p>
+              <ul>{productAnalysis.opportunities.map((item)=><li key={item}>{item}</li>)}</ul>
+              {productAnalysis.unknowns.length>0 && <small>{productAnalysis.unknowns.join(' · ')}</small>}
+            </>}
+          </article>
           <article><p className="eyebrow">{t('environment')}</p><h3>{pack.creativeDirection.roomOrEnvironment}</h3><p>{pack.imageConcepts[0]?.sceneProfile.explanation}</p></article>
           <article><p className="eyebrow">{t('recommendedAngle')}</p><h3>{pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId)?.title}</h3><p>{pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId)?.rationale}</p></article>
           <article><p className="eyebrow">PRODUCT TRUTH</p><h3>{t('truthRestrictions')}</h3><ul>{pack.truthConstraints.map((item)=><li key={item}>{item}</li>)}</ul></article>
