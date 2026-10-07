@@ -42,7 +42,7 @@ export function RevenueTruthPanel({organizationId,campaigns,performance}:{
           trackingCode:campaign.rankingContext?.trackingCode,
         })),
       });
-      if(parsed.length>400)throw new Error('IMPORT_BATCH_TOO_LARGE');
+      if(parsed.length>200)throw new Error('IMPORT_BATCH_TOO_LARGE');
       setPreview(parsed);setError('');setState('idle');
     }catch(err){
       setPreview(null);

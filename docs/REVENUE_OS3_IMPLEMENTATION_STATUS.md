@@ -10,7 +10,7 @@
 - P3: safe cross-market alternative suggestions labeled `REQUIRES_REVIEW` with no automatic equivalence, payout extrapolation or price/seller guessing.
 - P4: deterministic 9:16 Reel storyboard/cover copy, multilingual disclosure and explicit user-owned/authorized footage. Existing Pinterest Creative Pack remains intact.
 - P5: public Pinterest Pin URL and Shopee official tagging acknowledgement before marking published, backend publication event before optimistic campaign state; progress resumes. Facebook affiliate publishing remains disabled without verified channel eligibility.
-- P6: user supplied CSV commission ledger from lawful exports; stable marketplace+transaction ids, organization scoping, statuses pending/approved/reversed, exact-only attribution, unknown attribution explicitly presented. Data remains **reported, not independently verified**.
+- P6: organization-scoped ledger snapshots plus statement-scoped event provenance; user supplied CSV commission ledger from lawful exports; stable marketplace+transaction ids, organization scoping, statuses pending/approved/reversed, exact-only attribution, unknown attribution explicitly presented. Data remains **reported, not independently verified**.
 - P7: reuses existing NestAI `affiliate.product.analyze` on explicit click for top three candidates; passes public facts only, treats generated results as hypotheses and fails over to deterministic Radar. A new NestAI registry task is not necessary.
 - P8: observational sample-gated revenue cohort diagnostic, never causal A/B winner based on a single Pin or cross-market data.
 - P9: adaptive styles and all new text in PT-BR/EN/ES under existing dark/light tokens.
