@@ -206,7 +206,7 @@ export function buildSearchSignal(input:{
     strength:clamp01(input.resultCount/25)*0.62,
     confidence:clamp01(input.confidence),
     observedAt:input.observedAt ?? new Date().toISOString(),
-    label:input.marketplace==='SHOPEE' ? 'Shopee · ofertas encontradas' : 'Ofertas encontradas na busca (não comprova demanda)',
+    label:input.marketplace==='SHOPEE' ? 'Shopee · Affiliate Open API · ofertas encontradas (não comprova demanda)' : 'Ofertas encontradas na busca (não comprova demanda)',
     keyword:input.keyword,
     evidence:[`anúncios retornados:${input.resultCount}`],
   };
