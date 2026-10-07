@@ -42,6 +42,7 @@ import { getShopeeApiStatus, searchShopeeBroker, searchShopeeBrokerDetailed } fr
 import { NextBestAction } from './features/NextBestAction';
 import { ReelKitPanel } from './features/ReelKitPanel';
 import { RevenueTruthPanel } from './features/RevenueTruthPanel';
+import { analyzeAffiliateProduct, type AffiliateProductAnalysis } from './services/nestAiClient';
 import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
 import './features/revenue3.css';
 
@@ -711,6 +712,8 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [marketplaceScope,setMarketplaceScope]=useState<'ALL'|'MELI'|'SHOPEE'>('ALL');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [comparisonProducts,setComparisonProducts]=useState<ProductTruth[]>([]);
+  const [nestAiInsights,setNestAiInsights]=useState<Record<string,AffiliateProductAnalysis|{error:true}>>({});
+  const [nestAiLoading,setNestAiLoading]=useState<string|null>(null);
   const [marketSignals,setMarketSignals]=useState<CommerceSignal[]>([]);
   const [maxPrice,setMaxPrice]=useState('');
   const [requireImage,setRequireImage]=useState(false);
@@ -985,6 +988,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       const meliResult=providerResults.find((result)=>result.provider==='MELI');
 
       setOpportunities(visible);
+      setNestAiInsights({});
       setSearchMeta({
         provider,
         query:effectiveQuery,
@@ -1312,6 +1316,32 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   <a className="button secondary" href={item.product.url.value} rel="noreferrer" target="_blank">{t('r3SeeOffer')}</a>
                 </div>)}
               </details>}
+              {FEATURE_FLAGS.NESTAI_OPPORTUNITY_ENRICHMENT_ENABLED && index<3 && <section className="revenue-assessment">
+                <strong>{t('r3AIReview')}</strong>
+                <p>{t('r3AIDisclaimer')}</p>
+                <button type="button" className="button secondary" disabled={nestAiLoading!==null || !identity.user} onClick={()=>{
+                  if(!identity.user) return;
+                  setNestAiLoading(opportunity.id);
+                  const input={
+                    title:product.title.value,marketplace:product.marketplace,
+                    price:product.price?.value,currency:product.currency.value,
+                    availability:product.availability.value,sales:product.soldQuantity?.value,
+                    seller:product.sellerName?.value,
+                  };
+                  void analyzeAffiliateProduct({user:identity.user,organizationId,locale,product:input})
+                    .then((analysis)=>setNestAiInsights((current)=>({...current,[opportunity.id]:analysis})))
+                    .catch(()=>setNestAiInsights((current)=>({...current,[opportunity.id]:{error:true}})))
+                    .finally(()=>setNestAiLoading(null));
+                }}>{nestAiLoading===opportunity.id?t('r3AILoading'):t('r3AIAnalyze')}</button>
+                {nestAiInsights[opportunity.id] && ('error' in nestAiInsights[opportunity.id]!
+                  ? <p role="status">{t('r3AIFallback')}</p>
+                  : <div>
+                    <strong>{t('r3AIUnknowns')}</strong>
+                    <ul>{(nestAiInsights[opportunity.id] as AffiliateProductAnalysis).unknowns.slice(0,4).map((txt,i)=><li key={i}>{txt}</li>)}</ul>
+                    <strong>{t('r3AIHypotheses')}</strong>
+                    <ul>{(nestAiInsights[opportunity.id] as AffiliateProductAnalysis).opportunities.slice(0,4).map((txt,i)=><li key={i}>{txt}</li>)}</ul>
+                  </div>)}
+              </section>}
               <div className="ranking-reasons">
                 <strong>{t('whyRanked')}</strong>
                 {opportunity.rankingReasons.slice(0,3).map((reason)=><span key={reason}>{reason}</span>)}
