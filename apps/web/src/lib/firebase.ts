@@ -30,6 +30,7 @@ const DEFAULT_APPCHECK_SITE_KEY = '6LcpY-EtAAAAAElqBbIL_K7nAkm2wpuF6fbhsggG';
 let nestAiAppCheck: AppCheck | null = null;
 
 export async function getNestAffiliateAppCheckToken(): Promise<string> {
+  if (import.meta.env.VITE_E2E_MOCK_AUTH === 'true') return 'e2e-app-check-token';
   if (!firebaseApp) throw new Error('NESTAFFILIATE_FIREBASE_NOT_CONFIGURED');
   const siteKey = String(import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY || DEFAULT_APPCHECK_SITE_KEY).trim();
   if (!siteKey) throw new Error('NESTAFFILIATE_APPCHECK_NOT_CONFIGURED');
