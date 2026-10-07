@@ -2,6 +2,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import { browserLocalPersistence, getAuth, GoogleAuthProvider, setPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken as readAppCheckToken, type AppCheck } from 'firebase/app-check';
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -22,4 +23,21 @@ export const googleProvider = firebaseApp ? new GoogleAuthProvider() : null;
 if (auth) {
   void setPersistence(auth, browserLocalPersistence);
   googleProvider?.setCustomParameters({ prompt: 'select_account' });
+}
+
+
+const DEFAULT_APPCHECK_SITE_KEY = '6LcpY-EtAAAAAElqBbIL_K7nAkm2wpuF6fbhsggG';
+let nestAiAppCheck: AppCheck | null = null;
+
+export async function getNestAffiliateAppCheckToken(): Promise<string> {
+  if (!firebaseApp) throw new Error('NESTAFFILIATE_FIREBASE_NOT_CONFIGURED');
+  const siteKey = String(import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY || DEFAULT_APPCHECK_SITE_KEY).trim();
+  if (!siteKey) throw new Error('NESTAFFILIATE_APPCHECK_NOT_CONFIGURED');
+  if (!nestAiAppCheck) {
+    nestAiAppCheck = initializeAppCheck(firebaseApp, {
+      provider: new ReCaptchaEnterpriseProvider(siteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
+  return (await readAppCheckToken(nestAiAppCheck, false)).token;
 }
