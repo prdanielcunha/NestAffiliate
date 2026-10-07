@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
-import { maxDuplicateSimilarity, runPublishingGuard, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
+import { maxDuplicateSimilarity, runPublishingGuard, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
 import { buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isCommerceReadyProduct, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
@@ -1738,6 +1738,13 @@ function Publish({
   const [online,setOnline]=useState(()=>typeof navigator==='undefined' ? true : navigator.onLine);
 
   useEffect(()=>{
+    if(!campaign || !FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED) return;
+    const key=`nestaffiliate:publish:v3:${campaign.organizationId}:${campaign.id}:${campaign.currentVersion.version}`;
+    const stored=Number(localStorage.getItem(key));
+    if(Number.isInteger(stored) && stored>=0 && stored<12)setStep(stored);
+  },[campaign?.id,campaign?.organizationId,campaign?.currentVersion.version]);
+
+  useEffect(()=>{
     const onOnline=()=>setOnline(true);
     const onOffline=()=>setOnline(false);
     window.addEventListener('online',onOnline);
@@ -1937,12 +1944,7 @@ function Publish({
   async function markPublished() {
     if(publisherBlocked || !online || publishing || activeCampaign.status!=='PUBLICATION_READY') return;
     if(FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED){
-      let proofValid=false;
-      try{
-        const url=new URL(publishedUrl.trim());
-        proofValid=url.protocol==='https:' && !url.username && !url.password &&
-          /(^|\\.)pinterest\\.[a-z.]+$/i.test(url.hostname) && /^\\/pin\\/\\d+\\/?$/.test(url.pathname);
-      }catch{proofValid=false;}
+      const proofValid=isPublicPinterestPinUrl(publishedUrl);
       if(!proofValid || (activeCampaign.marketplace==='SHOPEE' && !tagConfirmed)){
         setPublishedUrlError(t('r3InvalidPinProof'));return;
       }
