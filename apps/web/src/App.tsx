@@ -1767,12 +1767,15 @@ function Publish({
   const [scheduleMessage,setScheduleMessage]=useState('');
   const [online,setOnline]=useState(()=>typeof navigator==='undefined' ? true : navigator.onLine);
 
+  const progressCampaignId=campaign?.id;
+  const progressOrganizationId=campaign?.organizationId;
+  const progressVersion=campaign?.currentVersion.version;
   useEffect(()=>{
-    if(!campaign || !FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED) return;
-    const key=`nestaffiliate:publish:v3:${campaign.organizationId}:${campaign.id}:${campaign.currentVersion.version}`;
+    if(!progressCampaignId || !progressOrganizationId || !progressVersion || !FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED) return;
+    const key=`nestaffiliate:publish:v3:${progressOrganizationId}:${progressCampaignId}:${progressVersion}`;
     const stored=Number(localStorage.getItem(key));
     if(Number.isInteger(stored) && stored>=0 && stored<12)setStep(stored);
-  },[campaign?.id,campaign?.organizationId,campaign?.currentVersion.version]);
+  },[progressCampaignId,progressOrganizationId,progressVersion]);
 
   useEffect(()=>{
     const onOnline=()=>setOnline(true);
