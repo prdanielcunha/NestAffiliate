@@ -771,6 +771,8 @@ async function runDailyAgent(accessToken,signals,observedAt){
           const history=Array.isArray(campaign.history) ? campaign.history : [];
           const migrated={
             ...campaign,
+            // A catalog awaiting seller/item verification must leave the READY queue.
+            status:'BLOCKED',
             currentVersion:nextVersion,
             history:history.some((item)=>item?.id===previousVersion.id) ? history : [...history,previousVersion],
           };
@@ -779,7 +781,17 @@ async function runDailyAgent(accessToken,signals,observedAt){
           report.messages.push(campaign.currentVersion.keyword+': campanha de catálogo legado marcada para confirmação manual antes da publicação.');
           continue;
         }
-        report.skipped+=1;
+        if(previous.listingVerified===false){
+          await writeDoc(dailyAgentCampaigns+'/'+encodeURIComponent(campaign.id),{
+            ...campaign,
+            status:'BLOCKED',
+            blockedReason:'LISTING_NOT_VERIFIED',
+          });
+          report.blocked+=1;
+          report.messages.push(campaign.currentVersion.keyword+': listagem não confirmada; remover da fila READY.');
+        }else{
+          report.skipped+=1;
+        }
         continue;
       }
       fresh.listingVerified=true;
@@ -787,9 +799,14 @@ async function runDailyAgent(accessToken,signals,observedAt){
       report.campaignsRevalidated+=1;
       fresh.affiliateUrl=previous.affiliateUrl;
       fresh.assetRights=previous.assetRights || 'UNKNOWN';
-      if(fresh.availability.value==='unavailable'){
-        await writeDoc(dailyAgentCampaigns+'/'+encodeURIComponent(campaign.id),{...campaign,status:'BLOCKED'});
+      if(!isReadyCampaignOffer(fresh,MIN_VALIDATED_SALES)){
+        await writeDoc(dailyAgentCampaigns+'/'+encodeURIComponent(campaign.id),{
+          ...campaign,
+          status:'BLOCKED',
+          blockedReason:typeof fresh.soldQuantity?.value==='number' ? 'COMMERCIAL_GATE_FAILED' : 'UNKNOWN_SALES',
+        });
         report.blocked+=1;
+        report.messages.push(campaign.currentVersion.keyword+': oferta não atende à prova comercial; requer nova verificação.');
         continue;
       }
       const changed=previous.title?.value!==fresh.title?.value || previous.url?.value!==fresh.url?.value || previous.price?.value!==fresh.price?.value || previous.availability?.value!==fresh.availability?.value;
