@@ -41,6 +41,7 @@ import { searchMercadoLivreBroker, searchMercadoLivreBrokerDetailed } from './se
 import { getShopeeApiStatus, searchShopeeBroker, searchShopeeBrokerDetailed } from './services/shopeeBroker';
 import { NextBestAction } from './features/NextBestAction';
 import { ReelKitPanel } from './features/ReelKitPanel';
+import { FacebookShopeeGuide } from './features/FacebookShopeeGuide';
 import { RevenueTruthPanel } from './features/RevenueTruthPanel';
 import { analyzeAffiliateProduct, type AffiliateProductAnalysis } from './services/nestAiClient';
 import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
@@ -2086,6 +2087,8 @@ function Publish({
           {activeCampaign.rankingContext?.trackingCode ? <Field label={t('trackingCode')} value={activeCampaign.rankingContext.trackingCode} onCopy={() => copy(activeCampaign.rankingContext!.trackingCode!)} /> : null}
         </div>
       </section>}
+      {FEATURE_FLAGS.FACEBOOK_SHOPEE_AFFILIATE_ENABLED && activeCampaign.marketplace==='SHOPEE' &&
+        <FacebookShopeeGuide campaign={activeCampaign} actorId={identity.user?.uid??null} role={identity.role}/>}
       <section className="schedule-panel">
         <div>
           <p className="eyebrow">{t('schedulePublication')}</p>

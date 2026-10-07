@@ -505,3 +505,5 @@ export function policyWatchSummary(now=new Date()){
 }
 
 export { isPublicPinterestPinUrl } from './publishedProof';
+
+export { isPublicFacebookReelUrl } from './facebookProof';
