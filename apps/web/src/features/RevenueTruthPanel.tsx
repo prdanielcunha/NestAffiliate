@@ -1,14 +1,15 @@
 import { useCallback,useEffect,useMemo,useState } from 'react';
 import { canWrite, type Campaign } from '@nestaffiliate/core';
-import { parseAffiliateStatement,summarizeAffiliateResults,type AffiliateResult } from '@nestaffiliate/analytics';
+import { parseAffiliateStatement,summarizeAffiliateResults,type AffiliateResult,type PerformanceDaily } from '@nestaffiliate/analytics';
+import { deriveRevenueCohortObservation } from '@nestaffiliate/learning';
 import { db } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n-context';
 import { listAffiliateResults,saveAffiliateResults } from '../services/affiliateResultsRepository';
 
 const examples='marketplace,transactionId,status,commission,observedAt,currency,trackingCode,channel';
-export function RevenueTruthPanel({organizationId,campaigns}:{
-  organizationId:string;campaigns:Campaign[];
+export function RevenueTruthPanel({organizationId,campaigns,performance}:{
+  organizationId:string;campaigns:Campaign[];performance:PerformanceDaily[];
 }){
   const {t,locale}=useI18n();
   const identity=useAuth();
@@ -19,6 +20,7 @@ export function RevenueTruthPanel({organizationId,campaigns}:{
   const [error,setError]=useState('');
   const [preview,setPreview]=useState<AffiliateResult[]|null>(null);
   const summary=useMemo(()=>summarizeAffiliateResults(records),[records]);
+  const cohort=useMemo(()=>deriveRevenueCohortObservation(campaigns,performance,records),[campaigns,performance,records]);
   const money=(amount:number)=>new Intl.NumberFormat(locale,{style:'currency',currency:'BRL'}).format(amount);
   const refresh=useCallback(async()=>{
     if(!db)throw new Error('FIRESTORE_NOT_CONFIGURED');
@@ -93,6 +95,13 @@ export function RevenueTruthPanel({organizationId,campaigns}:{
         </div>}
       </details>
     </div>}
+    <section className="revenue-assessment">
+      <strong>{t('r3ExperimentTitle')}</strong>
+      {cohort.status==='LOW_SAMPLE'
+        ? <p>{t('r3ExperimentLowSample')} · {t('r3ExperimentSample',{n:cohort.matchedCampaigns})}</p>
+        : <p>{t('r3ExperimentObservation',{id:cohort.observedLeaderId ?? '',value:money(cohort.revenuePerClick ?? 0)})}</p>}
+      <p>{t('r3ExperimentCaveat')}</p>
+    </section>
     {records.length ? <details className="revenue-truth-history">
       <summary>{t('r3History')} ({records.length})</summary>
       <div className="revenue-truth-records">
