@@ -45,7 +45,7 @@ export interface CreativeNarrative {
 
 
 export type CreativeOutputType = 'photorealistic' | 'editorial' | 'lifestyle';
-export type CreativeAssetOrigin = 'MANUAL_CHATGPT' | 'USER_UPLOAD' | 'MARKETPLACE' | 'GENERATED_LOCAL';
+export type CreativeAssetOrigin = 'NESTAI_GENERATED' | 'MANUAL_CHATGPT' | 'USER_UPLOAD' | 'MARKETPLACE' | 'GENERATED_LOCAL';
 export type CreativeAngle =
   | 'problem_solution'
   | 'transformation'
