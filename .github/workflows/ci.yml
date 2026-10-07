@@ -66,7 +66,7 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: E2E smoke
-        run: pnpm e2e
+        run: pnpm exec playwright test --grep-invert 'Revenue 3'
       - name: Revenue OS 3.0 opt-in E2E (mobile and desktop)
         env:
           VITE_REVENUE_RADAR_3_ENABLED: 'true'
