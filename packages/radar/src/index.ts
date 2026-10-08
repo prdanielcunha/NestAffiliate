@@ -663,3 +663,5 @@ export type { ComparableOffer } from './offerCompare';
 
 // Side-by-side versioned scoring and discovery. Legacy exports remain stable.
 export * from './opportunityV4';
+
+export * from './problemIntents';
