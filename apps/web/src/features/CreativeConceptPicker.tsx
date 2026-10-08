@@ -27,7 +27,7 @@ function ConceptCanvas({version,index,conceptId}:{version:CampaignVersion;index:
   return ()=>{cancelled=true;};
  },[version,index,conceptId]);
  return <div className={'concept-visual concept-visual-'+index} aria-hidden="true">
-  <canvas className="concept-rendered-canvas" ref={canvas} width={1000} height={1500}/>
+  <canvas className="concept-rendered-canvas" ref={canvasRef} width={1000} height={1500}/>
   {renderError&&<span className="concept-render-error">Prévia indisponível</span>}
  </div>;
 }
