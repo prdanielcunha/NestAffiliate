@@ -687,3 +687,47 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .edit-preview-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .edit-feedback{margin:12px 0 18px;line-height:1.6;font-size:13px}
 @media(max-width:720px){.edit-preview{display:grid;padding:18px;gap:16px}.edit-preview-actions{display:grid;grid-template-columns:1fr 1fr}.edit-preview-actions button{min-height:44px}}
+
+
+/* Winning Product & Creative OS 5.0 — guided experiences */
+.intent-explorer{display:grid;gap:20px;padding:clamp(18px,3vw,30px);border:1px solid var(--border-strong);border-radius:24px;background:radial-gradient(ellipse at 95% -15%,var(--accent-soft),transparent 55%),var(--surface);box-shadow:var(--shadow)}
+.intent-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.intent-header h2{font-size:clamp(23px,2.8vw,34px);letter-spacing:-.04em;line-height:1.15;margin:7px 0}
+.intent-header p{color:var(--muted);font-size:13px;line-height:1.65;margin:0}
+.intent-evidence{border:1px solid var(--border-strong);border-radius:999px;color:var(--muted);font-size:11px;white-space:nowrap;padding:8px 12px}
+.intent-options{display:flex;flex-wrap:wrap;gap:9px}
+.intent-options button{font:inherit;font-size:13px;text-align:left;min-height:44px;border:1px solid var(--border-strong);background:var(--surface2);color:var(--text);border-radius:12px;padding:10px 13px;cursor:pointer}
+.intent-options button.active{background:var(--accent-soft);border-color:var(--accent)}
+.intent-options button:focus-visible,.board-library-card:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.intent-detail{display:flex;align-items:center;justify-content:space-between;gap:20px;border-top:1px solid var(--border);padding-top:20px}
+.intent-detail strong{font-size:15px}.intent-detail p{font-size:13px;color:var(--text);margin:6px 0}.intent-detail small{font-size:11px;line-height:1.5;color:var(--muted)}
+.intent-detail .button{flex-shrink:0}
+.concept-grid-v5 .concept-card{text-align:left;display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:12px;min-width:0}
+.concept-grid-v5 .concept-visual{aspect-ratio:2/3;border-radius:13px;min-height:170px;display:flex;flex-direction:column;padding:16px;overflow:hidden;gap:10px;position:relative}
+.concept-visual-kicker{font-size:9px;letter-spacing:.12em;font-weight:800;z-index:1}
+.concept-visual-image{display:flex;align-items:center;justify-content:center;border:1px dashed currentColor;opacity:.8;border-radius:9px;text-align:center;padding:14px;font-size:10px;line-height:1.5;flex:1}
+.concept-visual-headline{font-weight:800;letter-spacing:-.04em;font-size:clamp(17px,2vw,28px);line-height:1.05}
+.concept-visual-line{height:4px;width:26%;background:currentColor;border-radius:999px}
+.concept-visual-0{background:linear-gradient(120deg,#202c23,#0e1511);color:#e8ebdd}.concept-visual-0 .concept-visual-image{background:#354236}
+.concept-visual-1{background:linear-gradient(170deg,#e9e2d3,#a9afa2);color:#18271d}.concept-visual-1 .concept-visual-image{background:#f7f4ed}
+.concept-visual-2{background:linear-gradient(145deg,#2e2832,#1a1620);color:#faf1eb}.concept-visual-2 .concept-visual-image{border-radius:0;background:#49404a}
+.concept-info{display:grid;gap:7px}.concept-info p{font-size:12px;line-height:1.4;color:var(--muted);margin:0}.concept-info small{color:var(--muted);font-size:10px}
+.library-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.library-facts>div{display:grid;gap:5px;padding:20px;border:1px solid var(--border);background:var(--surface);border-radius:16px}
+.library-facts strong{font-size:30px;letter-spacing:-.04em}.library-facts span{color:var(--muted);font-size:12px}
+.board-library-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.board-library-card{display:grid;gap:8px;padding:22px;min-height:155px;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:17px;color:var(--text);cursor:pointer}
+.board-library-card.active{border-color:var(--accent);background:var(--accent-soft)}
+.board-library-card small{font-size:10px;letter-spacing:.07em;color:var(--muted)}.board-library-card strong{font-size:18px;letter-spacing:-.025em;line-height:1.2}.board-library-card span{color:var(--muted);font-size:12px}
+.library-controls{display:flex;flex-wrap:wrap;gap:10px}
+.library-controls input,.library-controls select,.pinterest-csv-import textarea,.pinterest-csv-import input[type=file]{min-height:44px;padding:12px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:12px;font:inherit}
+.library-controls input{flex:2;min-width:190px}.library-controls select{flex:1;min-width:120px}
+.library-results{display:grid;gap:11px}.library-result{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:18px;border:1px solid var(--border);background:var(--surface);border-radius:16px}
+.library-result h3{font-size:15px;margin:6px 0}.library-result p{font-size:12px;color:var(--muted);margin:0}
+.library-result .button{flex-shrink:0}.pinterest-csv-import{display:grid;gap:14px}.pinterest-csv-import h2{margin:0}
+.pinterest-csv-import code{font-size:11px;white-space:normal;overflow-wrap:anywhere;color:var(--muted)}
+.pinterest-csv-import textarea{width:100%;resize:vertical;font-size:12px}
+.pinterest-csv-import .csv-preview{border:1px solid var(--border-strong);border-radius:14px;padding:16px;display:grid;gap:8px;background:var(--surface2)}
+.pinterest-csv-import .csv-preview span{font-size:12px;color:var(--muted)}.pinterest-csv-import .csv-preview p{margin:0;font-size:12px}
+@media(max-width:900px){.board-library-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.intent-header,.intent-detail,.library-result{display:grid}.intent-evidence{white-space:normal;justify-self:start}.intent-detail .button,.library-result .button{width:100%}.board-library-grid{grid-template-columns:1fr}.library-facts{grid-template-columns:repeat(3,minmax(0,1fr))}.library-facts>div{padding:14px}.library-facts strong{font-size:23px}}
