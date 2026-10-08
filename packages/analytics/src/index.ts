@@ -12,7 +12,9 @@ export interface PerformanceDaily {
   sales: number;
   revenue: number;
   commission: number;
-  source: 'PINTEREST_API' | 'MARKETPLACE' | 'MANUAL';
+  source: 'PINTEREST_API' | 'PINTEREST_CSV' | 'MARKETPLACE' | 'MANUAL';
+  /** False for a Pinterest-only report: zero is NOT evidence of no sales. */
+  salesKnown?: boolean;
   observedAt: string;
 }
 
@@ -74,3 +76,5 @@ export function normalizePerformanceInput(input: Partial<PerformanceDaily> & Pic
 }
 
 export * from './affiliateResults';
+
+export * from './pinterestCsv';
