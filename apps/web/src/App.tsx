@@ -732,7 +732,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [analysisNotice,setAnalysisNotice]=useState('');
   const [shopeeApiConfigured,setShopeeApiConfigured]=useState<boolean|null>(null);
   const [shopeeProviderFallback,setShopeeProviderFallback]=useState(false);
-  const v4ById=Object.fromEntries(opportunities.map(opp=>[opp.id,assessOpportunityV4({product:opp.product,keyword:opp.keyword,signals:opp.commercialSignals,legacyScore:opp.score.score})]));
+  const [providerDegraded,setProviderDegraded]=useState<Record<'MELI'|'SHOPEE',boolean>>({MELI:false,SHOPEE:false});
+  const v4ById=Object.fromEntries(opportunities.map(opp=>[opp.id,assessOpportunityV4({product:opp.product,keyword:opp.keyword,signals:opp.commercialSignals,legacyScore:opp.score.score,
+    sourceLimited:providerDegraded[opp.product.marketplace==='MELI'?'MELI':'SHOPEE'],
+  })]));
   const v4Funnel=buildRadarFunnelV4(Object.values(v4ById),opportunities.length);
   const visibleOpportunities=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
     ? opportunities.filter((opportunity)=>{
@@ -885,6 +888,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
 
       type ProviderResult={
         provider:'MELI'|'SHOPEE';
+        degraded?:boolean;
         products:ProductTruth[];
         observedAt:string;
         meta:{
@@ -911,6 +915,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           });
           providerResults.push({
             provider:'MELI',
+            degraded:result.degraded===true,
             products:result.products,
             observedAt:result.observedAt,
             meta:result.meta,
@@ -991,7 +996,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         .filter((opportunity)=>ceiling===null || !opportunity.product.price || opportunity.product.price.value<=ceiling)
         .filter((opportunity)=>!requireImage || Boolean(opportunity.product.imageUrl));
 
-      const rankAssessments=Object.fromEntries(ranked.map(opp=>[opp.id,assessOpportunityV4({product:opp.product,keyword:opp.keyword,signals:opp.commercialSignals,legacyScore:opp.score.score})]));
+      const rankAssessments=Object.fromEntries(ranked.map(opp=>[opp.id,assessOpportunityV4({
+        product:opp.product,keyword:opp.keyword,signals:opp.commercialSignals,legacyScore:opp.score.score,
+        sourceLimited:providerResults.find(result=>result.provider===opp.product.marketplace)?.degraded===true,
+      })]));
       const visible=FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED
         ? rankCandidatePoolV4(ranked,rankAssessments).slice(0,36)
         : ranked.slice(0,12);
@@ -1031,6 +1039,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         }).catch(()=>undefined);
       }
 
+      setProviderDegraded({
+        MELI:providerResults.find(item=>item.provider==='MELI')?.degraded===true,
+        SHOPEE:providerResults.find(item=>item.provider==='SHOPEE')?.degraded===true,
+      });
       setOpportunities(visible);
       if(provider==='SHOPEE' || provider==='ALL') setShopeeProviderFallback(false);
       setNestAiInsights({});
@@ -1045,7 +1057,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       setHasSearched(true);
       setAnalysisNotice(
         visible.length
-          ? provider==='SHOPEE'
+          ? FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED
+            ? locale==='pt-BR'
+              ? `${visible.length} candidatos oficiais em pesquisa. Vendas desconhecidas continuam como desconhecidas; publicação depende de revisão.`
+              : `${visible.length} research candidates. Unknown sales remain unknown; publishing requires review.`
+            : provider==='SHOPEE'
             ? t('radarShopeeAnalysisSuccess',{n:visible.length})
             : provider==='MELI'
               ? t('radarAnalysisSuccess',{n:visible.length,min:meliResult?.meta.minSoldQuantity ?? 0})
@@ -1324,6 +1340,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                 unverified:searchMeta.rejectedUnverified,
               })}</small>
           <small className="ranking-order-note">{t('radarRankingOrder')}</small>
+          {FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED && <small role="status">
+            {locale==='pt-BR'
+              ? 'Radar 4.0: produtos são pesquisados sem exigir 100 vendas. Fonte, estoque, comissão e imagem podem estar pendentes; nenhum dado desconhecido é considerado confirmado.'
+              : 'Radar 4.0: no 100-sales discovery threshold. Stock, commissions and image rights may remain unknown.'}
+          </small>}
         </div>
         <span className="search-source">{searchMeta.provider==='SHOPEE'
           ? t('shopeeOfficialApiSource')
