@@ -85,7 +85,7 @@ jobs:
             echo "VITE_FIREBASE_MESSAGING_SENDER_ID=$(jq -r '.messagingSenderId' <<<"$CONFIG")"
             echo "VITE_FIREBASE_APP_ID=$(jq -r '.appId' <<<"$CONFIG")"
             echo "VITE_APP_URL=https://$LIVE_DOMAIN"
-            echo "VITE_HUB_URL=https://www.millionsnest.com"
+            echo "VITE_HUB_URL=https://$LIVE_DOMAIN"
             echo "VITE_PINTEREST_PROFILE_URL=https://br.pinterest.com/achadosdonest/"
             echo "VITE_DEMO_DATA_ENABLED=false"
             echo "VITE_E2E_MOCK_AUTH=false"
@@ -133,6 +133,18 @@ jobs:
           done
           test "$ok" = "true"
           echo "NESTAFFILIATE_PRODUCTION_FALLBACK_OK=$BASE"
+
+      - name: Smoke NestAffiliate API proxy
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://$FIREBASE_SITE.web.app"
+          for PATHNAME in             "/api/v1/nestaffiliate/mercadolivre/search?organizationId=smoke&q=teste&limit=1"             "/api/v1/nestaffiliate/shopee/status?organizationId=smoke"; do
+            code="$(curl --silent --show-error --output /tmp/na-api.json --write-out '%{http_code}' "$BASE$PATHNAME" || true)"
+            test "$code" = "401"
+            node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/na-api.json','utf8'));if(x.error!=='UNAUTHENTICATED')process.exit(1)"
+          done
+          echo "NESTAFFILIATE_API_PROXY_OK=true"
 
       - name: Probe official domain
         shell: bash
