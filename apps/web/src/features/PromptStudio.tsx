@@ -265,10 +265,11 @@ export function PromptStudio({
             <strong>1000 × 1500 · 2:3</strong>
           </div>
           <CreativeConceptPicker pack={pack} disabled={!editable} onSelect={selectConcept} />
-          <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} />
+          <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true} />
           <AIImageImport
              product={campaign.currentVersion.product}
              reference={reference}
+             referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true}
             organizationId={campaign.organizationId}
             campaignId={campaign.id}
             pack={pack}
