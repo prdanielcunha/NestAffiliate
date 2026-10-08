@@ -65,3 +65,17 @@ test('Radar keeps Shopee usable while Open API credentials are pending', async (
   await expect(page).toHaveURL(/\/review\/campaign-/);
   await expect(page.getByText('Organizador Giratório Multiuso',{exact:true}).first()).toBeVisible();
 });
+
+
+test('Radar shows Shopee-specific recovery when the API provider is unavailable', async ({ page }) => {
+  await page.goto('/radar?shopeeApi=error');
+  await page.getByRole('button',{name:'Shopee',exact:true}).click();
+  await page.getByRole('button',{name:'Buscar produtos Shopee',exact:true}).click();
+
+  await expect(page.getByText('A busca não concluiu',{exact:true})).toBeVisible();
+  await expect(page.getByText('Não foi possível consultar a Shopee Affiliate Open API agora.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Não foi possível consultar o Mercado Livre agora. O sistema tentou a rota oficial principal e o fallback seguro.',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Shopee temporariamente em modo rápido',{exact:true})).toBeVisible();
+  await expect(page.getByText('Cole um produto da Shopee',{exact:true})).toBeVisible();
+  await expect(page).toHaveURL(/\/radar\?shopeeApi=error$/);
+});
