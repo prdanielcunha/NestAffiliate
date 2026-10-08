@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CreativeAsset, PinterestCreativePack } from '@nestaffiliate/core';
+import type { CreativeAsset, PinterestCreativePack, ProductTruth } from '@nestaffiliate/core';
+import { FEATURE_FLAGS } from '@nestaffiliate/config';
+import { isReferenceAiReady } from '@nestaffiliate/radar';
+import type { ReferencePreview } from '../services/productReferenceRepository';
 import {
   computeCoverCrop,
   detectImageMime,
@@ -57,12 +60,16 @@ export function AIImageImport({
   organizationId,
   campaignId,
   pack,
+  product,
+  reference,
   disabled,
   onImported,
 }:{
   organizationId:string;
   campaignId:string;
   pack:PinterestCreativePack;
+  product?:ProductTruth;
+  reference?:ReferencePreview|null;
   disabled?:boolean;
   onImported:(asset:CreativeAsset)=>void;
 }){
@@ -75,6 +82,11 @@ export function AIImageImport({
   const [error,setError]=useState('');
   const [busy,setBusy]=useState(false);
   const [reviewed,setReviewed]=useState(false);
+  const [fidelity,setFidelity]=useState({color:false,shape:false,parts:false,details:false});
+  const v4=FEATURE_FLAGS.REFERENCE_LOCK_V4_ENABLED;
+  const referenceReady=Boolean(product&&reference&&isReferenceAiReady(reference.asset,product)&&reference.previewUrl);
+  const comparisonConfirmed=Object.values(fidelity).every(Boolean);
+  const canApply=!v4?reviewed:referenceReady&&comparisonConfirmed;
   const [duplicate,setDuplicate]=useState(false);
   const [origin,setOrigin]=useState<'manual'|'nestai'>('manual');
 
@@ -84,6 +96,7 @@ export function AIImageImport({
     setBusy(true);
     setError('');
     setReviewed(false);
+    setFidelity({color:false,shape:false,parts:false,details:false});
     setDuplicate(false);
     try{
       const buffer=await nextFile.arrayBuffer();
@@ -141,7 +154,8 @@ export function AIImageImport({
   }
 
   async function generateWithNestAi(){
-    if(disabled || busy || !user) return;
+    // No reference upload contract in NestAI image task; block generation in V4.
+    if(disabled || busy || !user || v4) return;
     const concept=pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId) ?? pack.imageConcepts[0];
     if(!concept?.imagePrompt?.prompt) return;
     setBusy(true);
@@ -170,7 +184,7 @@ export function AIImageImport({
   }
 
   async function apply(){
-    if(!prepared || !reviewed || disabled) return;
+    if(!prepared || !canApply || disabled) return;
     setBusy(true);
     setError('');
     try{
@@ -190,7 +204,15 @@ export function AIImageImport({
         promptPackageId:concept?.imagePrompt.id,
         conceptId:concept?.id,
         embeddedTextConfirmedAbsent:true,
-        productFidelityConfirmed:true,
+        productFidelityConfirmed:canApply,
+        ...(v4&&reference ? {
+          referenceAssetId:reference.asset.id,
+          referenceSha256:reference.asset.sha256,
+          referenceListingId:reference.asset.externalListingId,
+          referenceRights:reference.asset.rights,
+          reviewedAt:new Date().toISOString(),
+          reviewedBy:user?.uid,
+        } : {}),
         createdAt:new Date().toISOString(),
       };
       const asset=db
@@ -223,7 +245,7 @@ export function AIImageImport({
         <p>{t('importGeneratedImageBody')}</p>
       </div>
       <div className="import-result-row">
-        <button className="button" type="button" disabled={disabled || busy || !user} onClick={()=>void generateWithNestAi()}>
+        <button className="button" type="button" disabled={disabled || busy || !user || v4} onClick={()=>void generateWithNestAi()}>
           {busy?t('generatingWithNestAi'):t('generateWithNestAi')}
         </button>
         <button className="button secondary" type="button" disabled={disabled || busy} onClick={()=>inputRef.current?.click()}>
@@ -255,6 +277,7 @@ export function AIImageImport({
 
     {error && <p className="field-error">{error}</p>}
 
+    {v4&&<p className="field-hint">3. Importe a imagem FINAL, não a foto original. Confira lado a lado antes de aprovar. NestAI não recebe a foto e fica desabilitado neste modo.</p>}
     {prepared && <div className="image-import-preview">
       <div>
         <img src={prepared.previewUrl} alt={t('generatedImagePreview')} />
@@ -270,11 +293,25 @@ export function AIImageImport({
           <button className={bias==='center'?'active':''} onClick={()=>void changeBias('center')}>{t('cropCenter')}</button>
           <button className={bias==='bottom'?'active':''} onClick={()=>void changeBias('bottom')}>{t('cropBottom')}</button>
         </div>
-        <label className="manual-confirm">
+        {v4 ? <div className="reference-comparison">
+          <div className="reference-comparison-grid">
+            <div><small>Referência real autorizada</small>{referenceReady&&reference?<img src={reference.previewUrl} alt="Referência real exata"/>:<p role="alert">Selecione a foto original autorizada antes de aprovar.</p>}</div>
+            <div><small>Resultado gerado</small><img src={prepared.previewUrl} alt="Imagem final gerada"/></div>
+          </div>
+          {([
+            ['color','Cor e variante exatamente iguais à foto.'],
+            ['shape','Forma, proporções e estrutura preservadas.'],
+            ['parts','Nenhuma peça ou funcionalidade inventada.'],
+            ['details','Acabamento, detalhes e marca conferidos.'],
+          ] as const).map(([key,label])=><label className="manual-confirm" key={key}>
+            <input type="checkbox" checked={fidelity[key]} onChange={e=>setFidelity(old=>({...old,[key]:e.target.checked}))}/>
+            <span>{label}</span>
+          </label>)}
+        </div> : <label className="manual-confirm">
           <input type="checkbox" checked={reviewed} onChange={(event)=>setReviewed(event.target.checked)} />
           <span>{t('visualTruthConfirm')}</span>
-        </label>
-        <button className="button primary" disabled={!reviewed || busy || disabled} onClick={()=>void apply()}>
+        </label>}
+        <button className="button primary" disabled={!canApply || busy || disabled} onClick={()=>void apply()}>
           {t('useGeneratedImage')}
         </button>
       </div>

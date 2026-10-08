@@ -660,3 +660,6 @@ export { assessRevenueOpportunity, revenueEvidence } from './revenueAssessment';
 export type { RevenueAssessment, DemandEvidence, EvidenceStatus, OpportunityTrack, RevenueConfidence } from './revenueAssessment';
 export { findComparableOffers } from './offerCompare';
 export type { ComparableOffer } from './offerCompare';
+
+// Side-by-side versioned scoring and discovery. Legacy exports remain stable.
+export * from './opportunityV4';

@@ -64,3 +64,9 @@
 //     allow create, update, delete: if false;
 //   }
 // }
+
+// V4 productReferences use the generic organization-scoped rule above.
+// In the shared canonical rules, disallow embedded image bytes and updates that
+// change organizationId, productId, externalListingId, rights or createdBy.
+// Revocation must only transition READY_FOR_AI -> REVOKED.
+// Integration emulator tests are a production release prerequisite.

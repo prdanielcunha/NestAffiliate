@@ -66,7 +66,15 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: E2E smoke
-        run: pnpm exec playwright test --grep-invert 'Revenue 3'
+        run: pnpm exec playwright test --grep-invert 'Revenue 3|Radar 4.0 opt-in'
+      - name: Radar 4.0 opt-in evidence UX (mobile and desktop)
+        env:
+          VITE_RADAR_V4_SHADOW_ENABLED: 'true'
+          VITE_RADAR_V4_DISCOVERY_ENABLED: 'true'
+          VITE_REFERENCE_LOCK_V4_ENABLED: 'true'
+          VITE_PAID_SERVICES_DISABLED: 'true'
+        run: pnpm exec playwright test --grep 'Radar 4.0 opt-in'
+
       - name: Revenue OS 3.0 opt-in E2E (mobile and desktop)
         env:
           VITE_REVENUE_RADAR_3_ENABLED: 'true'

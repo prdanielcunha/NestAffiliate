@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
-import { buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isCommerceReadyProduct, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
+import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
@@ -46,6 +46,10 @@ import { RevenueTruthPanel } from './features/RevenueTruthPanel';
 import { analyzeAffiliateProduct, type AffiliateProductAnalysis } from './services/nestAiClient';
 import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
 import './features/revenue3.css';
+import { ProductSourceActions } from './features/ProductSourceActions';
+import { saveRadarV4Coverage } from './services/radarV4Repository';
+import { validateStoredProductReference } from './services/productReferenceRepository';
+import { OpportunityV4Panel } from './features/OpportunityV4Panel';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
 
@@ -721,12 +725,25 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [onlyValidated,setOnlyValidated]=useState(false);
   const [confirmedCommissionOnly,setConfirmedCommissionOnly]=useState(false);
   const [authorizedAssetsOnly,setAuthorizedAssetsOnly]=useState(false);
+  const [v4StatusFilter,setV4StatusFilter]=useState<'ALL'|'READY_NOW'|'NEAR_READY'|'PROMISING'|'SOURCE_LIMITED'>('ALL');
+  const v4FilterLabels={
+    ALL:locale==='pt-BR'?'Todas':locale==='es'?'Todas':'All',
+    READY_NOW:locale==='pt-BR'?'Prontas':locale==='es'?'Listas':'Ready',
+    NEAR_READY:locale==='pt-BR'?'Quase prontas':locale==='es'?'Casi listas':'Nearly ready',
+    PROMISING:locale==='pt-BR'?'Vale investigar':locale==='es'?'Vale investigar':'Investigate',
+    SOURCE_LIMITED:locale==='pt-BR'?'Aguardando fonte':locale==='es'?'Datos limitados':'Source limited',
+  } as const;
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
   const [errorCode,setErrorCode]=useState('');
   const [hasSearched,setHasSearched]=useState(false);
   const [analysisNotice,setAnalysisNotice]=useState('');
   const [shopeeApiConfigured,setShopeeApiConfigured]=useState<boolean|null>(null);
   const [shopeeProviderFallback,setShopeeProviderFallback]=useState(false);
+  const [providerDegraded,setProviderDegraded]=useState<Record<'MELI'|'SHOPEE',boolean>>({MELI:false,SHOPEE:false});
+  const v4ById=Object.fromEntries(opportunities.map(opp=>[opp.id,assessOpportunityV4({product:opp.product,keyword:opp.keyword,signals:opp.commercialSignals,legacyScore:opp.score.score,
+    sourceLimited:providerDegraded[opp.product.marketplace==='MELI'?'MELI':'SHOPEE'],
+  })]));
+  const v4Funnel=buildRadarFunnelV4(Object.values(v4ById),opportunities.length);
   const visibleOpportunities=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
     ? opportunities.filter((opportunity)=>{
         const assessment=assessRevenueOpportunity(opportunity);
@@ -736,6 +753,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         return true;
       })
     : opportunities;
+  const shownOpportunities=FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4StatusFilter!=='ALL'
+    ? visibleOpportunities.filter(opp=>v4ById[opp.id]?.status===v4StatusFilter)
+    : visibleOpportunities;
   const [searchMeta,setSearchMeta]=useState<{
     provider:'MELI'|'SHOPEE'|'ALL';
     query:string;
@@ -875,6 +895,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
 
       type ProviderResult={
         provider:'MELI'|'SHOPEE';
+        degraded?:boolean;
         products:ProductTruth[];
         observedAt:string;
         meta:{
@@ -897,9 +918,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             organizationId,
             query:effectiveQuery,
             limit:20,
+            researchMode:FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED,
           });
           providerResults.push({
             provider:'MELI',
+            degraded:result.degraded===true,
             products:result.products,
             observedAt:result.observedAt,
             meta:result.meta,
@@ -935,7 +958,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       }
 
       const found=providerResults.flatMap((result)=>
-        result.products.filter((product)=>FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
+        result.products.filter((product)=>FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED
+           ? isDiscoverableProduct(product)
+           : FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
           ? Boolean(product.url?.value && product.title?.value && product.availability?.value!=='unavailable')
           : isCommerceReadyProduct(product,result.meta.minSoldQuantity))
       );
@@ -948,7 +973,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
 
       const ceiling=maxPrice.trim() ? Number(maxPrice.replace(',','.')) : null;
       const snapshotResolver=signalResolverFromSnapshots(signalOverride ?? marketSignals);
-      const ranked=shortlist(found,effectiveQuery,20,(product)=>{
+      const ranked=shortlist(found,effectiveQuery,FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED?48:20,(product)=>{
         const stored=snapshotResolver(product,effectiveQuery);
         const officialShopeeSignals=product.marketplace==='SHOPEE'
           ? buildShopeeOfferSignals({
@@ -978,7 +1003,13 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         .filter((opportunity)=>ceiling===null || !opportunity.product.price || opportunity.product.price.value<=ceiling)
         .filter((opportunity)=>!requireImage || Boolean(opportunity.product.imageUrl));
 
-      const visible=ranked.slice(0,12);
+      const rankAssessments=Object.fromEntries(ranked.map(opp=>[opp.id,assessOpportunityV4({
+        product:opp.product,keyword:opp.keyword,signals:opp.commercialSignals,legacyScore:opp.score.score,
+        sourceLimited:providerResults.find(result=>result.provider===opp.product.marketplace)?.degraded===true,
+      })]));
+      const visible=FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED
+        ? rankCandidatePoolV4(ranked,rankAssessments).slice(0,36)
+        : ranked.slice(0,12);
       const provider:ProviderResult['provider']|'ALL'=
         providerResults.length>1 ? 'ALL' : providerResults[0]!.provider;
       const observedAt=providerResults
@@ -1000,7 +1031,25 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         rejectedUnverified:0,
       });
       const meliResult=providerResults.find((result)=>result.provider==='MELI');
+      if(FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && db){
+        const providerStatuses:Record<string,'OK'|'RATE_LIMITED'|'AUTH_REQUIRED'|'UNAVAILABLE'>={};
+        for(const current of providerResults)providerStatuses[current.provider]='OK';
+        for(const failed of providerErrors){
+          const code=failed.message.toUpperCase();
+          const status=code.includes('429')||code.includes('RATE')?'RATE_LIMITED'
+            :code.includes('403')||code.includes('401')||code.includes('TOKEN')?'AUTH_REQUIRED':'UNAVAILABLE';
+          providerStatuses['UNAVAILABLE_'+Object.keys(providerStatuses).length]=status;
+        }
+        void saveRadarV4Coverage({
+          db,organizationId,query:effectiveQuery,provider,
+          providerStatuses,examined:aggregate.candidates,assessments:rankAssessments,
+        }).catch(()=>undefined);
+      }
 
+      setProviderDegraded({
+        MELI:providerResults.find(item=>item.provider==='MELI')?.degraded===true,
+        SHOPEE:providerResults.find(item=>item.provider==='SHOPEE')?.degraded===true,
+      });
       setOpportunities(visible);
       if(provider==='SHOPEE' || provider==='ALL') setShopeeProviderFallback(false);
       setNestAiInsights({});
@@ -1015,7 +1064,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       setHasSearched(true);
       setAnalysisNotice(
         visible.length
-          ? provider==='SHOPEE'
+          ? FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED
+            ? locale==='pt-BR'
+              ? `${visible.length} candidatos oficiais em pesquisa. Vendas desconhecidas continuam como desconhecidas; publicação depende de revisão.`
+              : `${visible.length} research candidates. Unknown sales remain unknown; publishing requires review.`
+            : provider==='SHOPEE'
             ? t('radarShopeeAnalysisSuccess',{n:visible.length})
             : provider==='MELI'
               ? t('radarAnalysisSuccess',{n:visible.length,min:meliResult?.meta.minSoldQuantity ?? 0})
@@ -1062,6 +1115,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     if (!editable) return;
     const campaignKeyword = keywordOverride?.trim() || query;
     const opportunity = buildOpportunity(product, campaignKeyword, signalInput ?? {signals:[]});
+    const v4=FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED ? assessOpportunityV4({
+      product,keyword:campaignKeyword,signals:opportunity.commercialSignals,
+    }) : null;
     const score = opportunity.score;
     const id = `campaign-${Date.now()}`;
     const campaign: Campaign = {
@@ -1071,6 +1127,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         trackingCode:opportunity.trackingCode,
         evidence:opportunity.rankingReasons,
         signalSources:opportunity.commercialSignals.map((signal)=>signal.source),
+        ...(v4 ? {v4ResearchDraft:v4.status!=='READY_NOW',v4AssessmentVersion:v4.version} : {}),
       },
       currentVersion: {
         id: `${id}-v1`, campaignId: id, version: 1, createdAt: new Date().toISOString(), reason: 'radar',
@@ -1216,6 +1273,17 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           <span>{t('withImageOnly')}</span>
         </label>
       </div>
+      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && <div className="v4-status-filters">
+        <div className="v4-filter-heading"><strong>{locale==='pt-BR'?'O que vale sua atenção':'What needs your attention'}</strong><small>{shownOpportunities.length} / {opportunities.length}</small></div>
+        <div className="v4-filter-options">
+          {(['ALL','READY_NOW','NEAR_READY','PROMISING','SOURCE_LIMITED'] as const).map(s=>
+            <button key={s} type="button" aria-pressed={v4StatusFilter===s}
+              className={v4StatusFilter===s?'active':''} onClick={()=>setV4StatusFilter(s)}>{
+                v4FilterLabels[s]
+              }</button>)}
+          {v4StatusFilter!=='ALL'&&<button type="button" className="text-button" onClick={()=>setV4StatusFilter('ALL')}>{locale==='pt-BR'?'Limpar filtros':locale==='es'?'Limpiar filtros':'Clear filters'}</button>}
+        </div>
+      </div>}
       {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && <div className="radar-filters r3-filters">
         <label className="filter-check"><input type="checkbox" checked={onlyValidated} onChange={(e)=>setOnlyValidated(e.target.checked)}/><span>{t('r3OnlyValidated')}</span></label>
         <label className="filter-check"><input type="checkbox" checked={confirmedCommissionOnly} onChange={(e)=>setConfirmedCommissionOnly(e.target.checked)}/><span>{t('r3OnlyConfirmedCommission')}</span></label>
@@ -1245,6 +1313,17 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           ? <NavLink className="button secondary" to="/connections">{t('connections')}</NavLink>
           : <button className="button secondary" type="button" onClick={()=>void search()}>{t('radarRetry')}</button>}
       </div>}
+      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && hasSearched && state==='idle' && <section className="v4-funnel">
+        <p className="eyebrow">RADAR 4.0 · EVIDENCE</p>
+        <h3>{locale==='pt-BR'?'Investigação, não volume artificial':'Evidence-first investigation'}</h3>
+        <div className="v4-funnel-metrics">
+          <div><strong>{searchMeta?.candidates??v4Funnel.examined}</strong><span>{locale==='pt-BR'?'Candidatos':locale==='es'?'Candidatos':'Candidates'}</span></div>
+          <div><strong>{v4Funnel.discovery}</strong><span>{locale==='pt-BR'?'Em pesquisa':locale==='es'?'En investigación':'In research'}</span></div>
+          <div><strong>{v4Funnel.nearReady}</strong><span>{locale==='pt-BR'?'Quase prontos':locale==='es'?'Casi listos':'Nearly ready'}</span></div>
+          <div><strong>{v4Funnel.readyToPublish}</strong><span>{locale==='pt-BR'?'Prontos para publicar':locale==='es'?'Listos para publicar':'Ready to publish'}</span></div>
+        </div>
+        {v4Funnel.readyToPublish===0&&<p className="muted">{locale==='pt-BR'?'Nenhuma publicação liberada. Investigue as ofertas e resolva pendências reais sem preencher a fila artificialmente.':locale==='es'?'Ninguna publicación autorizada. Investigue las ofertas y resuelva pendientes reales.':'Nothing cleared for publication. Investigate offers and resolve real evidence gaps.'}</p>}
+      </section>}
       {searchMeta && state==='idle' && <section className="radar-search-summary">
         <div>
           <span className="eyebrow">{t('radarSearchResult')}</span>
@@ -1268,6 +1347,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                 unverified:searchMeta.rejectedUnverified,
               })}</small>
           <small className="ranking-order-note">{t('radarRankingOrder')}</small>
+          {FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED && <small role="status">
+            {locale==='pt-BR'
+              ? 'Radar 4.0: produtos são pesquisados sem exigir 100 vendas. Fonte, estoque, comissão e imagem podem estar pendentes; nenhum dado desconhecido é considerado confirmado.'
+              : 'Radar 4.0: no 100-sales discovery threshold. Stock, commissions and image rights may remain unknown.'}
+          </small>}
         </div>
         <span className="search-source">{searchMeta.provider==='SHOPEE'
           ? t('shopeeOfficialApiSource')
@@ -1294,7 +1378,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       )}
       {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && hasSearched && opportunities.length>0 && visibleOpportunities.length===0 && <Empty title={t('r3FilterNoMatch')} body={t('r3FilterClearHelp')}/>}
       <div className="opportunity-grid">
-        {visibleOpportunities.map((opportunity,index) => {
+        {shownOpportunities.map((opportunity,index) => {
           const product=opportunity.product;
           // A partial rollout must never allow unverified research items into a campaign.
           const assessment=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? assessRevenueOpportunity(opportunity) : null;
@@ -1318,7 +1402,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                 <span className={`potential-chip potential-${potential.toLowerCase()}`}>{potentialLabel}</span>
                 <span>NestScore 2.0 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}</span>
               </div>
-              <h3><a className="product-title-link" href={product.url.value} target="_blank" rel="noreferrer">{product.title.value}</a></h3>
+              <h3>{isSafeOfferUrl(product.url.value,product.marketplace)
+                ? <a className="product-title-link" href={product.url.value} target="_blank" rel="noopener noreferrer">{product.title.value}</a>
+                : product.title.value}</h3>
               <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
               <div className="product-proof-row">
                 <span className="proof-chip success">{product.availability.value==='available' ? t('availableNow') : t('catalogOfficial')}</span>
@@ -1341,6 +1427,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   ? <span className="proof-chip success">{t('shopeeAffiliateReady')}</span>
                   : null}
               </div>
+              {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4ById[opportunity.id] && <OpportunityV4Panel assessment={v4ById[opportunity.id]!}/>}
               {assessment && FEATURE_FLAGS.REVENUE_ASSESSMENT_ENABLED && <RevenueAssessmentPanel assessment={assessment}/>}
               {FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED && <details className="revenue-assessment">
                 <summary>{t('r3Compare')} ({comparisons.length})</summary>
@@ -1389,9 +1476,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               </div>
               <div className="tracking-row"><code>{opportunity.trackingCode}</code><button className="text-button" onClick={()=>void navigator.clipboard.writeText(opportunity.trackingCode)}>{t('copyTracking')}</button></div>
               <div className="opportunity-actions">
-                <a className="button secondary" href={product.url.value} target="_blank" rel="noreferrer">{t('openProduct')}</a>
+                <ProductSourceActions product={product} compact />
                 <button className="button secondary" onClick={()=>prepareAffiliate(opportunity)}>{t('affiliatePrep')}</button>
-                <button className="button primary" disabled={!editable || Boolean(assessment && assessment.track!=='VALIDATED')} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{assessment && assessment.track!=='VALIDATED' ? t('r3ReviewFirst') : t('createCampaign')}</button>
+                <button className="button primary" disabled={!editable || (!FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED && Boolean(assessment && assessment.track!=='VALIDATED'))} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED && v4ById[opportunity.id]?.status!=='READY_NOW'
+ ? (locale==='pt-BR'?'Criar rascunho de pesquisa':'Create research draft')
+ : assessment && assessment.track!=='VALIDATED' ? t('r3ReviewFirst') : t('createCampaign')}</button>
               </div>
             </div>
           </article>
@@ -1572,6 +1661,19 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   function approve() {
     if (approvingRef.current) return;
     approvingRef.current = true;
+    // Only V4 research drafts are subject to this additive protection;
+    // pre-existing campaigns keep their original approval semantics.
+    if(campaign.rankingContext?.v4ResearchDraft && (
+      !v.creativeAsset?.referenceAssetId ||
+      v.creativeAsset.referenceListingId!==v.product.externalId ||
+      !v.creativeAsset.referenceSha256 ||
+      !v.creativeAsset.reviewedAt ||
+      !v.creativeAsset.productFidelityConfirmed
+    )){
+      setCreativeApprovalError(true);
+      approvingRef.current=false;
+      return;
+    }
     if(v.creativePack && !v.creativeAsset){
       setCreativeApprovalError(true);
       approvingRef.current=false;
@@ -1622,6 +1724,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           </div>
           <Disclosure title={t('product')} defaultOpen>
             <h3>{v.product.title.value}</h3>
+            <ProductSourceActions product={v.product} />
             <p className="muted">{campaign.marketplace} · {v.product.sellerName?.value ?? t('sellerUnknown')}</p>
             <small>{t('source')}: {v.product.title.source} · {new Date(v.product.title.observedAt).toLocaleString(locale)}</small>
             <div className="affiliate-editor">
@@ -1807,6 +1910,8 @@ function Publish({
   const [scheduledFor,setScheduledFor]=useState('');
   const [scheduleMessage,setScheduleMessage]=useState('');
   const [online,setOnline]=useState(()=>typeof navigator==='undefined' ? true : navigator.onLine);
+  const [referenceValidation,setReferenceValidation]=useState<'idle'|'checking'|'approved'|'blocked'>('idle');
+
 
   const progressCampaignId=campaign?.id;
   const progressOrganizationId=campaign?.organizationId;
@@ -1828,6 +1933,27 @@ function Publish({
       window.removeEventListener('offline',onOffline);
     };
   },[]);
+
+
+  useEffect(()=>{
+    if(!campaign?.rankingContext?.v4ResearchDraft){
+      setReferenceValidation('approved');return;
+    }
+    const asset=campaign.currentVersion.creativeAsset;
+    if(!db || !asset?.referenceAssetId || !asset.referenceSha256 ||
+      asset.referenceListingId!==campaign.currentVersion.product.externalId ||
+      !asset.productFidelityConfirmed || !asset.reviewedAt){
+      setReferenceValidation('blocked');return;
+    }
+    let active=true;
+    setReferenceValidation('checking');
+    void validateStoredProductReference({
+      db,organizationId:campaign.organizationId,product:campaign.currentVersion.product,
+      assetId:asset.referenceAssetId,expectedSha256:asset.referenceSha256,
+    }).then(ok=>{if(active)setReferenceValidation(ok?'approved':'blocked');})
+      .catch(()=>{if(active)setReferenceValidation('blocked');});
+    return ()=>{active=false;};
+  },[campaign?.rankingContext?.v4ResearchDraft,campaign?.currentVersion,campaign?.organizationId]);
 
   useEffect(()=>{
     if(!campaign || !db || !identity.organizationId) {
@@ -1922,6 +2048,7 @@ function Publish({
   const freshMaterialBlock=['review','block'].includes(freshState);
   const publisherBlocked=
     guard.outcome==='BLOCK' ||
+    referenceValidation!=='approved' ||
     freshMaterialBlock ||
     ['idle','loading'].includes(freshState) ||
     (!freshReady && ['manual','error'].includes(freshState));
@@ -1944,6 +2071,7 @@ function Publish({
   // Progress holds no sensitive data; it is scoped by organization and approved version.
   // A restored checklist never implies an actual marketplace publication.
   function nextStep(){
+    if(publisherBlocked)return;
     persistPackage();
     const following=Math.min(step+1,steps.length-1);
     setStep(following);
@@ -1952,12 +2080,13 @@ function Publish({
   async function copy(text: string) { await navigator.clipboard.writeText(text); }
 
   function persistPackage() {
-    if (db && identity.organizationId && activeCampaign.status === 'PUBLICATION_READY') {
+    if (db && identity.organizationId && (!activeCampaign.rankingContext?.v4ResearchDraft || !publisherBlocked) && activeCampaign.status === 'PUBLICATION_READY') {
       void savePublicationPackage(db, identity.organizationId, pkg).catch(() => undefined);
     }
   }
 
   function schedulePublication(){
+    if((activeCampaign.rankingContext?.v4ResearchDraft && (publisherBlocked || !online)) || activeCampaign.status!=='PUBLICATION_READY')return;
     const parsed=validateScheduledFor(scheduledFor);
     if(!parsed.valid){
       setScheduleMessage(t('scheduleInvalid'));
@@ -1994,6 +2123,7 @@ function Publish({
   }
 
   async function downloadImage() {
+    if(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)return;
     persistPackage();
     const canvas = document.createElement('canvas');
     let version=v;
@@ -2057,10 +2187,17 @@ function Publish({
   return (
     <div className="page publish-page">
       <PageTitle eyebrow={t('publishEyebrow')} title={t('publishReady')} subtitle={t('publishSub')} />
+      <ProductSourceActions product={v.product} compact />
       <div className="validation-row">
         {guard.checks.map((check) => <span key={check.key} className={`check ${check.outcome.toLowerCase()}`}>{check.outcome === 'PASS' ? '✓' : check.outcome === 'WARN' ? '!' : '×'} {check.key}</span>)}
       </div>
       {guard.outcome === 'BLOCK' && <div className="notice danger">{t('publishBlocked')}</div>}
+      {activeCampaign.rankingContext?.v4ResearchDraft && referenceValidation!=='approved' &&
+        <div className="notice danger" role="alert">{referenceValidation==='checking'
+          ? 'Conferindo a referência real e sua autorização antes de publicar…'
+          : 'Publicação suspensa: a foto de referência está ausente, revogada ou não corresponde à variante. Volte à revisão e valide novamente.'}
+          <NavLink className="button secondary" to={`/review/${activeCampaign.id}`}>Voltar à revisão</NavLink>
+        </div>}
       {!online && <div className="notice">{t('offlinePublishBlocked')}</div>}
       <section className={`fresh-validation ${freshState}`}>
         <div>
@@ -2085,7 +2222,7 @@ function Publish({
       <div className="publish-grid">
         <PinPreview campaign={campaign} />
         <section className="package-card">
-          <button className="button primary download-button" onClick={() => void downloadImage()}>{t('downloadPng')}</button>
+          <button className="button primary download-button" disabled={Boolean(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)} onClick={() => void downloadImage()}>{t('downloadPng')}</button>
           <Field label={t('file')} value={pkg.filename} onCopy={() => copy(pkg.filename)} />
           <Field label={t('title')} value={pkg.title} onCopy={() => copy(pkg.title)} />
           <Field label={t('description')} value={pkg.description} onCopy={() => copy(`${pkg.description}\n\n${pkg.disclosure}`)} />
@@ -2120,7 +2257,7 @@ function Publish({
         </div>
         <div className="schedule-controls">
           <input type="datetime-local" value={scheduledFor} onChange={(e)=>{setScheduledFor(e.target.value);setScheduleMessage('');}} />
-          <button className="button secondary" onClick={schedulePublication}>{t('schedule')}</button>
+          <button className="button secondary" disabled={Boolean(activeCampaign.rankingContext?.v4ResearchDraft && (publisherBlocked || !online))} onClick={schedulePublication}>{t('schedule')}</button>
           {scheduleMessage && <span className={scheduleMessage===t('scheduled')?'success-text':'field-error'}>{scheduleMessage}</span>}
         </div>
       </section>

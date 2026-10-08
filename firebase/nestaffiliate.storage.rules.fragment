@@ -32,3 +32,15 @@
 // - oversized file denied
 // - invalid MIME denied
 // - organizationId metadata mismatch denied
+
+
+// Reference Lock 4.0 — add only into the canonical MillionsNest Storage rules.
+// match /organizations/{orgId}/product-references/{assetFile} {
+//   allow read: if nestAffiliateStorageCanRead(orgId);
+//   allow create: if nestAffiliateStorageCanEdit(orgId)
+//                 && request.resource.size <= 8 * 1024 * 1024
+//                 && request.resource.contentType == 'image/webp'
+//                 && request.resource.metadata.organizationId == orgId;
+//   allow update, delete: if false; // revoke in Firestore, retain asset for audits
+// }
+// Emulator: cross-tenant DENY; viewer DENY; editor ALLOW; MIME/size/metadata DENY.

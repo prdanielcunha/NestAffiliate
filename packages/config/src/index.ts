@@ -15,6 +15,10 @@ export const PUBLIC_LINKS = {
 } as const;
 
 export const FEATURE_FLAGS = {
+  // Opt-in canary: record/display V4 in shadow without changing historical campaigns.
+  RADAR_V4_SHADOW_ENABLED: envBoolean(import.meta.env.VITE_RADAR_V4_SHADOW_ENABLED, false),
+  RADAR_V4_DISCOVERY_ENABLED: envBoolean(import.meta.env.VITE_RADAR_V4_DISCOVERY_ENABLED, false),
+  REFERENCE_LOCK_V4_ENABLED: envBoolean(import.meta.env.VITE_REFERENCE_LOCK_V4_ENABLED, false),
   REVENUE_RADAR_3_ENABLED: envBoolean(import.meta.env.VITE_REVENUE_RADAR_3_ENABLED, false),
   REVENUE_ASSESSMENT_ENABLED: envBoolean(import.meta.env.VITE_REVENUE_ASSESSMENT_ENABLED, false),
   CROSS_MARKET_OFFER_COMPARE_ENABLED: envBoolean(import.meta.env.VITE_CROSS_MARKET_OFFER_COMPARE_ENABLED, false),

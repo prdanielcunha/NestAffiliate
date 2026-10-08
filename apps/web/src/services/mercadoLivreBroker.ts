@@ -9,6 +9,9 @@ export interface MercadoLivreSearchMeta {
   detailed:number;
   usable:number;
   minSoldQuantity:number;
+  discoveryMode?:boolean;
+  researchOnly?:boolean;
+  sourceLimited?:boolean;
   rejectedUnavailable:number;
   rejectedLowSales:number;
   rejectedUnverified:number;
@@ -18,6 +21,7 @@ export interface MercadoLivreSearchResult {
   products:ProductTruth[];
   query:string;
   provider:'MELI';
+  degraded?:boolean;
   source:string;
   observedAt:string;
   meta:MercadoLivreSearchMeta;
@@ -28,6 +32,7 @@ export async function searchMercadoLivreBrokerDetailed(input:{
   organizationId:string;
   query:string;
   limit?:number;
+  researchMode?:boolean;
 }):Promise<MercadoLivreSearchResult>{
   const query=input.query.trim();
 
@@ -80,6 +85,7 @@ export async function searchMercadoLivreBrokerDetailed(input:{
   url.searchParams.set('organizationId',input.organizationId);
   url.searchParams.set('q',query);
   url.searchParams.set('limit',String(Math.max(1,Math.min(input.limit ?? 12,20))));
+  if(input.researchMode)url.searchParams.set('mode','discovery_v4');
 
   const response=await fetch(url.toString(),{
     headers:{
@@ -106,6 +112,7 @@ export async function searchMercadoLivreBrokerDetailed(input:{
     products,
     query:typeof payload.query==='string' ? payload.query : query,
     provider:'MELI',
+    degraded:payload.degraded===true,
     source:typeof payload.source==='string' ? payload.source : 'mercadolivre-catalog-api',
     observedAt:typeof payload.observedAt==='string' ? payload.observedAt : new Date().toISOString(),
     meta:{
