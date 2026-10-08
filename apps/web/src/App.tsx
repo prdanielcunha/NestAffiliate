@@ -2042,6 +2042,7 @@ function Publish({
   // Progress holds no sensitive data; it is scoped by organization and approved version.
   // A restored checklist never implies an actual marketplace publication.
   function nextStep(){
+    if(publisherBlocked)return;
     persistPackage();
     const following=Math.min(step+1,steps.length-1);
     setStep(following);
@@ -2050,12 +2051,13 @@ function Publish({
   async function copy(text: string) { await navigator.clipboard.writeText(text); }
 
   function persistPackage() {
-    if (db && identity.organizationId && activeCampaign.status === 'PUBLICATION_READY') {
+    if (db && identity.organizationId && !publisherBlocked && activeCampaign.status === 'PUBLICATION_READY') {
       void savePublicationPackage(db, identity.organizationId, pkg).catch(() => undefined);
     }
   }
 
   function schedulePublication(){
+    if(publisherBlocked || !online || activeCampaign.status!=='PUBLICATION_READY')return;
     const parsed=validateScheduledFor(scheduledFor);
     if(!parsed.valid){
       setScheduleMessage(t('scheduleInvalid'));
@@ -2092,6 +2094,7 @@ function Publish({
   }
 
   async function downloadImage() {
+    if(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)return;
     persistPackage();
     const canvas = document.createElement('canvas');
     let version=v;
@@ -2190,7 +2193,7 @@ function Publish({
       <div className="publish-grid">
         <PinPreview campaign={campaign} />
         <section className="package-card">
-          <button className="button primary download-button" onClick={() => void downloadImage()}>{t('downloadPng')}</button>
+          <button className="button primary download-button" disabled={Boolean(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)} onClick={() => void downloadImage()}>{t('downloadPng')}</button>
           <Field label={t('file')} value={pkg.filename} onCopy={() => copy(pkg.filename)} />
           <Field label={t('title')} value={pkg.title} onCopy={() => copy(pkg.title)} />
           <Field label={t('description')} value={pkg.description} onCopy={() => copy(`${pkg.description}\n\n${pkg.disclosure}`)} />
@@ -2225,7 +2228,7 @@ function Publish({
         </div>
         <div className="schedule-controls">
           <input type="datetime-local" value={scheduledFor} onChange={(e)=>{setScheduledFor(e.target.value);setScheduleMessage('');}} />
-          <button className="button secondary" onClick={schedulePublication}>{t('schedule')}</button>
+          <button className="button secondary" disabled={publisherBlocked || !online} onClick={schedulePublication}>{t('schedule')}</button>
           {scheduleMessage && <span className={scheduleMessage===t('scheduled')?'success-text':'field-error'}>{scheduleMessage}</span>}
         </div>
       </section>
