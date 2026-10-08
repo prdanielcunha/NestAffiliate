@@ -4,7 +4,7 @@ import {
 } from '@nestaffiliate/integrations';
 import { useI18n } from '../lib/i18n-context';
 
-export function ShopeeResearchBridge({ query }: { query: string }) {
+export function ShopeeResearchBridge({ query, degraded=false }: { query: string; degraded?:boolean }) {
   const { t } = useI18n();
   const searchTerm = query.trim();
 
@@ -22,15 +22,15 @@ export function ShopeeResearchBridge({ query }: { query: string }) {
   }
 
   return (
-    <section id="shopee-quick-mode" className="shopee-research-bridge shopee-quick-mode" aria-label={t('shopeeQuickModeTitle')}>
+    <section id="shopee-quick-mode" className="shopee-research-bridge shopee-quick-mode" aria-label={degraded ? t('shopeeDegradedModeTitle') : t('shopeeQuickModeTitle')}>
       <div className="shopee-research-head">
         <div>
           <div className="shopee-live-row">
             <span className="health-dot" aria-hidden="true" />
-            <span>{t('shopeeQuickModeActive')}</span>
+            <span>{degraded ? t('shopeeDegradedModeActive') : t('shopeeQuickModeActive')}</span>
           </div>
-          <h2>{t('shopeeQuickModeTitle')}</h2>
-          <p>{t('shopeeQuickModeBody')}</p>
+          <h2>{degraded ? t('shopeeDegradedModeTitle') : t('shopeeQuickModeTitle')}</h2>
+          <p>{degraded ? t('shopeeDegradedModeBody') : t('shopeeQuickModeBody')}</p>
         </div>
         <span className="connection-status guided">{t('availableNow')}</span>
       </div>
@@ -83,7 +83,7 @@ export function ShopeeResearchBridge({ query }: { query: string }) {
         <li>{t('shopeeQuickStep3')}</li>
       </ol>
 
-      <p className="shopee-research-note">{t('shopeeQuickModeNotice')}</p>
+      <p className="shopee-research-note">{degraded ? t('shopeeDegradedModeNotice') : t('shopeeQuickModeNotice')}</p>
     </section>
   );
 }
