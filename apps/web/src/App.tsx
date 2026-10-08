@@ -1710,9 +1710,9 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           observedAt: new Date().toISOString(),
         },
         ...(v.product.marketplace==='MELI' ? {affiliateAttestation:{
-          method:'USER_CONFIRMED_IN_AFFILIATE_PORTAL',
+          method:'USER_CONFIRMED_IN_AFFILIATE_PORTAL' as const,
           url:url.toString(),marketplace:v.product.marketplace,externalId:v.product.externalId,
-          channel:'PINTEREST',confirmedAt:new Date().toISOString(),
+          channel:'PINTEREST' as const,confirmedAt:new Date().toISOString(),
         }} : {}),
       };
       const next=nextCampaignVersion(campaign, { product }, 'affiliate link updated');
@@ -1831,7 +1831,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         <div><p className="eyebrow">{locale==='pt-BR'?'PRÉVIA · NÃO SALVO':locale==='es'?'VISTA PREVIA · NO GUARDADO':'PREVIEW · NOT SAVED'}</p>
           <h2>{locale==='pt-BR'?'Veja antes de aplicar':locale==='es'?'Revisa antes de aplicar':'Review before applying'}</h2>
           <ul>{pendingEdit.summary.map(item=><li key={item}>{item}</li>)}</ul></div>
-        <div className="edit-preview-actions"><button className="button secondary" onClick={()=>setPendingEdit(null)}>{t('cancel')}</button>
+        <div className="edit-preview-actions"><button className="button secondary" onClick={()=>setPendingEdit(null)}>{locale==='pt-BR'?'Cancelar':locale==='es'?'Cancelar':'Cancel'}</button>
         <button className="button primary" onClick={confirmEdit}>{locale==='pt-BR'?'Aplicar alteração':locale==='es'?'Aplicar cambio':'Apply change'}</button></div>
       </section>
       <div className="review-grid">
