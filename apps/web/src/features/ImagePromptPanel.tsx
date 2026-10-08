@@ -32,7 +32,19 @@ export function ImagePromptPanel({
  if(!concept||!base)return null;
  const enabled=FEATURE_FLAGS.REFERENCE_LOCK_V4_ENABLED && referenceLockRequired;
  const ready=!enabled||Boolean(reference&&isReferenceAiReady(reference.asset,product)&&reference.previewUrl);
- const realPrompt=enabled?[
+ const realPrompt=enabled?(language==='en'?[
+  'MANDATORY IMAGE REFERENCE — ATTACHMENT REQUIRED:',
+  'The user must attach the actual authorized photograph BEFORE requesting generation. This prompt never automatically uploads the photo.',
+  'If the exact photo is missing from the conversation, do not generate a similar or invented product: ask for the correct attachment.',
+  'Authorized reference: '+(reference?.asset.id??'NOT PROVIDED')+'; SHA-256: '+(reference?.asset.sha256??'NOT PROVIDED')+'.',
+  'Original marketplace listing: '+product.marketplace+' / '+product.externalId+'.',
+  'Exact product: '+product.title.value+'.',
+  'Do not alter color, geometry, proportions, component count, material, finish, brand or variant.',
+  'Do not insert words, price, discounts, false ratings, logos or product claims inside the picture.',
+  'Pinterest 2:3 composition, 1000×1500 px; reserve a clean space for a headline placed later by the app.',
+  'If the exact product cannot be preserved, do not invent one. Request a clearer authorized photo.',
+  '',base.prompt,
+ ]:[
   'INSTRUÇÃO FUNDAMENTAL — ANEXO DE REFERÊNCIA OBRIGATÓRIO:',
   'O usuário deve ANEXAR a imagem real autorizada da referência ANTES de pedir a geração. Este texto não anexa a imagem automaticamente.',
   'Se a foto exata não estiver anexada e visível, não gere uma cadeira ou produto parecido; solicite o anexo correto.',
@@ -45,7 +57,7 @@ export function ImagePromptPanel({
   'Se a imagem real não permitir um resultado fiel, recuse a invenção de produto semelhante e peça nova referência.',
   '',
   base.prompt,
- ].join('\n'):base.prompt;
+ ]).join('\n'):base.prompt;
  async function copyPrompt(openChat=false){
    if(!ready)return;
    setError('');
@@ -54,7 +66,7 @@ export function ImagePromptPanel({
      if(openChat)window.open('https://chatgpt.com/','_blank','noopener,noreferrer');
      await navigator.clipboard.writeText(realPrompt);
      setCopied(true);
-   }catch{setError(locale==='pt-BR'?'Copie manualmente o prompt.':'Copy the prompt manually.');}
+   }catch{setError(locale==='pt-BR'?'Copie manualmente o prompt.':locale==='es'?'Copie el prompt manualmente.':'Copy the prompt manually.');}
  }
  const legacyRights=['AUTHORIZED','PLATFORM_PROVIDED','USER_PROVIDED','GENERATED'].includes(product.assetRights);
  return <div className="image-prompt-panel">
@@ -70,23 +82,23 @@ export function ImagePromptPanel({
    <div className="prompt-reference-grid">
      <div className="reference-card"><span>{t('referenceImage')}</span>
        {enabled
-         ? reference&&ready?<img src={reference.previewUrl} alt={product.title.value}/>:<div className="reference-placeholder">Referência autorizada obrigatória antes de enviar à IA.</div>
+         ? reference&&ready?<img src={reference.previewUrl} alt={product.title.value}/>:<div className="reference-placeholder">{locale==='pt-BR'?'Referência autorizada obrigatória antes de enviar à IA.':locale==='es'?'Se requiere una referencia autorizada antes de enviar a la IA.':'An authorized reference is required before sending to AI.'}</div>
          :legacyRights&&product.imageUrl?<img src={product.imageUrl.value} alt={product.title.value}/>:<div className="reference-placeholder">{t('referenceUnavailable')}</div>}
      </div>
      <div className="prompt-tech"><span>{t('targetSize')}</span><strong>1000 × 1500</strong><small>2:3 · {t('noEmbeddedText')}</small></div>
    </div>
    {enabled&&<div className="reference-step-instructions">
-     <strong>{locale==='pt-BR'?'2. Anexe a mesma foto autorizada no ChatGPT':'2. Attach the authorized reference in ChatGPT'}</strong>
-     <p>{locale==='pt-BR'?'Baixe a referência armazenada e anexe-a manualmente na conversa. Copiar o prompt NÃO transfere a imagem. Após a geração, volte para comparar e importar a imagem final.':'Download and attach the exact reference manually. Copying the prompt never attaches an image.'}</p>
+     <strong>{locale==='pt-BR'?'2. Anexe a mesma foto autorizada no ChatGPT':locale==='es'?'2. Adjunte la misma foto autorizada en ChatGPT':'2. Attach the authorized reference in ChatGPT'}</strong>
+     <p>{locale==='pt-BR'?'Baixe a referência armazenada e anexe-a manualmente na conversa. Copiar o prompt NÃO transfere a imagem. Após a geração, volte para comparar e importar a imagem final.':locale==='es'?'Descargue la referencia y adjúntela manualmente en ChatGPT. Copiar el prompt NO transfiere la imagen. Después, compare e importe la imagen final.':'Download and attach the exact reference manually. Copying the prompt never attaches an image.'}</p>
      {reference&&ready&&<a className="button secondary" download={'nestaffiliate-referencia-'+product.externalId+'.webp'} href={reference.previewUrl}>
-       {locale==='pt-BR'?'Baixar referência autorizada':'Download authorized reference'}</a>}
+       {locale==='pt-BR'?'Baixar referência autorizada':locale==='es'?'Descargar referencia autorizada':'Download authorized reference'}</a>}
    </div>}
    <pre className="prompt-box image-prompt-box">{realPrompt}</pre>
    <div className="prompt-actions">
      <button type="button" className="button primary" disabled={!ready} onClick={()=>void copyPrompt(true)}>{t('copyToChatGPT')}</button>
      <button type="button" className="button secondary" disabled={!ready} onClick={()=>void copyPrompt()}>{copied?t('copied'):t('copyPrompt')}</button>
    </div>
-   {enabled&&!ready&&<p className="field-hint" role="status">Envio à IA bloqueado: confirme direitos e escolha a referência visual exata.</p>}
+   {enabled&&!ready&&<p className="field-hint" role="status">{locale==='pt-BR'?'Envio à IA bloqueado: confirme direitos e escolha a referência visual exata.':locale==='es'?'Envío a IA bloqueado: confirme los derechos y seleccione la referencia exacta.':'AI upload blocked: confirm rights and select the exact visual reference.'}</p>}
    {error&&<p className="field-error" role="alert">{error}</p>}
  </div>;
 }

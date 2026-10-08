@@ -279,7 +279,7 @@ export function AIImageImport({
 
     {error && <p className="field-error">{error}</p>}
 
-    {v4&&<p className="field-hint">3. Importe a imagem FINAL, não a foto original. Confira lado a lado antes de aprovar. NestAI não recebe a foto e fica desabilitado neste modo.</p>}
+    {v4&&<p className="field-hint">{locale==='pt-BR'?'3. Importe a imagem FINAL, não a foto original. Confira lado a lado antes de aprovar. NestAI não recebe a foto e fica desabilitado neste modo.':locale==='es'?'3. Importe la imagen FINAL, no la fotografía de referencia. Compare ambas antes de aprobar. NestAI está desactivado en este modo.':'3. Import the FINAL generated image, not the original reference. Compare them side by side before approval. NestAI is disabled in this mode.'}</p>}
     {prepared && <div className="image-import-preview">
       <div>
         <img src={prepared.previewUrl} alt={t('generatedImagePreview')} />
@@ -297,8 +297,8 @@ export function AIImageImport({
         </div>
         {v4 ? <div className="reference-comparison">
           <div className="reference-comparison-grid">
-            <div><small>Referência real autorizada</small>{referenceReady&&reference?<img src={reference.previewUrl} alt="Referência real exata"/>:<p role="alert">Selecione a foto original autorizada antes de aprovar.</p>}</div>
-            <div><small>Resultado gerado</small><img src={prepared.previewUrl} alt="Imagem final gerada"/></div>
+            <div><small>{locale==='pt-BR'?'Referência real autorizada':locale==='es'?'Referencia real autorizada':'Authorized real reference'}</small>{referenceReady&&reference?<img src={reference.previewUrl} alt={locale==='pt-BR'?'Referência real exata':locale==='es'?'Referencia real exacta':'Exact real reference'}/>:<p role="alert">{locale==='pt-BR'?'Selecione a foto original autorizada antes de aprovar.':locale==='es'?'Seleccione la fotografía autorizada antes de aprobar.':'Select an authorized original photograph before approval.'}</p>}</div>
+            <div><small>{locale==='pt-BR'?'Resultado gerado':locale==='es'?'Resultado generado':'Generated result'}</small><img src={prepared.previewUrl} alt={locale==='pt-BR'?'Imagem final gerada':locale==='es'?'Imagen final generada':'Final generated image'}/></div>
           </div>
           {([
             ['color','Cor e variante exatamente iguais à foto.'],
@@ -307,7 +307,7 @@ export function AIImageImport({
             ['details','Acabamento, detalhes e marca conferidos.'],
           ] as const).map(([key,label])=><label className="manual-confirm" key={key}>
             <input type="checkbox" checked={fidelity[key]} onChange={e=>setFidelity(old=>({...old,[key]:e.target.checked}))}/>
-            <span>{label}</span>
+            <span>{locale==='pt-BR'?label:locale==='es'?({color:'Color y variante idénticos a la foto.',shape:'Forma, proporciones y estructura conservadas.',parts:'Ninguna pieza ni función inventada.',details:'Acabado, detalles y marca comprobados.'} as const)[key]:({color:'Color and variant exactly match the photo.',shape:'Shape, proportions and structure preserved.',parts:'No invented parts or features.',details:'Finish, details and branding verified.'} as const)[key]}</span>
           </label>)}
         </div> : <label className="manual-confirm">
           <input type="checkbox" checked={reviewed} onChange={(event)=>setReviewed(event.target.checked)} />
