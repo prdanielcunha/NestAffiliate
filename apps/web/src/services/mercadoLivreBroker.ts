@@ -27,6 +27,22 @@ export interface MercadoLivreSearchResult {
   meta:MercadoLivreSearchMeta;
 }
 
+// Per-organization cooldown avoids hammering the provider after an explicit HTTP 429.
+// Scoped to the browser session and NEVER shared across users/organizations.
+const providerCooldownByOrg=new Map<string,number>();
+export function mercadoLivreCooldownUntil(organizationId:string):number|null{
+  const until=providerCooldownByOrg.get(organizationId) ?? 0;
+  if(until>Date.now())return until;
+  providerCooldownByOrg.delete(organizationId);
+  return null;
+}
+function retryAfterMs(value:string|null,now:number):number{
+  if(!value)return 60_000;
+  const seconds=Number(value);
+  const delay=Number.isFinite(seconds)?seconds*1000:Date.parse(value)-now;
+  return Number.isFinite(delay)?Math.max(60_000,Math.min(3600_000,delay)):60_000;
+}
+
 export async function searchMercadoLivreBrokerDetailed(input:{
   user:User;
   organizationId:string;
@@ -80,6 +96,8 @@ export async function searchMercadoLivreBrokerDetailed(input:{
     };
   }
 
+  const cooling=mercadoLivreCooldownUntil(input.organizationId);
+  if(cooling)throw new Error('MELI_RATE_LIMITED_UNTIL_'+new Date(cooling).toISOString());
   const token=await input.user.getIdToken();
   const url=new URL(`${HUB_BASE}/api/v1/nestaffiliate/mercadolivre/search`);
   url.searchParams.set('organizationId',input.organizationId);
@@ -95,6 +113,12 @@ export async function searchMercadoLivreBrokerDetailed(input:{
   });
 
   if(!response.ok){
+    if(response.status===429){
+      const now=Date.now();
+      const until=now+retryAfterMs(response.headers.get('Retry-After'),now);
+      providerCooldownByOrg.set(input.organizationId,until);
+      throw new Error('MELI_RATE_LIMITED_UNTIL_'+new Date(until).toISOString());
+    }
     let reason=`MELI_BROKER_${response.status}`;
     try{
       const payload=await response.json() as {error?:string};

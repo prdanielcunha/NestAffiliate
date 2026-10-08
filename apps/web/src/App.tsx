@@ -740,6 +740,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [shopeeApiConfigured,setShopeeApiConfigured]=useState<boolean|null>(null);
   const [shopeeProviderFallback,setShopeeProviderFallback]=useState(false);
   const [providerDegraded,setProviderDegraded]=useState<Record<'MELI'|'SHOPEE',boolean>>({MELI:false,SHOPEE:false});
+  const [sourceStatus,setSourceStatus]=useState<Record<'MELI'|'SHOPEE','OK'|'RATE_LIMITED'|'AUTH_REQUIRED'|'UNAVAILABLE'|null>>({MELI:null,SHOPEE:null});
   const v4ById=Object.fromEntries(opportunities.map(opp=>[opp.id,assessOpportunityV4({product:opp.product,keyword:opp.keyword,signals:opp.commercialSignals,legacyScore:opp.score.score,
     sourceLimited:providerDegraded[opp.product.marketplace==='MELI'?'MELI':'SHOPEE'],
   })]));
@@ -909,7 +910,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         };
       };
       const providerResults:ProviderResult[]=[];
-      const providerErrors:Error[]=[];
+      const providerErrors:Array<{provider:'MELI'|'SHOPEE';error:Error}>=[];
 
       if(marketplaceScope==='MELI' || marketplaceScope==='ALL'){
         try{
@@ -928,7 +929,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             meta:result.meta,
           });
         }catch(error){
-          providerErrors.push(error instanceof Error ? error : new Error('MELI_BROKER_UNAVAILABLE'));
+          providerErrors.push({provider:'MELI',error:error instanceof Error ? error : new Error('MELI_BROKER_UNAVAILABLE')});
         }
       }
 
@@ -948,13 +949,25 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           });
         }catch(error){
           const normalized=error instanceof Error ? error : new Error('SHOPEE_BROKER_UNAVAILABLE');
-          providerErrors.push(normalized);
+          providerErrors.push({provider:'SHOPEE',error:normalized});
           if(marketplaceScope==='SHOPEE') throw normalized;
         }
       }
 
       if(!providerResults.length){
-        throw providerErrors[0] ?? new Error('RADAR_PROVIDERS_UNAVAILABLE');
+        if(FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && db){
+          const statuses:Record<string,'OK'|'RATE_LIMITED'|'AUTH_REQUIRED'|'UNAVAILABLE'>={};
+          for(const failed of providerErrors){
+            const code=failed.error.message.toUpperCase();
+            statuses[failed.provider]=code.includes('429')||code.includes('RATE_LIMITED')?'RATE_LIMITED'
+              :code.includes('403')||code.includes('401')||code.includes('TOKEN')?'AUTH_REQUIRED':'UNAVAILABLE';
+          }
+          void saveRadarV4Coverage({
+            db,organizationId,query:effectiveQuery,provider:marketplaceScope,
+            providerStatuses:statuses,examined:0,assessments:{},
+          }).catch(()=>undefined);
+        }
+        throw providerErrors[0]?.error ?? new Error('RADAR_PROVIDERS_UNAVAILABLE');
       }
 
       const found=providerResults.flatMap((result)=>
@@ -1035,10 +1048,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         const providerStatuses:Record<string,'OK'|'RATE_LIMITED'|'AUTH_REQUIRED'|'UNAVAILABLE'>={};
         for(const current of providerResults)providerStatuses[current.provider]='OK';
         for(const failed of providerErrors){
-          const code=failed.message.toUpperCase();
-          const status=code.includes('429')||code.includes('RATE')?'RATE_LIMITED'
+          const code=failed.error.message.toUpperCase();
+          const status=code.includes('429')||code.includes('RATE_LIMITED')?'RATE_LIMITED'
             :code.includes('403')||code.includes('401')||code.includes('TOKEN')?'AUTH_REQUIRED':'UNAVAILABLE';
-          providerStatuses['UNAVAILABLE_'+Object.keys(providerStatuses).length]=status;
+          providerStatuses[failed.provider]=status;
         }
         void saveRadarV4Coverage({
           db,organizationId,query:effectiveQuery,provider,
@@ -1046,9 +1059,22 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         }).catch(()=>undefined);
       }
 
+      const resolvedStatus=(provider:'MELI'|'SHOPEE')=>{
+        const successful=providerResults.find(item=>item.provider===provider);
+        if(successful)return successful.degraded ? 'UNAVAILABLE' as const : 'OK' as const;
+        const failed=providerErrors.find(item=>item.provider===provider);
+        if(!failed)return null;
+        const code=failed.error.message.toUpperCase();
+        return code.includes('429')||code.includes('RATE_LIMITED')?'RATE_LIMITED' as const
+          :code.includes('403')||code.includes('401')||code.includes('TOKEN')?'AUTH_REQUIRED' as const
+          :'UNAVAILABLE' as const;
+      };
+      const meliStatus=resolvedStatus('MELI');
+      const shopeeStatus=resolvedStatus('SHOPEE');
+      setSourceStatus({MELI:meliStatus,SHOPEE:shopeeStatus});
       setProviderDegraded({
-        MELI:providerResults.find(item=>item.provider==='MELI')?.degraded===true,
-        SHOPEE:providerResults.find(item=>item.provider==='SHOPEE')?.degraded===true,
+        MELI:meliStatus!==null && meliStatus!=='OK',
+        SHOPEE:shopeeStatus!==null && shopeeStatus!=='OK',
       });
       setOpportunities(visible);
       if(provider==='SHOPEE' || provider==='ALL') setShopeeProviderFallback(false);
@@ -1161,7 +1187,14 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   }
 
   function prepareAffiliate(opportunity:Opportunity){
-    const destination=opportunity.product.affiliateUrl?.value ?? opportunity.product.url.value;
+    const product=opportunity.product;
+    const destination=isSafeAffiliateUrl(product.affiliateUrl?.value,product.marketplace)
+      ? product.affiliateUrl!.value
+      :isSafeOfferUrl(product.url.value,product.marketplace)?product.url.value:null;
+    if(!destination){
+      setAnalysisNotice(locale==='pt-BR'?'Confira uma URL HTTPS oficial antes de continuar.':locale==='es'?'Compruebe la URL oficial HTTPS.':'Verify a safe official HTTPS URL first.');
+      return;
+    }
     window.open(destination,'_blank','noopener,noreferrer');
     void navigator.clipboard.writeText(destination).catch(()=>undefined);
   }
@@ -1301,6 +1334,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             errorCode.includes('SHOPEE_API_NOT_CONNECTED') ? t('radarShopeeErrorReconnect') :
             errorCode.includes('SHOPEE_CREDENTIALS_STALE') || errorCode.includes('SHOPEE_CREDENTIALS_REJECTED') ? t('radarShopeeErrorStale') :
             errorCode.includes('SHOPEE_') ? t('radarShopeeErrorGeneric') :
+            errorCode.includes('MELI_RATE_LIMITED') || errorCode.includes('429') ? (locale==='pt-BR'?'Limite temporário da fonte: suas oportunidades não foram rejeitadas. Aguarde o horário permitido pelo provedor e tente novamente.':locale==='es'?'Límite temporal de la fuente. Reintente cuando el proveedor lo permita.':'Provider rate limit. Retry after the provider cooldown; offers were not rejected.') :
             errorCode.includes('MELI_NOT_CONNECTED') ? t('radarErrorReconnect') :
             errorCode.includes('MELI_TOKEN_STALE') ? t('radarErrorRefreshing') :
             errorCode.includes('FORBIDDEN') || errorCode.includes('NESTAFFILIATE_NOT_ENABLED') ? t('radarErrorAccess') :
@@ -1313,6 +1347,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           ? <NavLink className="button secondary" to="/connections">{t('connections')}</NavLink>
           : <button className="button secondary" type="button" onClick={()=>void search()}>{t('radarRetry')}</button>}
       </div>}
+      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && hasSearched && state==='idle' && Object.values(sourceStatus).some(s=>s&&s!=='OK') && <section className="notice radar-source-limited" role="status">
+        <strong>{locale==='pt-BR'?'Fonte temporariamente limitada':locale==='es'?'Fuente temporalmente limitada':'Temporarily limited source'}</strong>
+        <p>{locale==='pt-BR'?'Os dados que faltaram não foram tratados como sinal negativo do produto. Investigue as ofertas existentes ou tente novamente quando a fonte estiver disponível.':locale==='es'?'Los datos faltantes no significan mala calidad. Examine las ofertas existentes o reintente cuando vuelva la fuente.':'Missing provider data is not evidence of a poor product. Review existing offers or retry once the provider recovers.'}</p>
+        <small>{Object.entries(sourceStatus).filter(([,s])=>s&&s!=='OK').map(([name,status])=>name+': '+status).join(' · ')}</small>
+      </section>}
       {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && hasSearched && state==='idle' && <section className="v4-funnel">
         <p className="eyebrow">RADAR 4.0 · EVIDENCE</p>
         <h3>{locale==='pt-BR'?'Investigação, não volume artificial':'Evidence-first investigation'}</h3>
