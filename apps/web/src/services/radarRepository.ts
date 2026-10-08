@@ -18,7 +18,9 @@ export async function recordRadarSignal(input:{
   batch.set(doc(input.db,'organizations',input.organizationId,'products','nestaffiliate','trendSignals',id),{
     organizationId:input.organizationId,
     source:'MARKETPLACE',
+    kind:'SUPPLY_DENSITY',
     keyword:input.query.trim(),
+    // This describes observed supply, not search volume or customer demand.
     strength:Math.min(1,input.products.length/20),
     confidence:input.products.length ? Math.min(1,(priced+imaged)/(input.products.length*2)) : 0,
     evidence:[`products:${input.products.length}`,`priced:${priced}`,`imaged:${imaged}`],

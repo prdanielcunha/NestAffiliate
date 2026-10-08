@@ -72,3 +72,5 @@ export function normalizePerformanceInput(input: Partial<PerformanceDaily> & Pic
     observedAt:input.observedAt ?? new Date().toISOString(),
   };
 }
+
+export * from './affiliateResults';

@@ -329,3 +329,8 @@ export {
   TARGET_IMAGE_HEIGHT,
   TARGET_RATIO,
 } from './image-processing';
+
+export { createReelKit } from './reelKit';
+export type { ReelKit } from './reelKit';
+
+export {renderReelCover,REEL_COVER_HEIGHT,REEL_COVER_WIDTH} from './reelCover';

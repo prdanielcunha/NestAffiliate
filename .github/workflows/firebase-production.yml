@@ -49,8 +49,20 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: E2E gate
-        run: pnpm e2e --project=mobile && pnpm e2e --project=desktop
+      - name: E2E gate — baseline
+        run: pnpm exec playwright test --grep-invert 'Revenue 3'
+
+      - name: E2E gate — enabled safe Revenue OS 3.0
+        env:
+          VITE_REVENUE_RADAR_3_ENABLED: 'true'
+          VITE_REVENUE_ASSESSMENT_ENABLED: 'true'
+          VITE_CROSS_MARKET_OFFER_COMPARE_ENABLED: 'true'
+          VITE_MULTICHANNEL_CREATIVE_KIT_ENABLED: 'true'
+          VITE_REVENUE_IMPORT_V2_ENABLED: 'true'
+          VITE_NESTAI_OPPORTUNITY_ENRICHMENT_ENABLED: 'false'
+          VITE_FACEBOOK_SHOPEE_AFFILIATE_ENABLED: 'false'
+          VITE_PAID_SERVICES_DISABLED: 'true'
+        run: pnpm exec playwright test --grep 'Revenue 3'
 
       - name: Resolve Firebase web configuration
         shell: bash
@@ -78,6 +90,13 @@ jobs:
             echo "VITE_DEMO_DATA_ENABLED=false"
             echo "VITE_E2E_MOCK_AUTH=false"
             echo "VITE_PAID_SERVICES_DISABLED=true"
+            echo "VITE_REVENUE_RADAR_3_ENABLED=true"
+            echo "VITE_REVENUE_ASSESSMENT_ENABLED=true"
+            echo "VITE_CROSS_MARKET_OFFER_COMPARE_ENABLED=true"
+            echo "VITE_MULTICHANNEL_CREATIVE_KIT_ENABLED=true"
+            echo "VITE_REVENUE_IMPORT_V2_ENABLED=true"
+            echo "VITE_FACEBOOK_SHOPEE_AFFILIATE_ENABLED=false"
+            echo "VITE_NESTAI_OPPORTUNITY_ENRICHMENT_ENABLED=false"
             echo "VITE_PINTEREST_API_ENABLED=false"
             echo "VITE_PINTEREST_STANDARD_ACCESS=false"
             echo "VITE_PINTEREST_AUTO_PUBLISH=false"

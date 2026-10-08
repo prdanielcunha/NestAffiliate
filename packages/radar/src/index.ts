@@ -21,6 +21,7 @@ export type CommerceSignalKind =
   | 'BEST_SELLER'
   | 'YIELD'
   | 'PINTEREST_DEMAND'
+  | 'SUPPLY_DENSITY'
   | 'COMPETITION_GAP'
   | 'INTERNAL_PERFORMANCE';
 
@@ -87,14 +88,11 @@ export function isCommerceReadyProduct(
   const sold=product.soldQuantity?.value;
   const available=product.availableQuantity?.value;
   const stockPasses=typeof available!=='number' || available>0;
-  const salesPass=typeof sold!=='number' || sold>=minSoldQuantity;
-  const officialCatalogFallback=
-    product.listingVerified===false &&
-    Boolean(product.catalogProductId);
-  const identityPasses=product.listingVerified!==false || officialCatalogFallback;
-  const availabilityPasses=
-    product.availability.value==='available' ||
-    (officialCatalogFallback && product.availability.value==='unknown');
+  // Missing sales are UNKNOWN_SALES, not proof of the minimum sales threshold.
+  // Canonical/catalog entries cannot pass as a verified seller listing.
+  const salesPass=typeof sold==='number' && Number.isFinite(sold) && sold>=minSoldQuantity;
+  const identityPasses=product.listingVerified===true;
+  const availabilityPasses=product.availability.value==='available';
   return identityPasses &&
     availabilityPasses &&
     stockPasses &&
@@ -204,13 +202,13 @@ export function buildSearchSignal(input:{
   return {
     id:`search:${input.marketplace}:${normalizeSearchText(input.keyword)}`,
     source:input.marketplace==='MELI' ? 'MELI_SEARCH' : input.marketplace==='SHOPEE' ? 'SHOPEE_SEARCH_ASSISTED' : 'MANUAL',
-    kind:'DEMAND',
+    kind:'SUPPLY_DENSITY',
     strength:clamp01(input.resultCount/25)*0.62,
     confidence:clamp01(input.confidence),
     observedAt:input.observedAt ?? new Date().toISOString(),
-    label:input.marketplace==='SHOPEE' ? 'Shopee · Affiliate Open API' : 'Demanda observada na busca',
+    label:input.marketplace==='SHOPEE' ? 'Shopee · Affiliate Open API · ofertas encontradas (não comprova demanda)' : 'Ofertas encontradas na busca (não comprova demanda)',
     keyword:input.keyword,
-    evidence:[`resultados:${input.resultCount}`],
+    evidence:[`anúncios retornados:${input.resultCount}`],
   };
 }
 
@@ -408,7 +406,14 @@ export function buildPinterestTrendSignal(input:{
 }
 
 function weightedSignalStrength(signals:CommerceSignal[], kinds:CommerceSignalKind[]){
-  const relevant=signals.filter((signal)=>kinds.includes(signal.kind) && !signal.futureProvider);
+  const relevant=signals.filter((signal)=>
+    kinds.includes(signal.kind) &&
+    !signal.futureProvider &&
+    // Historic Radar 2 snapshots may have mislabeled search result counts as DEMAND.
+    // Do not silently restore the false demand signal when reading persisted data.
+    signal.source!=='MELI_SEARCH' &&
+    signal.source!=='SHOPEE_SEARCH_ASSISTED'
+  );
   if(!relevant.length) return null;
   const sorted=[...relevant].sort((a,b)=>(b.strength*b.confidence)-(a.strength*a.confidence));
   const strongest=sorted[0]!;
@@ -650,3 +655,8 @@ export function parseMeliOfficialSignals(input:{
     ? parseMeliTrendsPayload(payload,input.observedAt)
     : parseMeliHighlightsPayload(payload,input.observedAt);
 }
+
+export { assessRevenueOpportunity, revenueEvidence } from './revenueAssessment';
+export type { RevenueAssessment, DemandEvidence, EvidenceStatus, OpportunityTrack, RevenueConfidence } from './revenueAssessment';
+export { findComparableOffers } from './offerCompare';
+export type { ComparableOffer } from './offerCompare';
