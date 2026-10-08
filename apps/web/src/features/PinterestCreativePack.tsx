@@ -10,6 +10,7 @@ import { useI18n } from '../lib/i18n-context';
 import { savePinterestCreativePack } from '../services/creativePackRepository';
 import { AIImageImport } from './AIImageImport';
 import { CreativeConceptPicker,templateForConcept } from './CreativeConceptPicker';
+import {narrativeForConcept} from '../lib/creativeDirection';
 import { ImagePromptPanel } from './ImagePromptPanel';
 import type { ReferencePreview } from '../services/productReferenceRepository';
 
@@ -99,7 +100,7 @@ export function PinterestCreativePackPanel({
     const nextVersion=campaign.currentVersion.version+1;
     const nextPack=directionFromSelected(versionPinterestCreativePack(pack,nextVersion,conceptId));
     const chosen=nextPack.imageConcepts.findIndex(item=>item.id===nextPack.recommendedConceptId);
-    const next=nextCampaignVersion(campaign,{creativePack:nextPack,creativeAsset:undefined,template:templateForConcept(chosen)},'creative concept changed');
+    const next=nextCampaignVersion(campaign,{creativePack:nextPack,creativeAsset:undefined,template:templateForConcept(chosen),narrative:narrativeForConcept(campaign.currentVersion,nextPack,chosen)},'creative concept changed');
     onUpdate(next);
     setSaving(true);
     void persist(nextPack).finally(()=>setSaving(false));
