@@ -1,6 +1,6 @@
 import { useCallback,useEffect,useMemo,useState } from 'react';
 import { canWrite, type Campaign } from '@nestaffiliate/core';
-import { parseAffiliateStatement,summarizeAffiliateResults,type AffiliateResult,type PerformanceDaily } from '@nestaffiliate/analytics';
+import { parseAffiliateStatement,summarizeAffiliateResults,reconcileAffiliateImport,type ReconciliationPreview,type AffiliateResult,type PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveRevenueCohortObservation } from '@nestaffiliate/learning';
 import { db } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
@@ -19,6 +19,7 @@ export function RevenueTruthPanel({organizationId,campaigns,performance}:{
   const [state,setState]=useState<'loading'|'idle'|'saving'|'error'|'saved'>('loading');
   const [error,setError]=useState('');
   const [preview,setPreview]=useState<AffiliateResult[]|null>(null);
+  const [reconciliation,setReconciliation]=useState<ReconciliationPreview|null>(null);
   const summary=useMemo(()=>summarizeAffiliateResults(records),[records]);
   const cohort=useMemo(()=>deriveRevenueCohortObservation(campaigns,performance,records),[campaigns,performance,records]);
   const money=(amount:number)=>new Intl.NumberFormat(locale,{style:'currency',currency:'BRL'}).format(amount);
@@ -43,7 +44,10 @@ export function RevenueTruthPanel({organizationId,campaigns,performance}:{
         })),
       });
       if(parsed.length>200)throw new Error('IMPORT_BATCH_TOO_LARGE');
-      setPreview(parsed);setError('');setState('idle');
+      const review=reconcileAffiliateImport(records,parsed);
+      setReconciliation(review);
+      if(review.conflicts.length){setPreview(null);throw new Error('RECONCILIATION_CONFLICT: '+review.conflicts.slice(0,3).map(x=>x.transactionId+': '+x.code).join(' · '));}
+      setPreview(review.toWrite);setError('');setState('idle');
     }catch(err){
       setPreview(null);
       setError(err instanceof Error?err.message:'IMPORT_INVALID');
@@ -54,9 +58,9 @@ export function RevenueTruthPanel({organizationId,campaigns,performance}:{
     if(!preview||!db||!identity.role||!canWrite(identity.role))return;
     setState('saving');setError('');
     try{
-      await saveAffiliateResults(db,organizationId,preview);
+      if(preview.length)await saveAffiliateResults(db,organizationId,preview);
       await refresh();
-      setPreview(null);setCsv('');setStatementId('');
+      setPreview(null);setReconciliation(null);setCsv('');setStatementId('');
       setState('saved');
     }catch(err){
       setError(err instanceof Error?err.message:'IMPORT_FAILED');
@@ -82,14 +86,15 @@ export function RevenueTruthPanel({organizationId,campaigns,performance}:{
         <p className="muted">{t('r3ImportInstruction')}</p>
         <code>{examples}</code>
         <label>{t('r3StatementId')}
-          <input value={statementId} onChange={(event)=>{setStatementId(event.target.value);setPreview(null);}} placeholder="2026-10-provider-export" />
+          <input value={statementId} onChange={(event)=>{setStatementId(event.target.value);setPreview(null);setReconciliation(null);}} placeholder="2026-10-provider-export" />
         </label>
         <label>{t('r3PasteCSV')}
-          <textarea rows={7} value={csv} onChange={(event)=>{setCsv(event.target.value);setPreview(null);}} placeholder={examples} />
+          <textarea rows={7} value={csv} onChange={(event)=>{setCsv(event.target.value);setPreview(null);setReconciliation(null);}} placeholder={examples} />
         </label>
         <button type="button" className="button secondary" onClick={prepare} disabled={!csv.trim()||!statementId.trim()}>{t('r3PreviewImport')}</button>
         {preview && <div className="notice" role="status">
           <strong>{t('r3PreviewCount',{n:preview.length})}</strong>
+          {reconciliation&&<p>{locale==='pt-BR'?'Novas: ':locale==='es'?'Nuevas: ':'New: '}{reconciliation.added} · {locale==='pt-BR'?'Atualizações: ':locale==='es'?'Actualizaciones: ':'Updates: '}{reconciliation.updates} · {locale==='pt-BR'?'Sem alterações: ':locale==='es'?'Sin cambios: ':'No changes: '}{reconciliation.unchanged} · {locale==='pt-BR'?'Estornos identificados: ':locale==='es'?'Reversiones: ':'Reversals: '}{reconciliation.reversed}</p>}
           <p>{t('r3ImportReview')}</p>
           <button type="button" className="button primary" disabled={state==='saving'} onClick={()=>void persist()}>{t('r3ConfirmImport')}</button>
         </div>}
