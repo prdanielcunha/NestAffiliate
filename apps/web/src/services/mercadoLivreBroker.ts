@@ -1,7 +1,7 @@
 import type { User } from 'firebase/auth';
 import type { ProductTruth } from '@nestaffiliate/core';
 
-const HUB_BASE=(import.meta.env.VITE_HUB_URL || 'https://www.millionsnest.com').replace(/\/$/,'');
+const HUB_BASE=(import.meta.env.VITE_HUB_URL || (typeof window!=='undefined' ? window.location.origin : 'https://www.millionsnest.com')).replace(/\/$/,'');
 
 export interface MercadoLivreSearchMeta {
   catalogTotal:number;
