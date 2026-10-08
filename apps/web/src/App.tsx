@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
-import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
+import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
@@ -1373,7 +1373,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                 <span className={`potential-chip potential-${potential.toLowerCase()}`}>{potentialLabel}</span>
                 <span>NestScore 2.0 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}</span>
               </div>
-              <h3>{product.title.value}</h3>
+              <h3>{isSafeOfferUrl(product.url.value,product.marketplace)
+                ? <a className="product-title-link" href={product.url.value} target="_blank" rel="noopener noreferrer">{product.title.value}</a>
+                : product.title.value}</h3>
               <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
               <div className="product-proof-row">
                 <span className="proof-chip success">{product.availability.value==='available' ? t('availableNow') : t('catalogOfficial')}</span>
