@@ -1,6 +1,7 @@
 import { describe,expect,it } from 'vitest';
+import { retryAfterMs } from '../../apps/web/src/services/mercadoLivreBroker';
 import type { ProductTruth,ProductReferenceAsset } from '@nestaffiliate/core';
-import { assessOpportunityV4,buildRadarFunnelV4,isDiscoverableProduct,isReferenceAiReady,isSafeOfferUrl } from '../../packages/radar/src/opportunityV4';
+import { assessOpportunityV4,buildRadarFunnelV4,isDiscoverableProduct,isReferenceAiReady,isSafeOfferUrl,isSafeAffiliateUrl } from '../../packages/radar/src/opportunityV4';
 const now=new Date('2026-10-08T13:00:00Z');
 const product:ProductTruth={
  productId:'p1',organizationId:'org-1',marketplace:'MELI',externalId:'MLB-1',
@@ -59,5 +60,24 @@ describe('Opportunity V4: evidence and hard gates',()=>{
   expect(funnel.readyToPublish).toBe(0);
   expect(funnel.discovery).toBe(1);
   expect(funnel.byReason.AFFILIATE_LINK_MISSING).toBe(1);
+ });
+});
+
+describe('Radar V4 source resilience and safe affiliate destinations',()=>{
+ it('uses bounded Retry-After seconds and absolute HTTP date',()=>{
+  const now=Date.parse('2026-10-08T17:00:00Z');
+  expect(retryAfterMs('120',now)).toBe(120_000);
+  expect(retryAfterMs('Thu, 08 Oct 2026 17:03:00 GMT',now)).toBe(180_000);
+  expect(retryAfterMs(null,now)).toBe(60_000);
+  expect(retryAfterMs('0',now)).toBe(60_000);
+  expect(retryAfterMs('9999999',now)).toBe(3_600_000);
+  expect(retryAfterMs('nonsense',now)).toBe(60_000);
+ });
+ it('does not launch arbitrary affiliate redirects',()=>{
+  expect(isSafeAffiliateUrl('https://evil.example/steal','MELI')).toBe(false);
+  expect(isSafeAffiliateUrl('http://www.mercadolivre.com.br/a','MELI')).toBe(false);
+  expect(isSafeAffiliateUrl('https://www.mercadolivre.com.br/item/MLB-1','MELI')).toBe(true);
+  expect(isSafeAffiliateUrl('https://s.shopee.com.br/offer','SHOPEE')).toBe(true);
+  expect(isSafeAffiliateUrl('https://s.shopee.com.br.evil.test/offer','SHOPEE')).toBe(false);
  });
 });

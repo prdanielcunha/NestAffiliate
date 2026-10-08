@@ -36,7 +36,7 @@ export function mercadoLivreCooldownUntil(organizationId:string):number|null{
   providerCooldownByOrg.delete(organizationId);
   return null;
 }
-function retryAfterMs(value:string|null,now:number):number{
+export function retryAfterMs(value:string|null,now:number):number{
   if(!value)return 60_000;
   const seconds=Number(value);
   const delay=Number.isFinite(seconds)?seconds*1000:Date.parse(value)-now;

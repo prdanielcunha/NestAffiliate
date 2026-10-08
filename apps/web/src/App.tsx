@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
-import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
+import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
