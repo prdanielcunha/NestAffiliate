@@ -145,6 +145,9 @@ export function isMarketplaceAffiliateDestination(raw:string|undefined,marketpla
     const url=new URL(raw);
     if(url.port || url.hostname.endsWith('.') || url.hostname.includes('..'))return false;
     const host=url.hostname.toLowerCase();
+    // MELI offers official short-link generation. Domain verification is only a
+    // safety precondition, not proof that this code belongs to this user's account.
+    if(marketplace==='MELI' && host==='meli.la')return /^\/[a-zA-Z0-9_-]{3,80}\/?$/.test(url.pathname);
     const domains:Record<ProductTruth['marketplace'],string[]>={
       MELI:['mercadolivre.com.br','mercadolibre.com.br','mercadolivre.com','mercadolibre.com'],
       SHOPEE:['shopee.com.br','shopee.com','s.shopee.com.br','shope.ee'],
