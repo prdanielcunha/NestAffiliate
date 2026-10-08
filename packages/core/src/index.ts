@@ -22,6 +22,15 @@ export interface ProductTruth {
   title: TruthValue<string>;
   url: TruthValue<string>;
   affiliateUrl?: TruthValue<string>;
+  /** User declaration, not a provider guarantee of attribution or commission. */
+  affiliateAttestation?: {
+    method: 'USER_CONFIRMED_IN_AFFILIATE_PORTAL';
+    url: string;
+    marketplace: Marketplace;
+    externalId: string;
+    channel: 'PINTEREST';
+    confirmedAt: string;
+  };
   price?: TruthValue<number>;
   currency: TruthValue<string>;
   sellerName?: TruthValue<string>;
