@@ -53,8 +53,14 @@ function weightedSignal(rows:PerformanceDaily[]){
   const summary=summarizePerformance(rows);
   const clickSignal=Math.min(1, summary.ctr / 0.03);
   const saveSignal=Math.min(1, summary.saveRate / 0.02);
-  const conversionSignal=Math.min(1, summary.conversionRate / 0.08);
-  const revenueSignal=summary.epm === null ? 0 : Math.min(1, summary.epm / 80);
+  const financialRows=rows.filter(row=>row.salesKnown!==false);
+  if(!financialRows.length){
+    // Pinterest engagement alone cannot imply zero conversions or zero commission.
+    return (clickSignal*0.60)+(saveSignal*0.40);
+  }
+  const financial=summarizePerformance(financialRows);
+  const conversionSignal=Math.min(1, financial.conversionRate / 0.08);
+  const revenueSignal=financial.epm === null ? 0 : Math.min(1, financial.epm / 80);
   return (clickSignal*0.30)+(saveSignal*0.20)+(conversionSignal*0.25)+(revenueSignal*0.25);
 }
 
@@ -80,6 +86,11 @@ export function historicalScoreAdjustment(
   }
   const ids=new Set(relevant.map((campaign)=>campaign.id));
   const rows=metrics.filter((row)=>ids.has(row.campaignId));
+  const observedCampaigns=new Set(rows.filter(row=>row.impressions>0).map(row=>row.campaignId));
+  if(observedCampaigns.size<12){
+    return {confidence:'insufficient' as const,evidenceCount:observedCampaigns.size,
+      adjustment:0,reason:'Menos de 12 campanhas com métricas observadas; NestScore não ajustado.'};
+  }
   const signal=weightedSignal(rows);
   const adjustment=Math.max(-6,Math.min(6,Math.round((signal-0.5)*12)));
   return {
