@@ -1,4 +1,4 @@
-import { isReadyCampaignOffer } from './revenue-offer-gates.mjs';
+import { isReadyCampaignOffer, classifyExistingCampaignRefresh } from './revenue-offer-gates.mjs';
 import { createMeliRateGate } from './meli-rate-gate.mjs';
 
 const meliGate=createMeliRateGate({spacingMs:450});
@@ -669,7 +669,7 @@ async function runDailyAgent(accessToken,signals,observedAt){
   const report={
     organizationId:ORG_ID,startedAt:new Date().toISOString(),completedAt:observedAt,source:'github-actions',status:'RUNNING',
     checked:0,changed:0,blocked:0,skipped:0,errors:0,signals:signals.length,
-    opportunitiesAnalyzed:0,opportunitiesPersisted:0,opportunitiesExpired:0,campaignsRevalidated:0,verifiedBestSellerProducts:0,campaignsCreated:0,campaignsWaiting:0,fallbackQueries:0,
+    opportunitiesAnalyzed:0,opportunitiesPersisted:0,opportunitiesExpired:0,campaignsRevalidated:0,revalidationPending:0,researchOnlyCandidates:0,verifiedBestSellerProducts:0,campaignsCreated:0,campaignsWaiting:0,fallbackQueries:0,
     categoriesCovered:0,themesCovered:0,topOpportunityScore:0,topOpportunityKeyword:'',queueMin:3,queueTarget:5,queueState:'STABLE',nextExpectedAt:'',messages:[],
   };
   const docs=await listDocs(dailyAgentCampaigns);
@@ -733,11 +733,9 @@ async function runDailyAgent(accessToken,signals,observedAt){
         typeof fresh.soldQuantity?.value!=='number'
       ){
         const fallback=await dailySearch(previous.title?.value || campaign.currentVersion.keyword,accessToken,8);
-        fresh=
-          fallback.find((item)=>item.externalId===previous.externalId) ||
-          fallback.find((item)=>previous.catalogProductId && item.catalogProductId===previous.catalogProductId) ||
-          fallback.find((item)=>dailySimilarity(item.title.value,previous.title?.value || '')>=0.72) ||
-          fresh;
+        // NEVER silently swap an existing customer's campaign to a similar
+        // title, catalog winner, size or SKU. Keep the exact original listing.
+        fresh=fallback.find((item)=>item.externalId===previous.externalId) || fresh;
       }
       if(!fresh || fresh.listingVerified===false){
         const sourceText=[
@@ -797,21 +795,25 @@ async function runDailyAgent(accessToken,signals,observedAt){
         }
         continue;
       }
-      fresh.listingVerified=true;
+      const refreshDecision=classifyExistingCampaignRefresh(previous,fresh,MIN_VALIDATED_SALES);
+      if(refreshDecision==='CONFIRMED_UNAVAILABLE'){
+        await writeDoc(dailyAgentCampaigns+'/'+encodeURIComponent(campaign.id),{
+          ...campaign,status:'BLOCKED',blockedReason:'CONFIRMED_UNAVAILABLE',
+        });
+        report.blocked+=1;
+        report.messages.push(campaign.currentVersion.keyword+': disponibilidade/estoque oficialmente indisponível; publicação bloqueada.');
+        continue;
+      }
+      if(refreshDecision!=='SAFE_TO_REFRESH'){
+        // Metadata gaps and optional sales never destroy or replace an existing campaign.
+        report.revalidationPending+=1;
+        report.messages.push(campaign.currentVersion.keyword+': revalidação adiada ('+refreshDecision+'); produto original preservado e aprovação/publicação ainda exigem revisão.');
+        continue;
+      }
       report.checked+=1;
       report.campaignsRevalidated+=1;
       fresh.affiliateUrl=previous.affiliateUrl;
       fresh.assetRights=previous.assetRights || 'UNKNOWN';
-      if(!isReadyCampaignOffer(fresh,MIN_VALIDATED_SALES)){
-        await writeDoc(dailyAgentCampaigns+'/'+encodeURIComponent(campaign.id),{
-          ...campaign,
-          status:'BLOCKED',
-          blockedReason:typeof fresh.soldQuantity?.value==='number' ? 'COMMERCIAL_GATE_FAILED' : 'UNKNOWN_SALES',
-        });
-        report.blocked+=1;
-        report.messages.push(campaign.currentVersion.keyword+': oferta não atende à prova comercial; requer nova verificação.');
-        continue;
-      }
       const changed=previous.title?.value!==fresh.title?.value || previous.url?.value!==fresh.url?.value || previous.price?.value!==fresh.price?.value || previous.availability?.value!==fresh.availability?.value;
       if(!changed){report.skipped+=1;continue;}
       const scored=dailyScore(fresh,campaign.currentVersion.keyword,signals);
@@ -944,6 +946,7 @@ async function runDailyAgent(accessToken,signals,observedAt){
   report.queueTarget=queueTarget;
   const creationSlots=Math.max(0,queueTarget-readyBeforeCreation);
   const existingTitles=campaigns.map((campaign)=>campaign?.currentVersion?.product?.title?.value).filter(Boolean);
+  report.researchOnlyCandidates=ranked.filter((item)=>!isReadyCampaignOffer(item.product,MIN_VALIDATED_SALES)).length;
   const eligible=ranked.filter((item)=>{
     // Unresolved catalogs and UNKNOWN_SALES remain research opportunities,
     // never READY campaigns for affiliate publication.
@@ -999,7 +1002,7 @@ async function runDailyAgent(accessToken,signals,observedAt){
     report.messages.push('Fila de revisão foi reabastecida automaticamente até o limite inteligente.');
   }else if(creationSlots>0 && eligible.length===0){
     report.queueState='NO_ELIGIBLE';
-    report.messages.push('Nenhuma nova oportunidade passou pelo corte de qualidade e duplicidade neste ciclo.');
+    report.messages.push('Nenhuma campanha nova é elegível à fila automática neste ciclo; '+report.researchOnlyCandidates+' candidatos permanecem em pesquisa, sem serem rejeitados por falta de vendas.');
   }else{
     report.queueState='STABLE';
   }
@@ -1028,6 +1031,8 @@ async function runDailyAgent(accessToken,signals,observedAt){
     opportunitiesAnalyzed:report.opportunitiesAnalyzed,
     campaignsCreated:report.campaignsCreated,
     campaignsWaiting:report.campaignsWaiting,
+    revalidationPending:report.revalidationPending,
+    researchOnlyCandidates:report.researchOnlyCandidates,
     errors:report.errors,
   });
   return report;

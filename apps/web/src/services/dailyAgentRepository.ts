@@ -19,6 +19,8 @@ export interface DailyAgentReport {
   fallbackQueries?: number;
   opportunitiesExpired?: number;
   campaignsRevalidated?: number;
+  revalidationPending?:number;
+  researchOnlyCandidates?:number;
   verifiedBestSellerProducts?: number;
   categoriesCovered?: number;
   themesCovered?: number;
