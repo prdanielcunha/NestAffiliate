@@ -653,3 +653,18 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .v4-filter-options button{border:1px solid var(--border-subtle,rgba(150,165,185,.2));background:var(--bg-surface-2,rgba(130,140,160,.08));padding:10px 14px;border-radius:12px;color:var(--text-primary,#fff);cursor:pointer}
 .v4-filter-options button.active{background:var(--accent-primary,#c4a983);color:#101114}
 .v4-filter-options button:focus-visible{outline:2px solid var(--accent-primary,#c4a983);outline-offset:2px}
+
+/* Radar 4.0: explain real funnel evidence without turning research into fake sales. */
+.today-research-section{padding:clamp(20px,3vw,30px);border:1px solid var(--border,rgba(255,255,255,.14));border-radius:22px;background:linear-gradient(135deg,rgba(66,80,122,.13),rgba(21,27,43,.04) 70%);margin:24px 0;overflow-wrap:anywhere}
+.today-research-top{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.today-research-top h2{font-size:clamp(1.2rem,2.4vw,1.7rem);line-height:1.2;margin:9px 0}
+.today-research-top p{color:var(--muted,#9ca5b7);margin:0}
+.today-research-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:22px}
+.today-research-metrics>div{background:rgba(127,146,183,.08);border:1px solid rgba(127,146,183,.16);border-radius:15px;padding:16px;min-width:0}
+.today-research-metrics strong{display:block;font-variant-numeric:tabular-nums;font-size:clamp(1.35rem,3vw,2rem);line-height:1.2}
+.today-research-metrics span{display:block;color:var(--muted,#9ca5b7);font-size:.83rem;line-height:1.4;margin-top:7px}
+.today-research-bottom{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:18px}
+.today-research-bottom>div{min-width:0}
+.today-research-bottom p{margin:5px 0 0;color:var(--muted,#9ca5b7);font-size:.9rem}
+.today-research-footnote{color:var(--muted,#9ca5b7);font-size:.78rem;overflow-wrap:anywhere;margin:18px 0 0}
+@media(max-width:650px){.today-research-top{flex-direction:column}.today-research-top>a{align-self:flex-start}.today-research-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.today-research-bottom{grid-template-columns:1fr}.today-research-section{padding:18px}}

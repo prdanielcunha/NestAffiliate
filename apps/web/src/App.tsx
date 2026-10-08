@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
-import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
+import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
@@ -47,7 +47,7 @@ import { analyzeAffiliateProduct, type AffiliateProductAnalysis } from './servic
 import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
 import './features/revenue3.css';
 import { ProductSourceActions } from './features/ProductSourceActions';
-import { saveRadarV4Coverage } from './services/radarV4Repository';
+import { loadLatestRadarV4Coverage, primaryRadarBlocker, saveRadarV4Coverage, type SourceCoverageRunV4 } from './services/radarV4Repository';
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel } from './features/OpportunityV4Panel';
 
@@ -580,8 +580,21 @@ function CommandPalette({ close }: { close: () => void }) {
   );
 }
 
-function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; schedules: PublicationSchedule[]; agentReport: DailyAgentReport|null }) {
+function Today({ campaigns, schedules, agentReport, organizationId }: { campaigns: Campaign[]; schedules: PublicationSchedule[]; agentReport: DailyAgentReport|null; organizationId:string }) {
   const { t, locale } = useI18n();
+  const [latestResearch,setLatestResearch]=useState<SourceCoverageRunV4|null>(null);
+  const [researchState,setResearchState]=useState<'loading'|'ready'|'unavailable'>('loading');
+  useEffect(()=>{
+    if(!FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED || !db){setResearchState('unavailable');return;}
+    const currentDb=db;
+    let mounted=true;
+    setResearchState('loading');
+    void loadLatestRadarV4Coverage(currentDb,organizationId)
+      .then(run=>{if(mounted){setLatestResearch(run);setResearchState('ready');}})
+      .catch(()=>{if(mounted)setResearchState('unavailable');});
+    return ()=>{mounted=false;};
+  },[organizationId]);
+  const researchBlocker=primaryRadarBlocker(latestResearch);
   const ready = campaigns.filter((c) => c.status === 'READY');
   const liveSchedules=schedules
     .map((item)=>({...item,status:publicationScheduleStatus(item)}))
@@ -616,6 +629,33 @@ function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; s
           {ready.length ? t('reviewCount',{n:ready.length}) : t('findOpportunities')}
         </NavLink></>}
       </section>
+      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && <section className="today-research-section" aria-label={locale==='pt-BR'?'Evidências do Radar 4.0':locale==='es'?'Evidencia del Radar 4.0':'Radar 4.0 evidence'}>
+        <div className="today-research-top">
+          <div>
+            <span className="eyebrow">RADAR 4.0 · RESEARCH INTELLIGENCE</span>
+            <h2>{locale==='pt-BR'?'O que a última pesquisa realmente encontrou':locale==='es'?'Lo que encontró la última investigación':'What the last research actually found'}</h2>
+            <p>{locale==='pt-BR'?'Pesquisa manual autenticada · os números não representam vendas ou lucro.':locale==='es'?'Investigación manual autenticada · no son ventas ni ganancias.':'Authenticated manual research · not sales or profit.'}</p>
+          </div>
+          <NavLink className="button secondary" to="/radar">{locale==='pt-BR'?'Abrir Radar':locale==='es'?'Abrir Radar':'Open Radar'} →</NavLink>
+        </div>
+        {researchState==='loading' ? <p className="muted">{locale==='pt-BR'?'Carregando pesquisa…':locale==='es'?'Cargando investigación…':'Loading research…'}</p>
+        : researchState==='unavailable' ? <p className="muted">{locale==='pt-BR'?'Não foi possível consultar o relatório da organização. Os dados não foram presumidos como zero.':locale==='es'?'Informe no disponible. No se asumió cero.':'Report unavailable. Missing data was not counted as zero.'}</p>
+        : !latestResearch ? <p className="muted">{locale==='pt-BR'?'Nenhuma pesquisa Radar 4.0 foi registrada para esta organização. Abra o Radar para começar.':locale==='es'?'Todavía no hay investigaciones registradas para esta organización.':'No Radar 4.0 research recorded for this organization yet.'}</p>
+        : <>
+          <div className="today-research-metrics">
+            <div><strong>{latestResearch.examined}</strong><span>{locale==='pt-BR'?'Candidatos examinados':locale==='es'?'Candidatos examinados':'Examined candidates'}</span></div>
+            <div><strong>{latestResearch.report.discovery}</strong><span>{locale==='pt-BR'?'Em investigação':locale==='es'?'En investigación':'Research candidates'}</span></div>
+            <div><strong>{latestResearch.report.nearReady}</strong><span>{locale==='pt-BR'?'Quase prontos':locale==='es'?'Casi listos':'Nearly ready'}</span></div>
+            <div><strong>{latestResearch.report.readyToPublish}</strong><span>{locale==='pt-BR'?'Prontos para publicar':locale==='es'?'Listos para publicar':'Ready to publish'}</span></div>
+          </div>
+          <div className="today-research-bottom">
+            <div><strong>{locale==='pt-BR'?'Estado das fontes':locale==='es'?'Estado de las fuentes':'Provider status'}</strong>
+              <p>{Object.entries(latestResearch.providerStatuses).map(([source,state])=>source+': '+state).join(' · ') || '—'}</p></div>
+            {researchBlocker&&<div><strong>{locale==='pt-BR'?'Maior pendência registrada':locale==='es'?'Principal pendiente':'Top recorded gap'}</strong><p>{researchBlocker.reason} · {researchBlocker.count}</p></div>}
+          </div>
+          <p className="today-research-footnote">{locale==='pt-BR'?'Pesquisa concluída':locale==='es'?'Investigación completada':'Research completed'}: {new Date(latestResearch.finishedAt).toLocaleString(locale)} · {latestResearch.runId}</p>
+        </>}
+      </section>}
       <section className="section">
         <div className="section-heading"><h2>{t('needsYou')}</h2><span>{ready.length ? '~2 min' : t('allDone')}</span></div>
         {ready.length ? (
@@ -740,6 +780,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [shopeeApiConfigured,setShopeeApiConfigured]=useState<boolean|null>(null);
   const [shopeeProviderFallback,setShopeeProviderFallback]=useState(false);
   const [providerDegraded,setProviderDegraded]=useState<Record<'MELI'|'SHOPEE',boolean>>({MELI:false,SHOPEE:false});
+  const [sourceStatus,setSourceStatus]=useState<Record<'MELI'|'SHOPEE','OK'|'RATE_LIMITED'|'AUTH_REQUIRED'|'UNAVAILABLE'|null>>({MELI:null,SHOPEE:null});
   const v4ById=Object.fromEntries(opportunities.map(opp=>[opp.id,assessOpportunityV4({product:opp.product,keyword:opp.keyword,signals:opp.commercialSignals,legacyScore:opp.score.score,
     sourceLimited:providerDegraded[opp.product.marketplace==='MELI'?'MELI':'SHOPEE'],
   })]));
@@ -909,7 +950,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         };
       };
       const providerResults:ProviderResult[]=[];
-      const providerErrors:Error[]=[];
+      const providerErrors:Array<{provider:'MELI'|'SHOPEE';error:Error}>=[];
 
       if(marketplaceScope==='MELI' || marketplaceScope==='ALL'){
         try{
@@ -928,7 +969,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             meta:result.meta,
           });
         }catch(error){
-          providerErrors.push(error instanceof Error ? error : new Error('MELI_BROKER_UNAVAILABLE'));
+          providerErrors.push({provider:'MELI',error:error instanceof Error ? error : new Error('MELI_BROKER_UNAVAILABLE')});
         }
       }
 
@@ -948,13 +989,25 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           });
         }catch(error){
           const normalized=error instanceof Error ? error : new Error('SHOPEE_BROKER_UNAVAILABLE');
-          providerErrors.push(normalized);
+          providerErrors.push({provider:'SHOPEE',error:normalized});
           if(marketplaceScope==='SHOPEE') throw normalized;
         }
       }
 
       if(!providerResults.length){
-        throw providerErrors[0] ?? new Error('RADAR_PROVIDERS_UNAVAILABLE');
+        if(FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && db){
+          const statuses:Record<string,'OK'|'RATE_LIMITED'|'AUTH_REQUIRED'|'UNAVAILABLE'>={};
+          for(const failed of providerErrors){
+            const code=failed.error.message.toUpperCase();
+            statuses[failed.provider]=code.includes('429')||code.includes('RATE_LIMITED')?'RATE_LIMITED'
+              :code.includes('403')||code.includes('401')||code.includes('TOKEN')?'AUTH_REQUIRED':'UNAVAILABLE';
+          }
+          void saveRadarV4Coverage({
+            db,organizationId,query:effectiveQuery,provider:marketplaceScope,
+            providerStatuses:statuses,examined:0,assessments:{},
+          }).catch(()=>undefined);
+        }
+        throw providerErrors[0]?.error ?? new Error('RADAR_PROVIDERS_UNAVAILABLE');
       }
 
       const found=providerResults.flatMap((result)=>
@@ -1035,10 +1088,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         const providerStatuses:Record<string,'OK'|'RATE_LIMITED'|'AUTH_REQUIRED'|'UNAVAILABLE'>={};
         for(const current of providerResults)providerStatuses[current.provider]='OK';
         for(const failed of providerErrors){
-          const code=failed.message.toUpperCase();
-          const status=code.includes('429')||code.includes('RATE')?'RATE_LIMITED'
+          const code=failed.error.message.toUpperCase();
+          const status=code.includes('429')||code.includes('RATE_LIMITED')?'RATE_LIMITED'
             :code.includes('403')||code.includes('401')||code.includes('TOKEN')?'AUTH_REQUIRED':'UNAVAILABLE';
-          providerStatuses['UNAVAILABLE_'+Object.keys(providerStatuses).length]=status;
+          providerStatuses[failed.provider]=status;
         }
         void saveRadarV4Coverage({
           db,organizationId,query:effectiveQuery,provider,
@@ -1046,9 +1099,22 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         }).catch(()=>undefined);
       }
 
+      const resolvedStatus=(provider:'MELI'|'SHOPEE')=>{
+        const successful=providerResults.find(item=>item.provider===provider);
+        if(successful)return successful.degraded ? 'UNAVAILABLE' as const : 'OK' as const;
+        const failed=providerErrors.find(item=>item.provider===provider);
+        if(!failed)return null;
+        const code=failed.error.message.toUpperCase();
+        return code.includes('429')||code.includes('RATE_LIMITED')?'RATE_LIMITED' as const
+          :code.includes('403')||code.includes('401')||code.includes('TOKEN')?'AUTH_REQUIRED' as const
+          :'UNAVAILABLE' as const;
+      };
+      const meliStatus=resolvedStatus('MELI');
+      const shopeeStatus=resolvedStatus('SHOPEE');
+      setSourceStatus({MELI:meliStatus,SHOPEE:shopeeStatus});
       setProviderDegraded({
-        MELI:providerResults.find(item=>item.provider==='MELI')?.degraded===true,
-        SHOPEE:providerResults.find(item=>item.provider==='SHOPEE')?.degraded===true,
+        MELI:meliStatus!==null && meliStatus!=='OK',
+        SHOPEE:shopeeStatus!==null && shopeeStatus!=='OK',
       });
       setOpportunities(visible);
       if(provider==='SHOPEE' || provider==='ALL') setShopeeProviderFallback(false);
@@ -1161,7 +1227,14 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   }
 
   function prepareAffiliate(opportunity:Opportunity){
-    const destination=opportunity.product.affiliateUrl?.value ?? opportunity.product.url.value;
+    const product=opportunity.product;
+    const destination=isSafeAffiliateUrl(product.affiliateUrl?.value,product.marketplace)
+      ? product.affiliateUrl!.value
+      :isSafeOfferUrl(product.url.value,product.marketplace)?product.url.value:null;
+    if(!destination){
+      setAnalysisNotice(locale==='pt-BR'?'Confira uma URL HTTPS oficial antes de continuar.':locale==='es'?'Compruebe la URL oficial HTTPS.':'Verify a safe official HTTPS URL first.');
+      return;
+    }
     window.open(destination,'_blank','noopener,noreferrer');
     void navigator.clipboard.writeText(destination).catch(()=>undefined);
   }
@@ -1301,6 +1374,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             errorCode.includes('SHOPEE_API_NOT_CONNECTED') ? t('radarShopeeErrorReconnect') :
             errorCode.includes('SHOPEE_CREDENTIALS_STALE') || errorCode.includes('SHOPEE_CREDENTIALS_REJECTED') ? t('radarShopeeErrorStale') :
             errorCode.includes('SHOPEE_') ? t('radarShopeeErrorGeneric') :
+            errorCode.includes('MELI_RATE_LIMITED') || errorCode.includes('429') ? (locale==='pt-BR'?'Limite temporário da fonte: suas oportunidades não foram rejeitadas. Aguarde o horário permitido pelo provedor e tente novamente.':locale==='es'?'Límite temporal de la fuente. Reintente cuando el proveedor lo permita.':'Provider rate limit. Retry after the provider cooldown; offers were not rejected.') :
             errorCode.includes('MELI_NOT_CONNECTED') ? t('radarErrorReconnect') :
             errorCode.includes('MELI_TOKEN_STALE') ? t('radarErrorRefreshing') :
             errorCode.includes('FORBIDDEN') || errorCode.includes('NESTAFFILIATE_NOT_ENABLED') ? t('radarErrorAccess') :
@@ -1313,6 +1387,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           ? <NavLink className="button secondary" to="/connections">{t('connections')}</NavLink>
           : <button className="button secondary" type="button" onClick={()=>void search()}>{t('radarRetry')}</button>}
       </div>}
+      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && hasSearched && state==='idle' && Object.values(sourceStatus).some(s=>s&&s!=='OK') && <section className="notice radar-source-limited" role="status">
+        <strong>{locale==='pt-BR'?'Fonte temporariamente limitada':locale==='es'?'Fuente temporalmente limitada':'Temporarily limited source'}</strong>
+        <p>{locale==='pt-BR'?'Os dados que faltaram não foram tratados como sinal negativo do produto. Investigue as ofertas existentes ou tente novamente quando a fonte estiver disponível.':locale==='es'?'Los datos faltantes no significan mala calidad. Examine las ofertas existentes o reintente cuando vuelva la fuente.':'Missing provider data is not evidence of a poor product. Review existing offers or retry once the provider recovers.'}</p>
+        <small>{Object.entries(sourceStatus).filter(([,s])=>s&&s!=='OK').map(([name,status])=>name+': '+status).join(' · ')}</small>
+      </section>}
       {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && hasSearched && state==='idle' && <section className="v4-funnel">
         <p className="eyebrow">RADAR 4.0 · EVIDENCE</p>
         <h3>{locale==='pt-BR'?'Investigação, não volume artificial':'Evidence-first investigation'}</h3>
@@ -1441,7 +1520,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                     ? t('shopeeEstimatedCommission',{value:new Intl.NumberFormat(locale,{style:'currency',currency:item.product.currency.value}).format(item.estimatedCommissionPerSale)})
                     : t('r3CommissionUnknown')}</p>
                   <p>{item.affiliateLinkReady?t('r3AffiliatePresent'):t('r3AffiliateMissing')}</p>
-                  <a className="button secondary" href={item.product.url.value} rel="noreferrer" target="_blank">{t('r3SeeOffer')}</a>
+                  {isSafeOfferUrl(item.product.url.value,item.product.marketplace)
+                  ? <a className="button secondary" href={item.product.url.value} rel="noopener noreferrer" target="_blank">{t('r3SeeOffer')}</a>
+                  : <small role="status">{locale==='pt-BR'?'Oferta sem URL segura confirmada':locale==='es'?'Oferta sin URL verificada':'Offer URL not verified'}</small>}
                 </div>)}
               </details>}
               {FEATURE_FLAGS.NESTAI_OPPORTUNITY_ENRICHMENT_ENABLED && index<3 && <section className="revenue-assessment">
@@ -2434,7 +2515,7 @@ export function App() {
     <Shell locale={locale} setLocale={setLocale}>
       <SyncErrorBanner kind={store.syncError} onDismiss={store.clearSyncError} />
       <Routes>
-        <Route path="/" element={<Today campaigns={store.campaigns} schedules={scheduleStore.schedules} agentReport={dailyAgentReport} />} />
+        <Route path="/" element={<Today campaigns={store.campaigns} schedules={scheduleStore.schedules} agentReport={dailyAgentReport} organizationId={org} />} />
         <Route path="/radar" element={<Radar addCampaign={store.add} organizationId={org} editable={editable} />} />
         <Route path="/campaigns" element={<Campaigns campaigns={store.campaigns} />} />
         <Route path="/review/:id" element={<Review campaigns={store.campaigns} update={store.update} editable={editable} />} />
