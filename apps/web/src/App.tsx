@@ -49,7 +49,7 @@ import './features/revenue3.css';
 import { ProductSourceActions } from './features/ProductSourceActions';
 import { loadLatestRadarV4Coverage, primaryRadarBlocker, saveRadarV4Coverage, type SourceCoverageRunV4 } from './services/radarV4Repository';
 import { validateStoredProductReference } from './services/productReferenceRepository';
-import { OpportunityV4Panel } from './features/OpportunityV4Panel';
+import { OpportunityV4Panel, opportunityReasonLabel } from './features/OpportunityV4Panel';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
 
@@ -650,8 +650,12 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
           </div>
           <div className="today-research-bottom">
             <div><strong>{locale==='pt-BR'?'Estado das fontes':locale==='es'?'Estado de las fuentes':'Provider status'}</strong>
-              <p>{Object.entries(latestResearch.providerStatuses).map(([source,state])=>source+': '+state).join(' · ') || '—'}</p></div>
-            {researchBlocker&&<div><strong>{locale==='pt-BR'?'Maior pendência registrada':locale==='es'?'Principal pendiente':'Top recorded gap'}</strong><p>{researchBlocker.reason} · {researchBlocker.count}</p></div>}
+              <p>{Object.entries(latestResearch.providerStatuses).map(([source,state])=>source+': '+(state==='OK'
+                ? locale==='pt-BR'?'Disponível':locale==='es'?'Disponible':'Available'
+                : state==='RATE_LIMITED'?locale==='pt-BR'?'Limite temporário':locale==='es'?'Límite temporal':'Rate limited'
+                : state==='AUTH_REQUIRED'?locale==='pt-BR'?'Reconectar':locale==='es'?'Reconectar':'Reconnect'
+                : locale==='pt-BR'?'Indisponível':locale==='es'?'No disponible':'Unavailable')).join(' · ') || '—'}</p></div>
+            {researchBlocker&&<div><strong>{locale==='pt-BR'?'Maior pendência registrada':locale==='es'?'Principal pendiente':'Top recorded gap'}</strong><p>{opportunityReasonLabel(researchBlocker.reason,locale)} · {researchBlocker.count}</p></div>}
           </div>
           <p className="today-research-footnote">{locale==='pt-BR'?'Pesquisa concluída':locale==='es'?'Investigación completada':'Research completed'}: {new Date(latestResearch.finishedAt).toLocaleString(locale)} · {latestResearch.runId}</p>
         </>}
@@ -719,8 +723,8 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
         </div>
         <div className="surface">
           <p className="eyebrow">CUSTO</p>
-          <h3>R$ 0,00</h3>
-          <p className="muted">{t('paidServicesBlocked')}</p>
+          <h3>{FEATURE_FLAGS.PAID_SERVICES_DISABLED?'APIs pagas OFF':'Controle de custos'}</h3>
+          <p className="muted">{t('paidServicesBlocked')} · {locale==='pt-BR'?'Infraestrutura sujeita às cotas do Firebase.':locale==='es'?'La infraestructura está sujeta a cuotas de Firebase.':'Infrastructure is subject to Firebase quotas.'}</p>
         </div>
       </section>
     </div>
@@ -772,6 +776,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     NEAR_READY:locale==='pt-BR'?'Quase prontas':locale==='es'?'Casi listas':'Nearly ready',
     PROMISING:locale==='pt-BR'?'Vale investigar':locale==='es'?'Vale investigar':'Investigate',
     SOURCE_LIMITED:locale==='pt-BR'?'Aguardando fonte':locale==='es'?'Datos limitados':'Source limited',
+    UNDER_REVIEW:locale==='pt-BR'?'Em revisão':locale==='es'?'En revisión':'Under review',
+    REJECTED:locale==='pt-BR'?'Não elegível':locale==='es'?'No elegible':'Not eligible',
+    EXPIRED:locale==='pt-BR'?'Oferta expirada':locale==='es'?'Oferta vencida':'Expired',
   } as const;
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
   const [errorCode,setErrorCode]=useState('');
@@ -1473,20 +1480,32 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             <div className="product-image">
               {product.imageUrl ? <img src={product.imageUrl.value} alt="" /> : <span>{t('assetUnavailable')}</span>}
               <span className="rank-pill">#{index+1}</span>
-              <span className="radar-score">{opportunity.score.score}</span>
+              {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED&&v4ById[opportunity.id]
+                ? <span className="radar-score radar-score-v4" title={locale==='pt-BR'?'Faixa provisória do potencial editorial':'Provisional editorial potential range'}>{v4ById[opportunity.id]!.potential.lower}–{v4ById[opportunity.id]!.potential.upper}</span>
+                : <span className="radar-score">{opportunity.score.score}</span>}
             </div>
             <div className="opportunity-copy">
               <div className="opportunity-meta">
                 <span className="market-chip">{product.marketplace==='MELI'?'Mercado Livre':'Shopee'}</span>
-                <span className={`potential-chip potential-${potential.toLowerCase()}`}>{potentialLabel}</span>
-                <span>NestScore 2.0 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}</span>
+                {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4ById[opportunity.id]
+                  ? <span className="potential-chip">{v4FilterLabels[v4ById[opportunity.id]!.status]}</span>
+                  : <><span className={`potential-chip potential-${potential.toLowerCase()}`}>{potentialLabel}</span>
+                    <span>NestScore 2.0 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}</span></>}
+                {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED&&<details className="legacy-radar-score">
+                   <summary>{locale==='pt-BR'?'Nota histórica (heurística)':locale==='es'?'Puntuación histórica (heurística)':'Legacy heuristic score'}</summary>
+                   <small>NestScore 2.0: {opportunity.score.score}/100 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}. {locale==='pt-BR'?'Não comprova procura nem vendas.':locale==='es'?'No prueba demanda ni ventas.':'Does not prove demand or sales.'}</small>
+                 </details>}
               </div>
               <h3>{isSafeOfferUrl(product.url.value,product.marketplace)
                 ? <a className="product-title-link" href={product.url.value} target="_blank" rel="noopener noreferrer">{product.title.value}</a>
                 : product.title.value}</h3>
               <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
               <div className="product-proof-row">
-                <span className="proof-chip success">{product.availability.value==='available' ? t('availableNow') : t('catalogOfficial')}</span>
+                <span className={product.availability.value==='available'?'proof-chip success':'proof-chip subtle'}>{product.availability.value==='available'
+                  ? t('availableNow')
+                  : product.availability.value==='unavailable'
+                    ? locale==='pt-BR'?'Oferta indisponível':locale==='es'?'Oferta no disponible':'Unavailable offer'
+                    : locale==='pt-BR'?'Disponibilidade não confirmada':locale==='es'?'Disponibilidad no confirmada':'Availability not confirmed'}</span>
                 {typeof product.soldQuantity?.value==='number'
                   ? <span className="proof-chip">{t('salesProof',{n:new Intl.NumberFormat(locale,{notation:'compact',maximumFractionDigits:1}).format(product.soldQuantity.value)})}</span>
                   : null}
@@ -1502,7 +1521,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                 {typeof product.estimatedCommission?.value==='number'
                   ? <span className="proof-chip subtle">{t('shopeeEstimatedCommission',{value:new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.estimatedCommission.value)})}</span>
                   : null}
-                {product.marketplace==='SHOPEE' && product.affiliateUrl?.value
+                {product.marketplace==='SHOPEE' && isSafeAffiliateUrl(product.affiliateUrl?.value,product.marketplace)
                   ? <span className="proof-chip success">{t('shopeeAffiliateReady')}</span>
                   : null}
               </div>

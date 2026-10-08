@@ -668,3 +668,10 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .today-research-bottom p{margin:5px 0 0;color:var(--muted,#9ca5b7);font-size:.9rem}
 .today-research-footnote{color:var(--muted,#9ca5b7);font-size:.78rem;overflow-wrap:anywhere;margin:18px 0 0}
 @media(max-width:650px){.today-research-top{flex-direction:column}.today-research-top>a{align-self:flex-start}.today-research-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.today-research-bottom{grid-template-columns:1fr}.today-research-section{padding:18px}}
+
+/* Make the evidence-first potential interval clearly distinct from the legacy heuristic. */
+.radar-score-v4{width:auto!important;min-width:4.4rem;padding:0 10px;font-size:clamp(.9rem,2vw,1.1rem)!important;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.025em}
+.legacy-radar-score{font-size:.76rem;max-width:100%;color:var(--muted,#9ca5b7)}
+.legacy-radar-score summary{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.legacy-radar-score small{display:block;line-height:1.45;padding:6px 0}
+@media(max-width:390px){.radar-score-v4{min-width:4.1rem;padding:0 7px}}
