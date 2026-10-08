@@ -1103,7 +1103,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       const meliResult=providerResults.find((result)=>result.provider==='MELI');
       if(FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && db){
         const providerStatuses:Record<string,'OK'|'RATE_LIMITED'|'AUTH_REQUIRED'|'UNAVAILABLE'>={};
-        for(const current of providerResults)providerStatuses[current.provider]='OK';
+        for(const current of providerResults)providerStatuses[current.provider]=current.degraded===true?'UNAVAILABLE':'OK';
         for(const failed of providerErrors){
           const code=failed.error.message.toUpperCase();
           const status=code.includes('429')||code.includes('RATE_LIMITED')?'RATE_LIMITED'
