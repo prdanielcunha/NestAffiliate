@@ -1,4 +1,7 @@
 import { isReadyCampaignOffer } from './revenue-offer-gates.mjs';
+import { createMeliRateGate } from './meli-rate-gate.mjs';
+
+const meliGate=createMeliRateGate({spacingMs:450});
 const PROJECT_ID=process.env.FIREBASE_PROJECT_ID || 'millionsnest';
 const ORG_ID=process.env.NESTAFFILIATE_SIGNAL_ORG_ID || '';
 const GCP_TOKEN=process.env.GOOGLE_OAUTH_ACCESS_TOKEN || '';
@@ -104,9 +107,9 @@ function sleep(ms){
 async function meliGet(path,accessToken){
   let lastStatus=0;
   for(let attempt=0;attempt<4;attempt+=1){
-    const response=await fetch(`https://api.mercadolibre.com${path}`,{
+    const response=await meliGate.run(()=>fetch(`https://api.mercadolibre.com${path}`,{
       headers:{Authorization:`Bearer ${accessToken}`,Accept:'application/json'},
-    });
+    }));
     if(response.ok) return response.json();
 
     lastStatus=response.status;
@@ -259,7 +262,7 @@ async function readDoc(url){
 
 async function meliMaybeGet(path,accessToken){
   for(let attempt=0;attempt<4;attempt+=1){
-    const response=await fetch('https://api.mercadolibre.com'+path,{headers:{Authorization:'Bearer '+accessToken,Accept:'application/json'}});
+    const response=await meliGate.run(()=>fetch('https://api.mercadolibre.com'+path,{headers:{Authorization:'Bearer '+accessToken,Accept:'application/json'}}));
     if(response.ok) return response.json();
 
     const retryable=response.status===429 || response.status>=500;
