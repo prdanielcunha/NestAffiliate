@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import type {CampaignVersion,PinterestCreativePack} from '@nestaffiliate/core';
 import {renderPin} from '@nestaffiliate/creative-engine';
 import {useI18n} from '../lib/i18n-context';
+import {narrativeForConcept} from '../lib/creativeDirection';
 
 /** These templates are used for both the thumbnails and the final exported PNG. */
 export const V5_CONCEPT_TEMPLATES=['Problem → Solution','Room Inspiration','Editorial Light'] as const;
@@ -10,7 +11,7 @@ export function templateForConcept(index:number):string{
 }
 
 /** Render with the actual production canvas renderer; never show a synthetic product image. */
-function ConceptCanvas({version,index,conceptId}:{version:CampaignVersion;index:number;conceptId:string}){
+function ConceptCanvas({version,pack,index,conceptId}:{version:CampaignVersion;pack:PinterestCreativePack;index:number;conceptId:string}){
  const canvasRef=useRef<HTMLCanvasElement>(null);
  const [renderError,setRenderError]=useState(false);
  useEffect(()=>{
@@ -19,13 +20,13 @@ function ConceptCanvas({version,index,conceptId}:{version:CampaignVersion;index:
   let cancelled=false;
   const currentConceptId=version.creativePack?.recommendedConceptId;
   const staged:CampaignVersion={
-   ...version,template:templateForConcept(index),
+   ...version,template:templateForConcept(index),narrative:narrativeForConcept(version,pack,index),
    creativeAsset:currentConceptId===conceptId?version.creativeAsset:undefined,
   };
   setRenderError(false);
   void renderPin(canvas,staged).catch(()=>{if(!cancelled)setRenderError(true);});
   return ()=>{cancelled=true;};
- },[version,index,conceptId]);
+ },[version,pack,index,conceptId]);
  return <div className={'concept-visual concept-visual-'+index} aria-hidden="true">
   <canvas className="concept-rendered-canvas" ref={canvasRef} width={1000} height={1500}/>
   {renderError&&<span className="concept-render-error">Prévia indisponível</span>}
@@ -41,7 +42,7 @@ export function CreativeConceptPicker({pack,version,disabled,onSelect}:{
   const selected=concept.id===pack.recommendedConceptId;
   return <button type="button" className={selected?'concept-card selected':'concept-card'}
      key={concept.id} disabled={disabled} aria-pressed={selected} onClick={()=>onSelect(concept.id)}>
-   <ConceptCanvas version={version} index={index} conceptId={concept.id}/>
+   <ConceptCanvas version={version} pack={pack} index={index} conceptId={concept.id}/>
    <div className="concept-info">
     <span className="concept-index">{String(index+1).padStart(2,'0')}</span>
     <strong>{concept.title}</strong>
