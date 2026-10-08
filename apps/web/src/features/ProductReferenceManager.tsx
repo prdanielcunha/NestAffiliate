@@ -29,17 +29,29 @@ export function ProductReferenceManager({
  const [error,setError]=useState('');
  const editable=Boolean(identity.role&&canWrite(identity.role));
  const pt=locale==='pt-BR',es=locale==='es';
+ const savedKey=['nestaffiliate-ref-v5',identity.user?.uid||'anonymous',product.organizationId,product.marketplace,product.externalId,product.productId].join(':');
  useEffect(()=>{
    let active=true;
+   let received:ReferencePreview[]=[];
    onChanged(null);setItems([]);setSelected(null);setFile(null);setAllowed(false);setError('');
    if(!db||!identity.user)return;
    const currentDb=db,currentUser=identity.user;
    setLoading(true);
    void listProductReferences({db:currentDb,user:currentUser,organizationId:product.organizationId,product})
-     .then(result=>{if(!active){for(const item of result)URL.revokeObjectURL(item.previewUrl);return;}setItems(result);})
+     .then(result=>{
+       if(!active){for(const item of result)URL.revokeObjectURL(item.previewUrl);return;}
+       received=result;
+       setItems(result);
+       // Store only a reference identifier. Re-check current rights, exact variant and the
+       // authenticated private media on every reload. Revoked references cannot restore.
+       const remembered=localStorage.getItem(savedKey);
+       const matched=result.find(item=>item.asset.id===remembered && isReferenceAiReady(item.asset,product));
+       const next=matched??(result.length===1?result[0]:undefined);
+       if(next){setSelected(next.asset.id);onChanged(next);}
+     })
      .catch(()=>{if(active)setError('REFERENCES_UNAVAILABLE');})
      .finally(()=>{if(active)setLoading(false);});
-   return ()=>{active=false;};
+   return ()=>{active=false;for(const item of received)URL.revokeObjectURL(item.previewUrl);};
  // Reference identity must change when listing/variant changes.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[product.organizationId,product.externalId,product.productId]);
@@ -52,13 +64,13 @@ export function ProductReferenceManager({
        product,file,sourceType:source,rightsEvidence:evidence,externalAiAllowed:allowed,
      });
      setItems(old=>[next,...old.filter(item=>item.asset.id!==next.asset.id)]);
-     setSelected(next.asset.id);onChanged(next);setFile(null);
+     setSelected(next.asset.id);localStorage.setItem(savedKey,next.asset.id);onChanged(next);setFile(null);
    }catch(err){setError(err instanceof Error?err.message:'REFERENCE_UPLOAD_FAILED');}
    finally{setBusy(false);}
  }
  function choose(item:ReferencePreview){
    if(!isReferenceAiReady(item.asset,product))return;
-   setSelected(item.asset.id);onChanged(item);
+   setSelected(item.asset.id);localStorage.setItem(savedKey,item.asset.id);onChanged(item);
  }
  async function revoke(item:ReferencePreview){
    if(!db || !identity.user?.uid || !editable)return;
@@ -66,7 +78,7 @@ export function ProductReferenceManager({
    try{
      await revokeProductReference(db,product.organizationId,item.asset,identity.user.uid);
      setItems(old=>old.filter(x=>x.asset.id!==item.asset.id));
-     if(selected===item.asset.id){setSelected(null);onChanged(null);}
+     if(selected===item.asset.id){setSelected(null);localStorage.removeItem(savedKey);onChanged(null);}
      URL.revokeObjectURL(item.previewUrl);
    }catch{setError('REFERENCE_REVOKE_FAILED');}
    finally{setBusy(false);}
