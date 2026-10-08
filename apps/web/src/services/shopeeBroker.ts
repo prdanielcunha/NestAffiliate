@@ -142,6 +142,9 @@ export async function searchShopeeBrokerDetailed(input:{
   const query=input.query.trim();
 
   if(import.meta.env.VITE_E2E_MOCK_AUTH==='true'){
+    const forcedError=typeof window!=='undefined' &&
+      new URLSearchParams(window.location.search).get('shopeeApi')==='error';
+    if(forcedError) throw new Error('SHOPEE_BROKER_UNAVAILABLE');
     const products=[
       mockProduct(input.organizationId,'98765001','Organizador Giratório Multiuso Shopee',59.9,5400,4.9,0.12),
       mockProduct(input.organizationId,'98765002','Prateleira Extensível para Cozinha Shopee',79.9,3100,4.8,0.10),
