@@ -89,6 +89,10 @@ const status:Record<OpportunityV4Assessment['status'],[string,string,string]>={
   "Oferta caducada"
  ]
 };
+export function opportunityReasonLabel(code:string,locale:'pt-BR'|'en'|'es'){
+ const lang=locale==='en'?1:locale==='es'?2:0;
+ return fix[code]?.[lang]??code;
+}
 export function OpportunityV4Panel({assessment}:{assessment:OpportunityV4Assessment}){
   const {locale}=useI18n();
   const en=locale==='en',es=locale==='es';

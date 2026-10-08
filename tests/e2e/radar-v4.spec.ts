@@ -16,6 +16,29 @@ test.describe('Radar 4.0 opt-in design and gates',()=>{
     await page.getByRole('button',{name:'Todas',exact:true}).click();
     await expect(page.locator('.opportunity-v4-panel')).toHaveCount(3);
   });
+  test('evidence-first cards hide legacy scoring behind explanation',async({page})=>{
+    await page.goto('/radar');
+    await page.getByRole('button',{name:'Mercado Livre',exact:true}).click();
+    await page.getByRole('button',{name:'Analisar produtos'}).click();
+    const card=page.locator('.opportunity-card').first();
+    await expect(card.locator('.radar-score-v4')).toContainText(/\d+–\d+/);
+    await expect(card.locator('.legacy-radar-score')).toContainText('Nota histórica');
+    await expect(card.locator('.product-proof-row')).not.toContainText('Vendas verificadas');
+  });
+  test('V4 Today diagnostics work across PT/EN/ES at narrow mobile width',async({page})=>{
+    await page.setViewportSize({width:360,height:800});
+    await page.goto('/');
+    const panel=page.locator('.today-research-section');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('O que a última pesquisa realmente encontrou');
+    const selector=page.getByRole('combobox',{name:'Language'});
+    await selector.selectOption('en');
+    await expect(panel).toContainText('What the last research actually found');
+    await selector.selectOption('es');
+    await expect(panel).toContainText('Lo que encontró la última investigación');
+    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
   test('research draft is editable but never labeled publication-ready without proof',async({page})=>{
     await page.goto('/radar');
     await page.getByRole('button',{name:'Mercado Livre',exact:true}).click();
