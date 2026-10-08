@@ -20,6 +20,8 @@ export interface GuardInput {
   creativeAsset?: CreativeAsset;
   duplicateSimilarity?: number;
   priceMaxAgeMinutes?: number;
+  /** Enforce only on opt-in research drafts; keep historical campaigns compatible. */
+  requireAffiliateAttestation?: boolean;
   frequencyPolicy?: {
     maxPublications24h?: number;
     publications24h?: number;
@@ -136,6 +138,35 @@ export function isSafeExternalUrl(value:string){
   }
 }
 
+/** Host ownership is a URL safety check, NEVER proof of affiliate attribution. */
+export function isMarketplaceAffiliateDestination(raw:string|undefined,marketplace:ProductTruth['marketplace']):boolean {
+  if(!raw || !isSafeExternalUrl(raw))return false;
+  try{
+    const url=new URL(raw);
+    if(url.port || url.hostname.endsWith('.') || url.hostname.includes('..'))return false;
+    const host=url.hostname.toLowerCase();
+    const domains:Record<ProductTruth['marketplace'],string[]>={
+      MELI:['mercadolivre.com.br','mercadolibre.com.br','mercadolivre.com','mercadolibre.com'],
+      SHOPEE:['shopee.com.br','shopee.com','s.shopee.com.br','shope.ee'],
+      AMAZON:['amazon.com.br','amazon.com'],
+    };
+    return domains[marketplace].some(domain=>host===domain||host.endsWith('.'+domain));
+  }catch{return false;}
+}
+
+/** Manual confirmation is distinguishable from provider verification. */
+export function inspectAffiliateAttestation(product:ProductTruth,now=new Date()):'SELF_CONFIRMED'|'MISSING'|'STALE'|'MISMATCH' {
+  const proof=product.affiliateAttestation;
+  if(!proof)return 'MISSING';
+  if(!product.affiliateUrl || proof.method!=='USER_CONFIRMED_IN_AFFILIATE_PORTAL' ||
+     proof.channel!=='PINTEREST' || proof.marketplace!==product.marketplace ||
+     proof.externalId!==product.externalId || proof.url!==product.affiliateUrl.value ||
+     !isMarketplaceAffiliateDestination(proof.url,product.marketplace))return 'MISMATCH';
+  const age=now.getTime()-Date.parse(proof.confirmedAt);
+  if(!Number.isFinite(age) || age<0 || age>7*86400_000)return 'STALE';
+  return 'SELF_CONFIRMED';
+}
+
 export function runPublishingGuard(input: GuardInput): GuardResult {
   const checks: GuardResult['checks'] = [];
   const push = (key: string, outcome: ComplianceOutcome, message: string) =>
@@ -169,9 +200,21 @@ export function runPublishingGuard(input: GuardInput): GuardResult {
       'affiliate-link',
       affiliateValid ? 'PASS' : 'BLOCK',
       affiliateValid
-        ? 'Link afiliado do Mercado Livre validado.'
+        ? 'URL HTTPS segura; atribuição de comissão não comprovada automaticamente.'
         : 'Adicione um link afiliado válido antes de publicar.',
     );
+    if(input.requireAffiliateAttestation){
+      const attestation=inspectAffiliateAttestation(input.product,input.now??new Date());
+      const trustedDestination=isMarketplaceAffiliateDestination(affiliateUrl,input.product.marketplace);
+      const exactDestination=affiliateUrl===input.destinationUrl;
+      push('affiliate-attestation',trustedDestination && exactDestination && attestation==='SELF_CONFIRMED'?'PASS':'BLOCK',
+        !trustedDestination?'O link precisa pertencer ao marketplace reconhecido.':
+        !exactDestination?'O destino de publicação difere do link conferido.':
+        attestation==='STALE'?'Confirmação manual vencida: confira a oferta e o canal novamente.':
+        attestation==='MISMATCH'?'O link ou anúncio mudou após a confirmação.':
+        attestation==='MISSING'?'Confira na Central de Afiliados o anúncio, sua conta e o canal Pinterest.':
+        'Usuário confirmou o link no portal. Comissão continua sujeita às regras do programa.');
+    }
   } else if (input.product.marketplace === 'SHOPEE' && !affiliateUrl) {
     push(
       'affiliate-link',
