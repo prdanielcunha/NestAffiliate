@@ -53,6 +53,7 @@ import { OpportunityV4Panel, opportunityReasonLabel } from './features/Opportuni
 import { ProblemIntentExplorer } from './features/ProblemIntentExplorer';
 import { WorkspaceLibrary } from './features/WorkspaceLibrary';
 import { CreativeWorkflowGuide } from './features/CreativeWorkflowGuide';
+import { publicationCalendarIcs } from './lib/publicationCalendar';
 import { planCreativeEdit, type CreativeEditPlan } from './lib/creativeEdit';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
@@ -2265,6 +2266,18 @@ function Publish({
     }
   }
 
+  function downloadCalendarReminder(){
+    try{
+      const parsed=validateScheduledFor(scheduledFor);
+      if(!parsed.valid)throw new Error('SCHEDULE_INVALID');
+      const ics=publicationCalendarIcs({campaignId:activeCampaign.id,version:v.version,scheduledFor:parsed.iso,productTitle:v.product.title.value,boardName:v.boardName});
+      const url=URL.createObjectURL(new Blob([ics],{type:'text/calendar;charset=utf-8'}));
+      const link=document.createElement('a');link.href=url;link.download=`nestaffiliate-${activeCampaign.id}-v${v.version}.ics`;
+      document.body.appendChild(link);link.click();link.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }catch{setScheduleMessage(t('scheduleInvalid'));}
+  }
+
   async function downloadImage() {
     if(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)return;
     persistPackage();
@@ -2401,6 +2414,8 @@ function Publish({
         <div className="schedule-controls">
           <input type="datetime-local" value={scheduledFor} onChange={(e)=>{setScheduledFor(e.target.value);setScheduleMessage('');}} />
           <button className="button secondary" disabled={Boolean(activeCampaign.rankingContext?.v4ResearchDraft && (publisherBlocked || !online))} onClick={schedulePublication}>{t('schedule')}</button>
+          {scheduleMessage===t('scheduled')&&<><button type="button" className="button secondary" onClick={downloadCalendarReminder}>{locale==='pt-BR'?'Adicionar lembretes ao calendário':locale==='es'?'Añadir recordatorios al calendario':'Add calendar reminders'}</button>
+          <small>{locale==='pt-BR'?'Baixe e importe o arquivo no aplicativo de calendário. O NestAffiliate não publica automaticamente.':locale==='es'?'Importa el archivo en tu calendario. No publica automáticamente.':'Import the calendar file to receive reminders. This does not post for you.'}</small></>}
           {scheduleMessage && <span className={scheduleMessage===t('scheduled')?'success-text':'field-error'}>{scheduleMessage}</span>}
         </div>
       </section>
