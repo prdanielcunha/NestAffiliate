@@ -38,6 +38,32 @@ export interface ProductTruth {
   assetRights: AssetRightsStatus;
 }
 
+/** Private, versioned identity/rights record. A marketplace thumbnail is VIEW_ONLY until proven otherwise. */
+export interface ProductReferenceAsset {
+  id: string;
+  organizationId: string;
+  productId: string;
+  marketplace: Marketplace;
+  externalListingId: string;
+  variantId?: string;
+  sourceType: 'MARKETPLACE_REFERENCE' | 'USER_OWN_PHOTO' | 'OWNER_AUTHORIZED' | 'LICENSED_MEDIA';
+  rights: 'UNKNOWN' | 'VIEW_ONLY' | 'USER_ATTESTED' | 'PLATFORM_LICENSED' | 'BLOCKED';
+  referenceStatus: 'MISSING' | 'VIEW_ONLY' | 'READY_FOR_AI' | 'REVOKED' | 'STALE';
+  canSendToExternalAI: boolean;
+  rightsEvidence?: string;
+  knownAttributes?: Record<string,string>;
+  variantFingerprint?: string;
+  sha256?: string;
+  mimeType?: 'image/png' | 'image/jpeg' | 'image/webp';
+  width?: number;
+  height?: number;
+  sourceUrl?: string;
+  storagePath?: string;
+  capturedAt: string;
+  updatedAt: string;
+  createdBy?: string;
+}
+
 export interface CreativeNarrative {
   headline: string;
   subheadline?: string;
