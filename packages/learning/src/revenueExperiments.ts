@@ -21,7 +21,7 @@ export function deriveRevenueCohortObservation(
     const key=campaign.marketplace+':'+campaign.currentVersion.keyword.normalize('NFD')
       .replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
     const orders=transactions.filter((row)=>row.organizationId===campaign.organizationId &&
-      row.campaignId===campaign.id && row.attribution==='EXACT' && row.status==='APPROVED');
+      row.campaignId===campaign.id && row.attribution==='EXACT' && row.channel==='PINTEREST' && row.status==='APPROVED');
     const approved=orders.reduce((sum,row)=>sum+row.commission,0);
     const clicks=performance.filter((row)=>row.organizationId===campaign.organizationId&&row.campaignId===campaign.id)
       .reduce((sum,row)=>sum+Math.max(0,row.outboundClicks),0);
