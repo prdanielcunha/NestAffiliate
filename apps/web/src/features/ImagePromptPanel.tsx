@@ -9,11 +9,12 @@ import { ProductReferenceManager } from './ProductReferenceManager';
 import type { ReferencePreview } from '../services/productReferenceRepository';
 
 export function ImagePromptPanel({
- pack,product,reference,onReferenceChange,
+ pack,product,reference,onReferenceChange,referenceLockRequired=false,
 }:{
  pack:PinterestCreativePack;product:ProductTruth;
  reference?:ReferencePreview|null;
  onReferenceChange?:(ref:ReferencePreview|null)=>void;
+ referenceLockRequired?:boolean;
 }){
  const {t,locale}=useI18n();
  const [language,setLanguage]=useState<'en'|'pt-BR'>('pt-BR');
@@ -29,7 +30,7 @@ export function ImagePromptPanel({
    });
  },[concept,language,pack.creativeDirection.cameraAngle,product]);
  if(!concept||!base)return null;
- const enabled=FEATURE_FLAGS.REFERENCE_LOCK_V4_ENABLED;
+ const enabled=FEATURE_FLAGS.REFERENCE_LOCK_V4_ENABLED && referenceLockRequired;
  const ready=!enabled||Boolean(reference&&isReferenceAiReady(reference.asset,product)&&reference.previewUrl);
  const realPrompt=enabled?[
   'INSTRUÇÃO FUNDAMENTAL — ANEXO DE REFERÊNCIA OBRIGATÓRIO:',

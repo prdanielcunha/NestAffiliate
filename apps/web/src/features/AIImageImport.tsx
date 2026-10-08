@@ -62,6 +62,7 @@ export function AIImageImport({
   pack,
   product,
   reference,
+  referenceLockRequired=false,
   disabled,
   onImported,
 }:{
@@ -70,6 +71,7 @@ export function AIImageImport({
   pack:PinterestCreativePack;
   product?:ProductTruth;
   reference?:ReferencePreview|null;
+  referenceLockRequired?:boolean;
   disabled?:boolean;
   onImported:(asset:CreativeAsset)=>void;
 }){
@@ -83,7 +85,7 @@ export function AIImageImport({
   const [busy,setBusy]=useState(false);
   const [reviewed,setReviewed]=useState(false);
   const [fidelity,setFidelity]=useState({color:false,shape:false,parts:false,details:false});
-  const v4=FEATURE_FLAGS.REFERENCE_LOCK_V4_ENABLED;
+  const v4=FEATURE_FLAGS.REFERENCE_LOCK_V4_ENABLED && referenceLockRequired;
   const referenceReady=Boolean(product&&reference&&isReferenceAiReady(reference.asset,product)&&reference.previewUrl);
   const comparisonConfirmed=Object.values(fidelity).every(Boolean);
   const canApply=!v4?reviewed:referenceReady&&comparisonConfirmed;

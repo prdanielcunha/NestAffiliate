@@ -203,7 +203,7 @@ export function PinterestCreativePackPanel({
     </div>
 
     <div className="pack-section">
-      <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} />
+      <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true} />
     </div>
 
     <div className="pack-section">
@@ -213,6 +213,7 @@ export function PinterestCreativePackPanel({
         pack={pack}
         product={campaign.currentVersion.product}
         reference={reference}
+        referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true}
         disabled={!editable}
         onImported={importAsset}
       />
