@@ -84,6 +84,7 @@ export function PinterestCreativePackPanel({
     });
     const next=nextCampaignVersion(campaign,{
       creativePack:nextPack,
+      creativeAsset:undefined,
       narrative:packNarrative(nextPack,campaign.currentVersion.narrative),
       boardName:nextPack.copy.recommendedBoardName,
       template:'Lifestyle + Headline',
@@ -99,7 +100,7 @@ export function PinterestCreativePackPanel({
     const nextPack=directionFromSelected(versionPinterestCreativePack(pack,nextVersion,conceptId));
     const chosen=nextPack.imageConcepts.findIndex(item=>item.id===nextPack.recommendedConceptId);
     const layouts=['Problem → Solution','Room Inspiration','Editorial Premium'];
-    const next=nextCampaignVersion(campaign,{creativePack:nextPack,template:layouts[chosen%3]??'Editorial Premium'},'creative concept changed');
+    const next=nextCampaignVersion(campaign,{creativePack:nextPack,creativeAsset:undefined,template:layouts[chosen%3]??'Editorial Premium'},'creative concept changed');
     onUpdate(next);
     setSaving(true);
     void persist(nextPack).finally(()=>setSaving(false));
