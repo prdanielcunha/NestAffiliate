@@ -49,7 +49,7 @@ async function authorizedFetch(user:User,url:string,init:RequestInit={}){
     try{
       const payload=await response.json() as {error?:string};
       if(typeof payload.error==='string')reason=payload.error;
-    }catch{}
+    }catch{ /* No response body; retain a generic safe error. */ }
     throw new Error(reason);
   }
   return response;
