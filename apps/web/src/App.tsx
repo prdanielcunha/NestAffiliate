@@ -715,6 +715,16 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
               expired:agentReport.opportunitiesExpired ?? 0,
               revalidated:agentReport.campaignsRevalidated ?? 0,
             })}</small>}
+            {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && typeof agentReport?.researchOnlyCandidates==='number' && <small>{
+              locale==='pt-BR'?'Candidatos em pesquisa (sem publicação automática): '
+              :locale==='es'?'Candidatos en investigación (sin publicación automática): '
+              :'Research candidates (no automatic publishing): '
+            }<b>{agentReport.researchOnlyCandidates}</b></small>}
+            {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && typeof agentReport?.revalidationPending==='number' && <small>{
+              locale==='pt-BR'?'Campanhas preservadas aguardando confirmação de dados: '
+              :locale==='es'?'Campañas preservadas pendientes de verificación: '
+              :'Preserved campaigns awaiting data verification: '
+            }<b>{agentReport.revalidationPending}</b></small>}
             {agentReport && <small>{t('queueDecision')}: {queueStateLabel} · {t('categoriesCovered')}: {agentReport.categoriesCovered ?? 0} · {t('themesCovered')}: {agentReport.themesCovered ?? 0}</small>}
             {agentReport?.topOpportunityScore != null && <small>NestScore {agentReport.topOpportunityScore} · {agentReport.topOpportunityKeyword ?? '—'}</small>}
             {agentReport?.completedAt && <small>{t('lastSync')}: {new Date(agentReport.completedAt).toLocaleString(locale)} · {t('cloudAgent')}</small>}
@@ -1093,7 +1103,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       const meliResult=providerResults.find((result)=>result.provider==='MELI');
       if(FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && db){
         const providerStatuses:Record<string,'OK'|'RATE_LIMITED'|'AUTH_REQUIRED'|'UNAVAILABLE'>={};
-        for(const current of providerResults)providerStatuses[current.provider]='OK';
+        for(const current of providerResults)providerStatuses[current.provider]=current.degraded===true?'UNAVAILABLE':'OK';
         for(const failed of providerErrors){
           const code=failed.error.message.toUpperCase();
           const status=code.includes('429')||code.includes('RATE_LIMITED')?'RATE_LIMITED'
