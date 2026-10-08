@@ -1071,6 +1071,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     if (!editable) return;
     const campaignKeyword = keywordOverride?.trim() || query;
     const opportunity = buildOpportunity(product, campaignKeyword, signalInput ?? {signals:[]});
+    const v4=FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED ? assessOpportunityV4({
+      product,keyword:campaignKeyword,signals:opportunity.commercialSignals,
+    }) : null;
     const score = opportunity.score;
     const id = `campaign-${Date.now()}`;
     const campaign: Campaign = {
@@ -1080,6 +1083,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         trackingCode:opportunity.trackingCode,
         evidence:opportunity.rankingReasons,
         signalSources:opportunity.commercialSignals.map((signal)=>signal.source),
+        ...(v4 ? {v4ResearchDraft:v4.status!=='READY_NOW',v4AssessmentVersion:v4.version} : {}),
       },
       currentVersion: {
         id: `${id}-v1`, campaignId: id, version: 1, createdAt: new Date().toISOString(), reason: 'radar',
@@ -1595,6 +1599,19 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   function approve() {
     if (approvingRef.current) return;
     approvingRef.current = true;
+    // Only V4 research drafts are subject to this additive protection;
+    // pre-existing campaigns keep their original approval semantics.
+    if(campaign.rankingContext?.v4ResearchDraft && (
+      !v.creativeAsset?.referenceAssetId ||
+      v.creativeAsset.referenceListingId!==v.product.externalId ||
+      !v.creativeAsset.referenceSha256 ||
+      !v.creativeAsset.reviewedAt ||
+      !v.creativeAsset.productFidelityConfirmed
+    )){
+      setCreativeApprovalError(true);
+      approvingRef.current=false;
+      return;
+    }
     if(v.creativePack && !v.creativeAsset){
       setCreativeApprovalError(true);
       approvingRef.current=false;
@@ -2081,6 +2098,7 @@ function Publish({
   return (
     <div className="page publish-page">
       <PageTitle eyebrow={t('publishEyebrow')} title={t('publishReady')} subtitle={t('publishSub')} />
+      <ProductSourceActions product={v.product} compact />
       <div className="validation-row">
         {guard.checks.map((check) => <span key={check.key} className={`check ${check.outcome.toLowerCase()}`}>{check.outcome === 'PASS' ? '✓' : check.outcome === 'WARN' ? '!' : '×'} {check.key}</span>)}
       </div>

@@ -265,6 +265,9 @@ export interface CampaignRankingContext {
   trackingCode?: string;
   evidence: string[];
   signalSources: string[];
+  /** V4 research-draft marker; absent from historical campaigns. */
+  v4ResearchDraft?: boolean;
+  v4AssessmentVersion?: string;
 }
 
 export interface Campaign {
