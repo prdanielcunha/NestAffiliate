@@ -30,6 +30,7 @@ export interface PerformanceSummary {
   ctr:number;
   saveRate:number;
   conversionRate:number;
+  financialKnown:boolean;
   epm:number | null;
 }
 
@@ -44,12 +45,19 @@ export function summarizePerformance(rows: PerformanceDaily[]): PerformanceSumma
     revenue:acc.revenue+Math.max(0,row.revenue),
     commission:acc.commission+Math.max(0,row.commission),
   }),{impressions:0,engagements:0,saves:0,pinClicks:0,outboundClicks:0,sales:0,revenue:0,commission:0});
+  const financiallyObserved=rows.filter(row=>row.salesKnown!==false);
+  const finance=financiallyObserved.reduce((acc,row)=>({
+   impressions:acc.impressions+Math.max(0,row.impressions),
+   outboundClicks:acc.outboundClicks+Math.max(0,row.outboundClicks),
+   sales:acc.sales+Math.max(0,row.sales),
+   revenue:acc.revenue+Math.max(0,row.revenue),
+  }),{impressions:0,outboundClicks:0,sales:0,revenue:0});
   return {
-    ...total,
+    ...total,financialKnown:financiallyObserved.length>0,
     ctr: total.impressions ? total.outboundClicks/total.impressions : 0,
     saveRate: total.impressions ? total.saves/total.impressions : 0,
-    conversionRate: total.outboundClicks ? total.sales/total.outboundClicks : 0,
-    epm: total.impressions ? (total.revenue/total.impressions)*1000 : null,
+    conversionRate:finance.outboundClicks?finance.sales/finance.outboundClicks:0,
+    epm:finance.impressions?(finance.revenue/finance.impressions)*1000:null,
   };
 }
 
