@@ -155,7 +155,7 @@ export function assessOpportunityV4(input:AssessOpportunityV4Input):OpportunityV
     {ok:fidelity,weight:10,reason:'VISUAL_MISMATCH' as const},
     {ok:approval,weight:5,reason:'APPROVAL_REQUIRED' as const},
   ];
-  const blockers=conditions.filter(c=>!c.ok).map(c=>c.reason);
+  const blockers:OpportunityReasonCodeV4[]=conditions.filter(c=>!c.ok).map(c=>c.reason);
   if(!isSafeOfferUrl(p.url.value,p.marketplace))blockers.unshift('UNSAFE_DESTINATION');
   const readiness=conditions.reduce((sum,c)=>sum+(c.ok?c.weight:0),0);
   const recoverable=[...new Set(blockers)].filter(x=>x!=='UNSAFE_DESTINATION' && x!=='VISUAL_MISMATCH');
