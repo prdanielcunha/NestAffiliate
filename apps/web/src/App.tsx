@@ -1653,7 +1653,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     setAffiliateDraft(campaign?.currentVersion.product.affiliateUrl?.value ?? '');
     setAffiliateChecked(Boolean(campaign?.currentVersion.product && inspectAffiliateAttestation(campaign.currentVersion.product)==='SELF_CONFIRMED'));
     setAffiliateError('');
-  }, [campaign?.currentVersion.id, campaign?.currentVersion.product.affiliateUrl?.value]);
+  }, [campaign?.currentVersion.id, campaign?.currentVersion.product]);
 
   useEffect(()=>{setPendingEdit(null);setEditError('');},[campaign?.currentVersion.id]);
 
