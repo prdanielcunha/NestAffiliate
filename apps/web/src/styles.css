@@ -753,3 +753,5 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .concept-rendered-canvas{display:block;width:100%;height:auto;aspect-ratio:2/3;object-fit:contain}
 .concept-render-error{position:absolute;inset:0;display:grid;place-items:center;background:var(--surface2);color:var(--muted);font-size:12px}
 @media(max-width:600px){.concept-grid-v5{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.concept-grid-v5 .concept-card{padding:7px;min-width:0}.concept-grid-v5 .concept-info{gap:4px}.concept-grid-v5 .concept-info p,.concept-grid-v5 .concept-info small{font-size:10px;overflow-wrap:anywhere}.concept-grid-v5 .concept-info strong{font-size:11px;line-height:1.25;overflow-wrap:anywhere}}
+
+.publish-package-actions{display:grid;gap:10px;margin-bottom:14px}.publish-package-actions>.button{width:100%;min-height:44px}.publish-package-actions>small{font-size:11px;color:var(--muted);line-height:1.5}
