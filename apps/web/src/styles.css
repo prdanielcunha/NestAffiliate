@@ -747,3 +747,9 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .creative-workflow-guide li small{font-size:11px;line-height:1.35}
 #review-product,#review-creative,#review-final{scroll-margin-top:90px}
 @media(max-width:650px){.creative-workflow-intro{display:grid}.creative-workflow-intro button{width:100%}.creative-workflow-guide ol{grid-template-columns:repeat(5,minmax(75px,1fr));overflow-x:auto;scrollbar-width:thin}.creative-workflow-guide li small{font-size:10px}}
+
+/* Concept cards are actual 1000x1500 canvas renders scaled to mobile, not illustrative CSS mockups. */
+.concept-grid-v5 .concept-visual{padding:0;aspect-ratio:2/3;min-height:0;overflow:hidden;display:block;background:var(--surface2)}
+.concept-rendered-canvas{display:block;width:100%;height:auto;aspect-ratio:2/3;object-fit:contain}
+.concept-render-error{position:absolute;inset:0;display:grid;place-items:center;background:var(--surface2);color:var(--muted);font-size:12px}
+@media(max-width:600px){.concept-grid-v5{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.concept-grid-v5 .concept-card{padding:7px;min-width:0}.concept-grid-v5 .concept-info{gap:4px}.concept-grid-v5 .concept-info p,.concept-grid-v5 .concept-info small{font-size:10px;overflow-wrap:anywhere}.concept-grid-v5 .concept-info strong{font-size:11px;line-height:1.25;overflow-wrap:anywhere}}
