@@ -21,6 +21,7 @@ export interface MercadoLivreSearchResult {
   products:ProductTruth[];
   query:string;
   provider:'MELI';
+  degraded?:boolean;
   source:string;
   observedAt:string;
   meta:MercadoLivreSearchMeta;
@@ -111,6 +112,7 @@ export async function searchMercadoLivreBrokerDetailed(input:{
     products,
     query:typeof payload.query==='string' ? payload.query : query,
     provider:'MELI',
+    degraded:payload.degraded===true,
     source:typeof payload.source==='string' ? payload.source : 'mercadolivre-catalog-api',
     observedAt:typeof payload.observedAt==='string' ? payload.observedAt : new Date().toISOString(),
     meta:{
