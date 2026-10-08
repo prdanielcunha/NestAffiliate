@@ -9,8 +9,11 @@ test('Today → Review → edit → approve → guided publish', async ({ page }
   await expect(page.locator('.score-badge')).toBeVisible();
 
   const edit = page.getByPlaceholder(/Peça qualquer alteração/i);
-  await edit.fill('mais premium');
+  await edit.fill('Troque a headline para: Uma cozinha mais organizada');
   await edit.press('Enter');
+  await expect(page.getByRole('heading',{name:'Veja antes de aplicar'})).toBeVisible();
+  await expect(page.locator('.save-state')).toContainText('v1');
+  await page.getByRole('button',{name:'Aplicar alteração'}).click();
   await expect(page.locator('.save-state')).toContainText('v2');
 
   await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
@@ -110,4 +113,16 @@ test('Review can prepare a full Pinterest Creative Pack and blocks approval unti
   await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
   await expect(page.getByText(/Importe e revise a imagem gerada antes de aprovar/i)).toBeVisible();
   await expect(page).toHaveURL(/\/review\//);
+});
+
+
+test('unsupported creative command is explicit and cannot alter the campaign', async ({page})=>{
+  await page.goto('/');
+  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+  const edit=page.getByPlaceholder(/Peça qualquer alteração/i);
+  await edit.fill('Coloque um astronauta voando do lado da cadeira');
+  await edit.press('Enter');
+  await expect(page.getByRole('alert')).toContainText('Ainda não consigo executar');
+  await expect(page.locator('.save-state')).toContainText('v1');
+  await expect(page.getByText(/Ajuste solicitado:/i)).toHaveCount(0);
 });
