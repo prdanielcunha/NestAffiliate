@@ -16,7 +16,7 @@ export function planCreativeEdit(version:CampaignVersion,request:string):Creativ
   const summary:string[]=[];
 
   // Structured replacements execute exactly what the user typed, not AI-generated approximations.
-  const field=raw.match(/^(?:troque|mude|altere|coloque|defina|use)\s+(?:a\s+|o\s+)?(headline|t[ií]tulo(?:\s+do\s+pin)?|descri[cç][aã]o|subt[ií]tulo)\s*(?:para|por|:|como)\s*["“]?(.+?)["”]?$/i);
+  const field=raw.match(/^(?:troque|mude|altere|coloque|defina|use)\s+(?:a\s+|o\s+)?(headline|t[ií]tulo(?:\s+do\s+pin)?|descri[cç][aã]o|subt[ií]tulo)\s*(?:para|por|como|:)\s*:?\s*["“]?(.+?)["”]?$/i);
   if(field){
     const text=field[2]!.trim().replace(/^["“]|["”]$/g,'').trim();
     if(text.length<4||text.length>200)return fail('Use um texto entre 4 e 200 caracteres.');
