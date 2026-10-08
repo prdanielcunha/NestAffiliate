@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
-import { maxDuplicateSimilarity, runPublishingGuard, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
+import { maxDuplicateSimilarity, runPublishingGuard, inspectAffiliateAttestation, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
 import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
@@ -50,6 +50,7 @@ import { ProductSourceActions } from './features/ProductSourceActions';
 import { loadLatestRadarV4Coverage, primaryRadarBlocker, saveRadarV4Coverage, type SourceCoverageRunV4 } from './services/radarV4Repository';
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel, opportunityReasonLabel } from './features/OpportunityV4Panel';
+import { planCreativeEdit, type CreativeEditPlan } from './lib/creativeEdit';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
 
@@ -1640,6 +1641,9 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   const [saved, setSaved] = useState(true);
   const [affiliateDraft, setAffiliateDraft] = useState('');
   const [affiliateError, setAffiliateError] = useState('');
+  const [affiliateChecked, setAffiliateChecked] = useState(false);
+  const [pendingEdit,setPendingEdit] = useState<CreativeEditPlan|null>(null);
+  const [editError,setEditError] = useState('');
   const [swapOptions, setSwapOptions] = useState<ProductTruth[]>([]);
   const [swapLoading, setSwapLoading] = useState(false);
   const [creativeApprovalError,setCreativeApprovalError]=useState(false);
@@ -1647,8 +1651,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
 
   useEffect(() => {
     setAffiliateDraft(campaign?.currentVersion.product.affiliateUrl?.value ?? '');
+    setAffiliateChecked(Boolean(campaign?.currentVersion.product && inspectAffiliateAttestation(campaign.currentVersion.product)==='SELF_CONFIRMED'));
     setAffiliateError('');
   }, [campaign?.currentVersion.id, campaign?.currentVersion.product.affiliateUrl?.value]);
+
+  useEffect(()=>{setPendingEdit(null);setEditError('');},[campaign?.currentVersion.id]);
 
   if (!campaign) return <Navigate to="/campaigns" replace />;
   const activeCampaign: Campaign = campaign;
@@ -1670,35 +1677,19 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     }).catch(()=>undefined);
   }
 
-  function applyEdit(raw: string) {
-    const text = raw.trim().toLowerCase();
-    if (!text) return;
-    let narrative = { ...v.narrative };
-    let template = v.template;
-    if (text.includes('premium')) {
-      template = 'Editorial Premium';
-      narrative.headline = `Uma escolha mais elegante para ${v.keyword}`;
-      narrative.subheadline = 'Menos ruído. Mais função e intenção.';
-    } else if (text.includes('headline') || text.includes('título') || text.includes('titulo')) {
-      narrative.headline = `${v.keyword}: uma ideia que muda a rotina`;
-    } else if (text.includes('menos texto') || text.includes('clean') || text.includes('limpo')) {
-      template = 'Minimal';
-      narrative.subheadline = 'Uma solução simples, visual e funcional.';
-    } else if (text.includes('fundo')) {
-      template = text.includes('claro') ? 'Editorial Light' : 'Editorial Premium';
-    } else if (text.includes('refaz tudo')) {
-      template = 'Problem → Solution';
-      narrative = {
-        ...narrative,
-        headline: `Pouco espaço? Comece por ${v.keyword}`,
-        subheadline: 'Um novo ângulo editorial para a mesma oportunidade.',
-      };
-    } else {
-      narrative.subheadline = `Ajuste solicitado: ${raw.trim()}`;
-    }
-    const next=nextCampaignVersion(campaign, { narrative, template }, raw.trim());
+  function previewEdit(raw:string){
+    const plan=planCreativeEdit(v,raw);
+    setPendingEdit(plan.ok?plan:null);
+    setEditError(plan.ok?'':plan.message);
+  }
+
+  function confirmEdit(){
+    if(!editable || !pendingEdit?.ok)return;
+    const next=nextCampaignVersion(campaign,pendingEdit.changes,pendingEdit.originalRequest);
     update(next);
-    recordDecision(text.includes('refaz tudo') ? 'REGENERATED' : 'EDITED',next,raw.trim());
+    recordDecision('EDITED',next,pendingEdit.originalRequest);
+    setPendingEdit(null);
+    setEditError('');
     setCommand('');
     setSaved(true);
   }
@@ -1706,7 +1697,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   function saveAffiliateLink() {
     try {
       const url = new URL(affiliateDraft.trim());
-      if (url.protocol !== 'https:') throw new Error('https');
+      if (!isSafeAffiliateUrl(url.toString(),v.product.marketplace)) throw new Error('domain');
+      if(v.product.marketplace==='MELI' && !affiliateChecked){
+        setAffiliateError(locale==='pt-BR'?'Confirme o anúncio, a sua conta e o canal Pinterest na Central de Afiliados antes de salvar.':locale==='es'?'Confirma primero en el portal de afiliados.':'Confirm the listing, account and Pinterest channel in the affiliate portal first.');
+        return;
+      }
       const product: ProductTruth = {
         ...v.product,
         affiliateUrl: {
@@ -1714,6 +1709,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           source: 'user-provided',
           observedAt: new Date().toISOString(),
         },
+        affiliateAttestation:v.product.marketplace==='MELI' ? {
+          method:'USER_CONFIRMED_IN_AFFILIATE_PORTAL',
+          url:url.toString(),marketplace:v.product.marketplace,externalId:v.product.externalId,
+          channel:'PINTEREST',confirmedAt:new Date().toISOString(),
+        } : undefined,
       };
       const next=nextCampaignVersion(campaign, { product }, 'affiliate link updated');
       update(next);
@@ -1798,6 +1798,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       headline: v.narrative.headline,
       description: v.narrative.description,
       creativeAsset:v.creativeAsset,
+      requireAffiliateAttestation:Boolean(campaign.rankingContext?.v4ResearchDraft),
       duplicateSimilarity: campaignDuplicateSimilarity(campaign,campaigns),
     });
     const next: Campaign = {
@@ -1825,8 +1826,16 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
       {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <ReelKitPanel campaign={activeCampaign} />}
       {creativeApprovalError && <div className="notice danger creative-approval-error">{t('creativeImageRequired')}</div>}
+      {editError && <div className="notice edit-feedback" role="alert">{editError}</div>}
+      {pendingEdit?.ok && <section className="edit-preview" aria-label="Prévia da alteração">
+        <div><p className="eyebrow">{locale==='pt-BR'?'PRÉVIA · NÃO SALVO':locale==='es'?'VISTA PREVIA · NO GUARDADO':'PREVIEW · NOT SAVED'}</p>
+          <h2>{locale==='pt-BR'?'Veja antes de aplicar':locale==='es'?'Revisa antes de aplicar':'Review before applying'}</h2>
+          <ul>{pendingEdit.summary.map(item=><li key={item}>{item}</li>)}</ul></div>
+        <div className="edit-preview-actions"><button className="button secondary" onClick={()=>setPendingEdit(null)}>{t('cancel')}</button>
+        <button className="button primary" onClick={confirmEdit}>{locale==='pt-BR'?'Aplicar alteração':locale==='es'?'Aplicar cambio':'Apply change'}</button></div>
+      </section>
       <div className="review-grid">
-        <PinPreview campaign={activeCampaign} />
+        <PinPreview campaign={pendingEdit?.ok?{...activeCampaign,currentVersion:{...v,...pendingEdit.changes}}:activeCampaign} />
         <section className="decision-panel">
           <div className="review-header">
             <div><p className="eyebrow">{t('review')}</p><h1>{v.keyword}</h1></div>
@@ -1842,14 +1851,22 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
               <div className="inline-editor">
                 <input
                   value={affiliateDraft}
-                  onChange={(e) => { setAffiliateDraft(e.target.value); setSaved(false); }}
+                  onChange={(e) => { setAffiliateDraft(e.target.value);setAffiliateChecked(false); setSaved(false); }}
                   placeholder="https://..."
                   inputMode="url"
                   aria-label="Link afiliado"
                 />
-                <button className="button secondary" onClick={saveAffiliateLink}>{t('validateLink')}</button>
+                <button className="button secondary" disabled={!editable} onClick={saveAffiliateLink}>{locale==='pt-BR'?'Salvar conferência':locale==='es'?'Guardar comprobación':'Save confirmation'}</button>
               </div>
-              {affiliateError && <p className="field-error">{affiliateError}</p>}
+              {campaign.marketplace==='MELI' && <div className="affiliate-proof-check">
+                <label><input type="checkbox" checked={affiliateChecked} disabled={!editable} onChange={e=>setAffiliateChecked(e.target.checked)}/>
+                  <span>{locale==='pt-BR'?'Conferi este anúncio e gerei/validei este link na minha Central de Afiliados para divulgação no Pinterest.':locale==='es'?'Comprobé este anuncio, enlace y canal en mi cuenta de afiliados.':'I checked this listing, link and Pinterest channel in my affiliate account.'}</span>
+                </label>
+                <p role="status">{inspectAffiliateAttestation(v.product)==='SELF_CONFIRMED' && affiliateDraft.trim()===v.product.affiliateUrl?.value
+                  ? (locale==='pt-BR'?'Conferência manual registrada; comissão não é garantida.':locale==='es'?'Confirmación manual registrada; comisión no garantizada.':'User confirmation saved; commission is not guaranteed.')
+                  : (locale==='pt-BR'?'Comissão ainda não verificada. Um endereço HTTPS não comprova atribuição.':locale==='es'?'Comisión todavía no verificada. HTTPS no prueba atribución.':'Commission not verified. HTTPS does not prove attribution.')}</p>
+              </div>}
+              {affiliateError && <p className="field-error">{affiliateError}</p>
               {!v.product.affiliateUrl && campaign.marketplace === 'MELI' && (
                 <p className="field-hint">{t('affiliateMissing')}</p>
               )}
@@ -1917,7 +1934,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           </div>
           <div className="minor-actions">
             <button disabled={!editable} onClick={() => void loadSwaps()}>{swapLoading ? t('searching') : t('swap')}</button>
-            <button disabled={!editable} onClick={() => applyEdit('Refaz tudo')}>{t('redo')}</button>
+            <button disabled={!editable} onClick={() => previewEdit('Novo ângulo')}>{t('redo')}</button>
             <button disabled={!editable} onClick={() => {
               const rejected: Campaign = { ...campaign, status: 'REJECTED' };
               update(rejected);
@@ -1947,8 +1964,8 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       </div>
       <div className="ai-bar">
         <span className="spark">✦</span>
-        <input id="ai-edit" disabled={!editable} value={command} onChange={(e) => { setSaved(false); setCommand(e.target.value); }} onKeyDown={(e) => e.key === 'Enter' && applyEdit(command)} placeholder={editable ? t('askChange') : t('readOnly')} />
-        <button disabled={!editable} onClick={() => applyEdit(command)}>{t('apply')}</button>
+        <input id="ai-edit" disabled={!editable} value={command} onChange={(e) => { setCommand(e.target.value);setEditError('');setPendingEdit(null); }} onKeyDown={(e) => e.key === 'Enter' && previewEdit(command)} placeholder={editable ? t('askChange') : t('readOnly')} />
+        <button disabled={!editable} onClick={() => previewEdit(command)}>{locale==='pt-BR'?'Prévia':locale==='es'?'Vista previa':'Preview'}</button>
       </div>
     </div>
   );
@@ -2126,6 +2143,7 @@ function Publish({
     product: v.product, disclosure: v.narrative.disclosure, destinationUrl: destination,
     headline: v.narrative.headline, description: v.narrative.description,
     creativeAsset:v.creativeAsset,
+    requireAffiliateAttestation:Boolean(activeCampaign.rankingContext?.v4ResearchDraft),
     duplicateSimilarity:campaignDuplicateSimilarity(activeCampaign,campaigns),
     frequencyPolicy:hasFrequencyPolicy ? {
       maxPublications24h:preferences.maxPublications24h ?? undefined,
