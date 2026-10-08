@@ -71,6 +71,21 @@ describe('learning engine', () => {
     expect(scene?.dimensions?.outboundClicks).toBeGreaterThan(0);
   });
 
+  it('does not penalize 12 published campaigns when no performance was observed', () => {
+    const published=Array.from({length:12},(_,i)=>campaign('empty-'+i));
+    const adjustment=historicalScoreAdjustment(published,[],{productTheme:'cozinha'});
+    expect(adjustment.adjustment).toBe(0);
+    expect(adjustment.confidence).toBe('insufficient');
+  });
+
+  it('keeps Pinterest-only commission unknown rather than fabricating sales',()=>{
+    const published=Array.from({length:12},(_,i)=>campaign('pin-only-'+i));
+    const reports=published.map(c=>({...metric(c.id),sales:0,revenue:0,commission:0,source:'PINTEREST_CSV' as const,salesKnown:false}));
+    const adjustment=historicalScoreAdjustment(published,reports,{productTheme:'cozinha'});
+    expect(adjustment.adjustment).toBeGreaterThanOrEqual(-6);
+    expect(adjustment.adjustment).toBeLessThanOrEqual(6);
+  });
+
   it('only adjusts score after a statistically safer minimum sample', () => {
     const campaigns=Array.from({length:12},(_,i)=>campaign(`c${i}`));
     const metrics=campaigns.map((c)=>metric(c.id));
