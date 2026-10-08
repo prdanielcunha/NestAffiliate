@@ -47,6 +47,7 @@ import { analyzeAffiliateProduct, type AffiliateProductAnalysis } from './servic
 import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
 import './features/revenue3.css';
 import { ProductSourceActions } from './features/ProductSourceActions';
+import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel } from './features/OpportunityV4Panel';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
@@ -1848,6 +1849,8 @@ function Publish({
   const [scheduledFor,setScheduledFor]=useState('');
   const [scheduleMessage,setScheduleMessage]=useState('');
   const [online,setOnline]=useState(()=>typeof navigator==='undefined' ? true : navigator.onLine);
+  const [referenceValidation,setReferenceValidation]=useState<'idle'|'checking'|'approved'|'blocked'>('idle');
+
 
   const progressCampaignId=campaign?.id;
   const progressOrganizationId=campaign?.organizationId;
@@ -1869,6 +1872,27 @@ function Publish({
       window.removeEventListener('offline',onOffline);
     };
   },[]);
+
+
+  useEffect(()=>{
+    if(!campaign?.rankingContext?.v4ResearchDraft){
+      setReferenceValidation('approved');return;
+    }
+    const asset=campaign.currentVersion.creativeAsset;
+    if(!db || !asset?.referenceAssetId || !asset.referenceSha256 ||
+      asset.referenceListingId!==campaign.currentVersion.product.externalId ||
+      !asset.productFidelityConfirmed || !asset.reviewedAt){
+      setReferenceValidation('blocked');return;
+    }
+    let active=true;
+    setReferenceValidation('checking');
+    void validateStoredProductReference({
+      db,organizationId:campaign.organizationId,product:campaign.currentVersion.product,
+      assetId:asset.referenceAssetId,expectedSha256:asset.referenceSha256,
+    }).then(ok=>{if(active)setReferenceValidation(ok?'approved':'blocked');})
+      .catch(()=>{if(active)setReferenceValidation('blocked');});
+    return ()=>{active=false;};
+  },[campaign?.rankingContext?.v4ResearchDraft,campaign?.currentVersion,campaign?.organizationId]);
 
   useEffect(()=>{
     if(!campaign || !db || !identity.organizationId) {
@@ -1963,6 +1987,7 @@ function Publish({
   const freshMaterialBlock=['review','block'].includes(freshState);
   const publisherBlocked=
     guard.outcome==='BLOCK' ||
+    referenceValidation!=='approved' ||
     freshMaterialBlock ||
     ['idle','loading'].includes(freshState) ||
     (!freshReady && ['manual','error'].includes(freshState));
@@ -2103,6 +2128,12 @@ function Publish({
         {guard.checks.map((check) => <span key={check.key} className={`check ${check.outcome.toLowerCase()}`}>{check.outcome === 'PASS' ? '✓' : check.outcome === 'WARN' ? '!' : '×'} {check.key}</span>)}
       </div>
       {guard.outcome === 'BLOCK' && <div className="notice danger">{t('publishBlocked')}</div>}
+      {activeCampaign.rankingContext?.v4ResearchDraft && referenceValidation!=='approved' &&
+        <div className="notice danger" role="alert">{referenceValidation==='checking'
+          ? 'Conferindo a referência real e sua autorização antes de publicar…'
+          : 'Publicação suspensa: a foto de referência está ausente, revogada ou não corresponde à variante. Volte à revisão e valide novamente.'}
+          <NavLink className="button secondary" to={`/review/${activeCampaign.id}`}>Voltar à revisão</NavLink>
+        </div>}
       {!online && <div className="notice">{t('offlinePublishBlocked')}</div>}
       <section className={`fresh-validation ${freshState}`}>
         <div>

@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, limit, query, serverTimestamp, setDoc, where, type Firestore } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, where, type Firestore } from 'firebase/firestore';
 import { getBlob, ref, uploadBytes, type FirebaseStorage } from 'firebase/storage';
 import type { ProductReferenceAsset, ProductTruth } from '@nestaffiliate/core';
 import { detectImageMime, sha256Hex, validateImageMetadata } from '@nestaffiliate/creative-engine';
@@ -92,4 +92,20 @@ export async function revokeProductReference(db:Firestore,organizationId:string,
     ...asset,referenceStatus:'REVOKED',canSendToExternalAI:false,
     revokedBy:actorId,updatedAt:serverTimestamp(),
   },{merge:true});
+}
+
+/** Fail closed on revoked/missing references; preview URLs must never be used as proof of authorization. */
+export async function validateStoredProductReference(input:{
+ db:Firestore; organizationId:string; product:ProductTruth;
+ assetId:string; expectedSha256:string;
+}):Promise<boolean>{
+ const {db,organizationId,product,assetId,expectedSha256}=input;
+ if(product.organizationId!==organizationId || !assetId.startsWith('ref-') ||
+   !/^[a-f0-9]{64}$/.test(expectedSha256))return false;
+ const snapshot=await getDoc(doc(db,...root(organizationId),'productReferences',assetId));
+ if(!snapshot.exists())return false;
+ const reference=snapshot.data() as ProductReferenceAsset;
+ return reference.id===assetId && reference.sha256===expectedSha256 &&
+   Boolean(reference.storagePath?.startsWith('organizations/'+organizationId+'/product-references/')) &&
+   isReferenceAiReady(reference,product);
 }
