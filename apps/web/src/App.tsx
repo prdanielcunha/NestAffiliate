@@ -47,6 +47,7 @@ import { analyzeAffiliateProduct, type AffiliateProductAnalysis } from './servic
 import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
 import './features/revenue3.css';
 import { ProductSourceActions } from './features/ProductSourceActions';
+import { saveRadarV4Coverage } from './services/radarV4Repository';
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel } from './features/OpportunityV4Panel';
 
@@ -724,6 +725,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [onlyValidated,setOnlyValidated]=useState(false);
   const [confirmedCommissionOnly,setConfirmedCommissionOnly]=useState(false);
   const [authorizedAssetsOnly,setAuthorizedAssetsOnly]=useState(false);
+  const [v4StatusFilter,setV4StatusFilter]=useState<'ALL'|'READY_NOW'|'NEAR_READY'|'PROMISING'|'SOURCE_LIMITED'>('ALL');
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
   const [errorCode,setErrorCode]=useState('');
   const [hasSearched,setHasSearched]=useState(false);
@@ -741,6 +743,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         return true;
       })
     : opportunities;
+  const shownOpportunities=FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4StatusFilter!=='ALL'
+    ? visibleOpportunities.filter(opp=>v4ById[opp.id]?.status===v4StatusFilter)
+    : visibleOpportunities;
   const [searchMeta,setSearchMeta]=useState<{
     provider:'MELI'|'SHOPEE'|'ALL';
     query:string;
@@ -1010,6 +1015,20 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         rejectedUnverified:0,
       });
       const meliResult=providerResults.find((result)=>result.provider==='MELI');
+      if(FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && db){
+        const providerStatuses:Record<string,'OK'|'RATE_LIMITED'|'AUTH_REQUIRED'|'UNAVAILABLE'>={};
+        for(const current of providerResults)providerStatuses[current.provider]='OK';
+        for(const failed of providerErrors){
+          const code=failed.message.toUpperCase();
+          const status=code.includes('429')||code.includes('RATE')?'RATE_LIMITED'
+            :code.includes('403')||code.includes('401')||code.includes('TOKEN')?'AUTH_REQUIRED':'UNAVAILABLE';
+          providerStatuses['UNAVAILABLE_'+Object.keys(providerStatuses).length]=status;
+        }
+        void saveRadarV4Coverage({
+          db,organizationId,query:effectiveQuery,provider,
+          providerStatuses,examined:aggregate.candidates,assessments:rankAssessments,
+        }).catch(()=>undefined);
+      }
 
       setOpportunities(visible);
       if(provider==='SHOPEE' || provider==='ALL') setShopeeProviderFallback(false);
@@ -1230,6 +1249,17 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           <span>{t('withImageOnly')}</span>
         </label>
       </div>
+      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && <div className="v4-status-filters">
+        <div className="v4-filter-heading"><strong>{locale==='pt-BR'?'O que vale sua atenção':'What needs your attention'}</strong><small>{shownOpportunities.length} / {opportunities.length}</small></div>
+        <div className="v4-filter-options">
+          {(['ALL','READY_NOW','NEAR_READY','PROMISING','SOURCE_LIMITED'] as const).map(s=>
+            <button key={s} type="button" aria-pressed={v4StatusFilter===s}
+              className={v4StatusFilter===s?'active':''} onClick={()=>setV4StatusFilter(s)}>{
+                s==='ALL'?'Todas':s==='READY_NOW'?'Prontas':s==='NEAR_READY'?'Quase prontas':s==='PROMISING'?'Vale investigar':'Aguardando fonte'
+              }</button>)}
+          {v4StatusFilter!=='ALL'&&<button type="button" className="text-button" onClick={()=>setV4StatusFilter('ALL')}>Limpar filtros</button>}
+        </div>
+      </div>}
       {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && <div className="radar-filters r3-filters">
         <label className="filter-check"><input type="checkbox" checked={onlyValidated} onChange={(e)=>setOnlyValidated(e.target.checked)}/><span>{t('r3OnlyValidated')}</span></label>
         <label className="filter-check"><input type="checkbox" checked={confirmedCommissionOnly} onChange={(e)=>setConfirmedCommissionOnly(e.target.checked)}/><span>{t('r3OnlyConfirmedCommission')}</span></label>
@@ -1319,7 +1349,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       )}
       {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && hasSearched && opportunities.length>0 && visibleOpportunities.length===0 && <Empty title={t('r3FilterNoMatch')} body={t('r3FilterClearHelp')}/>}
       <div className="opportunity-grid">
-        {visibleOpportunities.map((opportunity,index) => {
+        {shownOpportunities.map((opportunity,index) => {
           const product=opportunity.product;
           // A partial rollout must never allow unverified research items into a campaign.
           const assessment=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? assessRevenueOpportunity(opportunity) : null;
