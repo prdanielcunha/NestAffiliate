@@ -55,7 +55,7 @@ export function PerformancePanel({
 
   return <div className="performance-stack">
     <div className="metric-grid">
-      <div className="metric-card"><span>{t('revenue')}</span><strong>{new Intl.NumberFormat(locale,{style:'currency',currency:'BRL'}).format(summary.revenue)}</strong></div>
+      <div className="metric-card"><span>{t('revenue')}</span><strong>{summary.financialKnown?new Intl.NumberFormat(locale,{style:'currency',currency:'BRL'}).format(summary.revenue):'—'}</strong></div>
       <div className="metric-card"><span>EPM</span><strong>{summary.epm===null?'—':new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(summary.epm)}</strong></div>
       <div className="metric-card"><span>{t('outboundClicks')}</span><strong>{summary.outboundClicks}</strong></div>
       <div className="metric-card"><span>{t('sales')}</span><strong>{rows.length && rows.every(row=>row.salesKnown===false)?'—':summary.sales}</strong></div>
