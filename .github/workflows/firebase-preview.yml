@@ -75,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           pnpm dlx firebase-tools@15.26.0 hosting:channel:deploy na-main-review --project "$FIREBASE_PROJECT" --expires 7d --non-interactive | tee /tmp/na-preview-deploy.log
-          BASE="$(grep -oE 'https://[[:alnum:].-]+\\.web\\.app' /tmp/na-preview-deploy.log | tail -n1)"
+          BASE="$(grep -oE 'https://[[:alnum:].-]+[.]web[.]app' /tmp/na-preview-deploy.log | tail -n1)"
           test -n "$BASE"
           echo "NESTAFFILIATE_PREVIEW_URL=$BASE" >> "$GITHUB_ENV"
 
