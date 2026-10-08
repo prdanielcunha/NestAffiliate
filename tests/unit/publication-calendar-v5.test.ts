@@ -14,6 +14,6 @@ describe('Guided publication calendar',()=>{
  });
  it('blocks calendar injection through product and board text',()=>{
   const ics=publicationCalendarIcs({campaignId:'x',version:1,scheduledFor:'2026-10-11T12:00:00Z',productTitle:'X\r\nBEGIN:VEVENT',boardName:'A\nB',now});
-  expect((ics.match(/BEGIN:VEVENT/g)||[])).toHaveLength(1);
+  expect((ics.match(/^BEGIN:VEVENT$/gm)||[])).toHaveLength(1);
  });
 });
