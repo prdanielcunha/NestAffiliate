@@ -646,8 +646,8 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
           <div className="today-research-metrics">
             <div><strong>{latestResearch.examined}</strong><span>{locale==='pt-BR'?'Candidatos examinados':locale==='es'?'Candidatos examinados':'Examined candidates'}</span></div>
             <div><strong>{latestResearch.report.discovery}</strong><span>{locale==='pt-BR'?'Em investigação':locale==='es'?'En investigación':'Research candidates'}</span></div>
-            <div><strong>{latestResearch.report.nearReady}</strong><span>{locale==='pt-BR'?'Quase prontos':locale==='es'?'Casi listos':'Nearly ready'}</span></div>
-            <div><strong>{latestResearch.report.readyToPublish}</strong><span>{locale==='pt-BR'?'Prontos para publicar':locale==='es'?'Listos para publicar':'Ready to publish'}</span></div>
+            <div><strong>{latestResearch.report.resolvedListings}</strong><span>{locale==='pt-BR'?'Anúncios identificados':locale==='es'?'Anuncios identificados':'Identified listings'}</span></div>
+            <div><strong>{latestResearch.report.promising}</strong><span>{locale==='pt-BR'?'Para investigar':locale==='es'?'Para investigar':'Worth investigating'}</span></div>
           </div>
           <div className="today-research-bottom">
             <div><strong>{locale==='pt-BR'?'Estado das fontes':locale==='es'?'Estado de las fuentes':'Provider status'}</strong>
@@ -1416,10 +1416,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         <div className="v4-funnel-metrics">
           <div><strong>{searchMeta?.candidates??v4Funnel.examined}</strong><span>{locale==='pt-BR'?'Candidatos':locale==='es'?'Candidatos':'Candidates'}</span></div>
           <div><strong>{v4Funnel.discovery}</strong><span>{locale==='pt-BR'?'Em pesquisa':locale==='es'?'En investigación':'In research'}</span></div>
-          <div><strong>{v4Funnel.nearReady}</strong><span>{locale==='pt-BR'?'Quase prontos':locale==='es'?'Casi listos':'Nearly ready'}</span></div>
-          <div><strong>{v4Funnel.readyToPublish}</strong><span>{locale==='pt-BR'?'Prontos para publicar':locale==='es'?'Listos para publicar':'Ready to publish'}</span></div>
+          <div><strong>{v4Funnel.resolvedListings}</strong><span>{locale==='pt-BR'?'Anúncios identificados':locale==='es'?'Anuncios identificados':'Identified listings'}</span></div>
+          <div><strong>{v4Funnel.promising}</strong><span>{locale==='pt-BR'?'Para investigar':locale==='es'?'Para investigar':'Worth investigating'}</span></div>
         </div>
-        {v4Funnel.readyToPublish===0&&<p className="muted">{locale==='pt-BR'?'Nenhuma publicação liberada. Investigue as ofertas e resolva pendências reais sem preencher a fila artificialmente.':locale==='es'?'Ninguna publicación autorizada. Investigue las ofertas y resuelva pendientes reales.':'Nothing cleared for publication. Investigate offers and resolve real evidence gaps.'}</p>}
+        <p className="muted">{locale==='pt-BR'?'Este Radar identifica ofertas para pesquisa. Aprovação, imagem, link de comissão e publicação são confirmados depois, na campanha.':locale==='es'?'El Radar identifica ofertas para investigación. La publicación se valida después en la campaña.':'This Radar finds research candidates; creative, commission link, approval and publication are checked later.'}</p>
       </section>}
       {searchMeta && state==='idle' && <section className="radar-search-summary">
         <div>
