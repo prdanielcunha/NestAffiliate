@@ -2037,7 +2037,7 @@ function Publish({
   onSchedule:(schedule:PublicationSchedule)=>void;
   completeSchedule:(campaignId:string,campaignVersion:number)=>void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { id } = useParams();
   const identity = useAuth();
   const campaign = campaigns.find((c) => c.id === id);
