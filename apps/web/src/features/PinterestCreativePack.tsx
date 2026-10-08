@@ -11,6 +11,7 @@ import { savePinterestCreativePack } from '../services/creativePackRepository';
 import { AIImageImport } from './AIImageImport';
 import { CreativeConceptPicker } from './CreativeConceptPicker';
 import { ImagePromptPanel } from './ImagePromptPanel';
+import type { ReferencePreview } from '../services/productReferenceRepository';
 
 function packNarrative(pack:PinterestCreativePack, current:Campaign['currentVersion']['narrative']){
   return {
@@ -58,6 +59,7 @@ export function PinterestCreativePackPanel({
   const { t, locale }=useI18n();
   const [directionOffset,setDirectionOffset]=useState(0);
   const [saving,setSaving]=useState(false);
+  const [reference,setReference]=useState<ReferencePreview|null>(null);
   const pack=campaign.currentVersion.creativePack;
 
   async function persist(nextPack:PinterestCreativePack){
@@ -201,7 +203,7 @@ export function PinterestCreativePackPanel({
     </div>
 
     <div className="pack-section">
-      <ImagePromptPanel pack={pack} product={campaign.currentVersion.product} />
+      <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} />
     </div>
 
     <div className="pack-section">
@@ -209,6 +211,8 @@ export function PinterestCreativePackPanel({
         organizationId={campaign.organizationId}
         campaignId={campaign.id}
         pack={pack}
+        product={campaign.currentVersion.product}
+        reference={reference}
         disabled={!editable}
         onImported={importAsset}
       />
