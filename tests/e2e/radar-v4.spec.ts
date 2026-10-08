@@ -21,7 +21,7 @@ test.describe('Radar 4.0 opt-in design and gates',()=>{
     await page.getByRole('button',{name:'Mercado Livre',exact:true}).click();
     await page.getByRole('button',{name:'Analisar produtos'}).click();
     const card=page.locator('.opportunity-card').first();
-    await expect(card.locator('.radar-score-v4')).toContainText(/\\d+–\\d+/);
+    await expect(card.locator('.radar-score-v4')).toContainText(/\d+–\d+/);
     await expect(card.locator('.legacy-radar-score')).toContainText('Nota histórica');
     await expect(card.locator('.product-proof-row')).not.toContainText('Vendas verificadas');
   });
