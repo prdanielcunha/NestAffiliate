@@ -907,6 +907,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             organizationId,
             query:effectiveQuery,
             limit:20,
+            researchMode:FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED,
           });
           providerResults.push({
             provider:'MELI',
