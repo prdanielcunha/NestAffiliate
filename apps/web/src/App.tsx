@@ -1520,7 +1520,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                     ? t('shopeeEstimatedCommission',{value:new Intl.NumberFormat(locale,{style:'currency',currency:item.product.currency.value}).format(item.estimatedCommissionPerSale)})
                     : t('r3CommissionUnknown')}</p>
                   <p>{item.affiliateLinkReady?t('r3AffiliatePresent'):t('r3AffiliateMissing')}</p>
-                  <a className="button secondary" href={item.product.url.value} rel="noreferrer" target="_blank">{t('r3SeeOffer')}</a>
+                  {isSafeOfferUrl(item.product.url.value,item.product.marketplace)
+                  ? <a className="button secondary" href={item.product.url.value} rel="noopener noreferrer" target="_blank">{t('r3SeeOffer')}</a>
+                  : <small role="status">{locale==='pt-BR'?'Oferta sem URL segura confirmada':locale==='es'?'Oferta sin URL verificada':'Offer URL not verified'}</small>}
                 </div>)}
               </details>}
               {FEATURE_FLAGS.NESTAI_OPPORTUNITY_ENRICHMENT_ENABLED && index<3 && <section className="revenue-assessment">
