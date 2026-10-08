@@ -1709,11 +1709,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           source: 'user-provided',
           observedAt: new Date().toISOString(),
         },
-        affiliateAttestation:v.product.marketplace==='MELI' ? {
+        ...(v.product.marketplace==='MELI' ? {affiliateAttestation:{
           method:'USER_CONFIRMED_IN_AFFILIATE_PORTAL',
           url:url.toString(),marketplace:v.product.marketplace,externalId:v.product.externalId,
           channel:'PINTEREST',confirmedAt:new Date().toISOString(),
-        } : undefined,
+        }} : {}),
       };
       const next=nextCampaignVersion(campaign, { product }, 'affiliate link updated');
       update(next);
