@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
-import { buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isCommerceReadyProduct, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
+import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
@@ -46,6 +46,8 @@ import { RevenueTruthPanel } from './features/RevenueTruthPanel';
 import { analyzeAffiliateProduct, type AffiliateProductAnalysis } from './services/nestAiClient';
 import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
 import './features/revenue3.css';
+import { ProductSourceActions } from './features/ProductSourceActions';
+import { OpportunityV4Panel } from './features/OpportunityV4Panel';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
 
@@ -727,6 +729,8 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [analysisNotice,setAnalysisNotice]=useState('');
   const [shopeeApiConfigured,setShopeeApiConfigured]=useState<boolean|null>(null);
   const [shopeeProviderFallback,setShopeeProviderFallback]=useState(false);
+  const v4ById=Object.fromEntries(opportunities.map(opp=>[opp.id,assessOpportunityV4({product:opp.product,keyword:opp.keyword,signals:opp.commercialSignals,legacyScore:opp.score.score})]));
+  const v4Funnel=buildRadarFunnelV4(Object.values(v4ById),opportunities.length);
   const visibleOpportunities=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
     ? opportunities.filter((opportunity)=>{
         const assessment=assessRevenueOpportunity(opportunity);
@@ -935,7 +939,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       }
 
       const found=providerResults.flatMap((result)=>
-        result.products.filter((product)=>FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
+        result.products.filter((product)=>FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED
+           ? isDiscoverableProduct(product)
+           : FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
           ? Boolean(product.url?.value && product.title?.value && product.availability?.value!=='unavailable')
           : isCommerceReadyProduct(product,result.meta.minSoldQuantity))
       );
@@ -948,7 +954,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
 
       const ceiling=maxPrice.trim() ? Number(maxPrice.replace(',','.')) : null;
       const snapshotResolver=signalResolverFromSnapshots(signalOverride ?? marketSignals);
-      const ranked=shortlist(found,effectiveQuery,20,(product)=>{
+      const ranked=shortlist(found,effectiveQuery,FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED?48:20,(product)=>{
         const stored=snapshotResolver(product,effectiveQuery);
         const officialShopeeSignals=product.marketplace==='SHOPEE'
           ? buildShopeeOfferSignals({
@@ -978,7 +984,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         .filter((opportunity)=>ceiling===null || !opportunity.product.price || opportunity.product.price.value<=ceiling)
         .filter((opportunity)=>!requireImage || Boolean(opportunity.product.imageUrl));
 
-      const visible=ranked.slice(0,12);
+      const rankAssessments=Object.fromEntries(ranked.map(opp=>[opp.id,assessOpportunityV4({product:opp.product,keyword:opp.keyword,signals:opp.commercialSignals,legacyScore:opp.score.score})]));
+      const visible=FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED
+        ? rankCandidatePoolV4(ranked,rankAssessments).slice(0,36)
+        : ranked.slice(0,12);
       const provider:ProviderResult['provider']|'ALL'=
         providerResults.length>1 ? 'ALL' : providerResults[0]!.provider;
       const observedAt=providerResults
@@ -1245,6 +1254,17 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           ? <NavLink className="button secondary" to="/connections">{t('connections')}</NavLink>
           : <button className="button secondary" type="button" onClick={()=>void search()}>{t('radarRetry')}</button>}
       </div>}
+      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && hasSearched && state==='idle' && <section className="v4-funnel">
+        <p className="eyebrow">RADAR 4.0 · EVIDENCE</p>
+        <h3>{locale==='pt-BR'?'Investigação, não volume artificial':'Evidence-first investigation'}</h3>
+        <div className="v4-funnel-metrics">
+          <div><strong>{searchMeta?.candidates??v4Funnel.examined}</strong><span>Candidatos</span></div>
+          <div><strong>{v4Funnel.discovery}</strong><span>Em pesquisa</span></div>
+          <div><strong>{v4Funnel.nearReady}</strong><span>Quase prontos</span></div>
+          <div><strong>{v4Funnel.readyToPublish}</strong><span>Prontos para publicar</span></div>
+        </div>
+        {v4Funnel.readyToPublish===0&&<p className="muted">Nenhuma publicação liberada. Investigue as ofertas e resolva pendências reais sem preencher a fila artificialmente.</p>}
+      </section>}
       {searchMeta && state==='idle' && <section className="radar-search-summary">
         <div>
           <span className="eyebrow">{t('radarSearchResult')}</span>
@@ -1318,7 +1338,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                 <span className={`potential-chip potential-${potential.toLowerCase()}`}>{potentialLabel}</span>
                 <span>NestScore 2.0 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}</span>
               </div>
-              <h3><a className="product-title-link" href={product.url.value} target="_blank" rel="noreferrer">{product.title.value}</a></h3>
+              <h3>{product.title.value}</h3>
               <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
               <div className="product-proof-row">
                 <span className="proof-chip success">{product.availability.value==='available' ? t('availableNow') : t('catalogOfficial')}</span>
@@ -1341,6 +1361,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   ? <span className="proof-chip success">{t('shopeeAffiliateReady')}</span>
                   : null}
               </div>
+              {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4ById[opportunity.id] && <OpportunityV4Panel assessment={v4ById[opportunity.id]}/>}
               {assessment && FEATURE_FLAGS.REVENUE_ASSESSMENT_ENABLED && <RevenueAssessmentPanel assessment={assessment}/>}
               {FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED && <details className="revenue-assessment">
                 <summary>{t('r3Compare')} ({comparisons.length})</summary>
@@ -1389,9 +1410,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               </div>
               <div className="tracking-row"><code>{opportunity.trackingCode}</code><button className="text-button" onClick={()=>void navigator.clipboard.writeText(opportunity.trackingCode)}>{t('copyTracking')}</button></div>
               <div className="opportunity-actions">
-                <a className="button secondary" href={product.url.value} target="_blank" rel="noreferrer">{t('openProduct')}</a>
+                <ProductSourceActions product={product} compact />
                 <button className="button secondary" onClick={()=>prepareAffiliate(opportunity)}>{t('affiliatePrep')}</button>
-                <button className="button primary" disabled={!editable || Boolean(assessment && assessment.track!=='VALIDATED')} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{assessment && assessment.track!=='VALIDATED' ? t('r3ReviewFirst') : t('createCampaign')}</button>
+                <button className="button primary" disabled={!editable || (!FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED && Boolean(assessment && assessment.track!=='VALIDATED'))} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED && v4ById[opportunity.id]?.status!=='READY_NOW'
+ ? (locale==='pt-BR'?'Criar rascunho de pesquisa':'Create research draft')
+ : assessment && assessment.track!=='VALIDATED' ? t('r3ReviewFirst') : t('createCampaign')}</button>
               </div>
             </div>
           </article>
@@ -1622,6 +1645,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           </div>
           <Disclosure title={t('product')} defaultOpen>
             <h3>{v.product.title.value}</h3>
+            <ProductSourceActions product={v.product} />
             <p className="muted">{campaign.marketplace} · {v.product.sellerName?.value ?? t('sellerUnknown')}</p>
             <small>{t('source')}: {v.product.title.source} · {new Date(v.product.title.observedAt).toLocaleString(locale)}</small>
             <div className="affiliate-editor">
