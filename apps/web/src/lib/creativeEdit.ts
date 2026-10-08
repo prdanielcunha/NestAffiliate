@@ -21,7 +21,7 @@ export function planCreativeEdit(version:CampaignVersion,request:string):Creativ
     const text=field[2]!.trim().replace(/^["“]|["”]$/g,'').trim();
     if(text.length<4||text.length>200)return fail('Use um texto entre 4 e 200 caracteres.');
     const label=field[1]!.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-    const key=label==='headline'?'headline':label.startsWith('subtitulo')?'subheadline':label.startsWith('descricao')?'description':'pinterestTitle';
+    const key:keyof typeof narrative=label==='headline'?'headline':label.startsWith('subtitulo')?'subheadline':label.startsWith('descricao')?'description':'pinterestTitle';
     narrative[key]=text;
     summary.push((key==='pinterestTitle'?'Título do Pinterest':key==='description'?'Descrição':key==='subheadline'?'Subheadline':'Headline')+' será alterado para: '+text);
   } else if(/^(mais\s+)?premium$|^quero\s+(um\s+)?visual\s+mais\s+premium$|^visual\s+premium$/i.test(value)){
