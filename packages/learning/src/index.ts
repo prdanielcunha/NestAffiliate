@@ -367,3 +367,6 @@ export function deriveLearning(campaigns: Campaign[], metrics: PerformanceDaily[
 export function campaignPerformanceSummary(campaign:Campaign, metrics:PerformanceDaily[]){
   return performanceForCampaign(campaign.id,metrics);
 }
+
+export { deriveRevenueCohortObservation } from './revenueExperiments';
+export type { RevenueCohortObservation } from './revenueExperiments';

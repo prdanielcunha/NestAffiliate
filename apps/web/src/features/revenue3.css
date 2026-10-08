@@ -1,0 +1,26 @@
+.next-action-panel{padding:clamp(20px,3vw,32px);margin:24px 0 16px;background:linear-gradient(145deg,var(--accent-soft),transparent 55%),var(--surface);border:1px solid var(--border-strong);border-radius:var(--r-xl);box-shadow:var(--shadow)}
+.next-action-heading,.next-action-footer,.next-action-telemetry{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.next-action-status{font-size:12px;color:var(--muted)}.next-action-panel h2{font-size:clamp(22px,3vw,34px);line-height:1.2;letter-spacing:-.045em;max-width:750px;margin:12px 0}
+.next-action-panel>p{color:var(--muted);max-width:640px;line-height:1.55}
+.next-action-footer{justify-content:flex-start;margin-top:20px}.next-action-telemetry{border-top:1px solid var(--border);padding-top:16px;margin-top:20px;justify-content:flex-start;color:var(--muted);font-size:12px;column-gap:24px;row-gap:8px}
+.next-action-evidence{max-width:650px;margin-top:14px;border-radius:12px;border:1px solid var(--border);padding:12px 16px;font-size:13px;color:var(--muted)}
+.next-action-evidence summary{cursor:pointer;color:var(--text);font-weight:700}.next-action-evidence p{margin:8px 0}
+.revenue-assessment{margin-top:14px;padding:14px;border:1px solid var(--border);background:var(--surface2);border-radius:14px;font-size:12px}
+.revenue-assessment strong{display:block;color:var(--text);font-size:13px;margin-bottom:5px}.revenue-assessment p{color:var(--muted);margin:4px 0;line-height:1.5}
+.revenue-assessment ul{padding-left:19px;margin:8px 0;color:var(--muted)}.revenue-assessment li{margin:4px 0}.revenue-assessment details{margin-top:8px}.revenue-assessment summary{cursor:pointer;color:var(--text)}
+.revenue-assessment .assessment-status{color:var(--accent);font-weight:750}
+@media(max-width:520px){.next-action-panel{padding:20px 16px;margin:16px 0}.next-action-footer{display:grid;grid-template-columns:1fr}.next-action-footer .button{width:100%}.next-action-telemetry{display:grid;gap:10px}}
+
+.compare-offer{padding:14px 0;border-top:1px solid var(--border);display:grid;gap:4px}.compare-offer strong{font-size:13px}.compare-offer p{margin:0}.compare-offer .button{margin-top:8px;max-width:230px}
+.reel-kit-panel details{margin:16px 0;color:var(--muted)}.reel-kit-panel summary{cursor:pointer;color:var(--text);font-weight:750}.reel-kit-panel ol{padding-left:23px}.reel-kit-panel li{padding:8px 0}.reel-kit-panel p{font-size:13px;line-height:1.5}
+.revenue-truth-panel{display:grid;gap:16px}.revenue-truth-metrics{margin:8px 0}.revenue-import-form code{display:block;white-space:normal;overflow-wrap:anywhere;margin:12px 0;font-size:11px;color:var(--muted)}
+.revenue-import-form details summary,.revenue-truth-history summary{cursor:pointer;font-weight:750}
+.revenue-import-form label{display:grid;gap:7px;color:var(--muted);font-size:13px;margin:14px 0}
+.revenue-import-form input,.revenue-import-form textarea,.publication-proof input[type="url"]{width:100%;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface2);color:var(--text);min-height:46px;padding:12px;font:inherit}
+.revenue-truth-row{padding:12px 0;display:grid;grid-template-columns:1fr auto;gap:4px;border-bottom:1px solid var(--border)}.revenue-truth-row small{color:var(--muted);grid-column:1/-1}.revenue-truth-records{padding:14px 0;max-height:360px;overflow-y:auto}
+.publication-proof{display:grid;gap:12px}.publication-proof .manual-confirm{display:flex;align-items:center;gap:10px;font-size:13px;line-height:1.5}.publication-proof p{margin:0}
+
+.facebook-reel-guide{display:grid;gap:16px}.facebook-reel-guide h2{margin:0}.facebook-reel-guide details summary{cursor:pointer;font-weight:750}.facebook-reel-guide ol{padding-left:23px;color:var(--muted);line-height:1.7}
+.facebook-reel-guide .fb-confirmations{display:grid;gap:14px}.facebook-reel-guide .fb-confirmations label{display:flex;align-items:flex-start;gap:11px;font-size:13px;line-height:1.45}.facebook-reel-guide>label{display:grid;gap:8px;font-size:13px}.facebook-reel-guide input[type=url]{padding:12px;min-height:46px;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface2);color:var(--text)}.facebook-reel-guide .button{justify-self:start}
+
+.reel-kit-actions{display:flex;flex-wrap:wrap;gap:12px}.reel-kit-actions .button{min-width:180px}@media(max-width:520px){.reel-kit-actions{display:grid}.reel-kit-actions .button{width:100%}}

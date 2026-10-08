@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
-import { maxDuplicateSimilarity, runPublishingGuard, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
+import { maxDuplicateSimilarity, runPublishingGuard, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
 import { buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isCommerceReadyProduct, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
@@ -39,6 +39,13 @@ import { completePublicationSchedule, listPublicationSchedules, savePublicationS
 import { listMarketSignals, saveMarketSignals } from './services/marketSignalRepository';
 import { searchMercadoLivreBroker, searchMercadoLivreBrokerDetailed } from './services/mercadoLivreBroker';
 import { getShopeeApiStatus, searchShopeeBroker, searchShopeeBrokerDetailed } from './services/shopeeBroker';
+import { NextBestAction } from './features/NextBestAction';
+import { ReelKitPanel } from './features/ReelKitPanel';
+import { FacebookShopeeGuide } from './features/FacebookShopeeGuide';
+import { RevenueTruthPanel } from './features/RevenueTruthPanel';
+import { analyzeAffiliateProduct, type AffiliateProductAnalysis } from './services/nestAiClient';
+import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
+import './features/revenue3.css';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
 
@@ -593,8 +600,9 @@ function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; s
     <div className="page">
       <section className="hero">
         <p className="eyebrow">{t('today').toUpperCase()}</p>
-        <h1>{t('workedForYou')}</h1>
-        <p className="hero-sub">{t('heroSub')}</p>
+        <h1>{FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? t('r3HomeTitle') : t('workedForYou')}</h1>
+        <p className="hero-sub">{FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? t('r3HomeSubtitle') : t('heroSub')}</p>
+        {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? <NextBestAction campaigns={campaigns} schedules={schedules} agentReport={agentReport} /> : <>
         <div className="stat-row">
           <Stat value={String(productCount)} label={t('productsInCampaigns')} />
           <Stat value={String(campaigns.length)} label={t('opportunitiesSaved')} />
@@ -602,7 +610,7 @@ function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; s
         </div>
         <NavLink to={ready[0] ? `/review/${ready[0].id}` : '/radar'} className="button primary hero-cta">
           {ready.length ? t('reviewCount',{n:ready.length}) : t('findOpportunities')}
-        </NavLink>
+        </NavLink></>}
       </section>
       <section className="section">
         <div className="section-heading"><h2>{t('needsYou')}</h2><span>{ready.length ? '~2 min' : t('allDone')}</span></div>
@@ -704,14 +712,29 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [query, setQuery] = useState('organizador cozinha pequena');
   const [marketplaceScope,setMarketplaceScope]=useState<'ALL'|'MELI'|'SHOPEE'>('ALL');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [comparisonProducts,setComparisonProducts]=useState<ProductTruth[]>([]);
+  const [nestAiInsights,setNestAiInsights]=useState<Record<string,AffiliateProductAnalysis|{error:true}>>({});
+  const [nestAiLoading,setNestAiLoading]=useState<string|null>(null);
   const [marketSignals,setMarketSignals]=useState<CommerceSignal[]>([]);
   const [maxPrice,setMaxPrice]=useState('');
   const [requireImage,setRequireImage]=useState(false);
+  const [onlyValidated,setOnlyValidated]=useState(false);
+  const [confirmedCommissionOnly,setConfirmedCommissionOnly]=useState(false);
+  const [authorizedAssetsOnly,setAuthorizedAssetsOnly]=useState(false);
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
   const [errorCode,setErrorCode]=useState('');
   const [hasSearched,setHasSearched]=useState(false);
   const [analysisNotice,setAnalysisNotice]=useState('');
   const [shopeeApiConfigured,setShopeeApiConfigured]=useState<boolean|null>(null);
+  const visibleOpportunities=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
+    ? opportunities.filter((opportunity)=>{
+        const assessment=assessRevenueOpportunity(opportunity);
+        if(onlyValidated && assessment.track!=='VALIDATED')return false;
+        if(confirmedCommissionOnly && assessment.revenueConfidence==='UNKNOWN')return false;
+        if(authorizedAssetsOnly && !['AUTHORIZED','PLATFORM_PROVIDED','USER_PROVIDED','GENERATED'].includes(opportunity.product.assetRights))return false;
+        return true;
+      })
+    : opportunities;
   const [searchMeta,setSearchMeta]=useState<{
     provider:'MELI'|'SHOPEE'|'ALL';
     query:string;
@@ -911,8 +934,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       }
 
       const found=providerResults.flatMap((result)=>
-        result.products.filter((product)=>isCommerceReadyProduct(product,result.meta.minSoldQuantity))
+        result.products.filter((product)=>FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
+          ? Boolean(product.url?.value && product.title?.value && product.availability?.value!=='unavailable')
+          : isCommerceReadyProduct(product,result.meta.minSoldQuantity))
       );
+      if(FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED) setComparisonProducts(found);
 
       if(db && identity.user?.uid && found.length){
         const currentDb=db;
@@ -975,6 +1001,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       const meliResult=providerResults.find((result)=>result.provider==='MELI');
 
       setOpportunities(visible);
+      setNestAiInsights({});
       setSearchMeta({
         provider,
         query:effectiveQuery,
@@ -1170,6 +1197,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           <span>{t('withImageOnly')}</span>
         </label>
       </div>
+      {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && <div className="radar-filters r3-filters">
+        <label className="filter-check"><input type="checkbox" checked={onlyValidated} onChange={(e)=>setOnlyValidated(e.target.checked)}/><span>{t('r3OnlyValidated')}</span></label>
+        <label className="filter-check"><input type="checkbox" checked={confirmedCommissionOnly} onChange={(e)=>setConfirmedCommissionOnly(e.target.checked)}/><span>{t('r3OnlyConfirmedCommission')}</span></label>
+        <label className="filter-check"><input type="checkbox" checked={authorizedAssetsOnly} onChange={(e)=>setAuthorizedAssetsOnly(e.target.checked)}/><span>{t('r3OnlyAuthorizedAssets')}</span></label>
+      </div>}
       {state === 'loading' && <ProgressSteps />}
       {analysisNotice && state==='idle' && <div className="radar-analysis-success" role="status" aria-live="polite">
         <span className="radar-success-mark">✓</span>
@@ -1239,9 +1271,14 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       ) : (
         <div className="notice">{t('readOnlyRadar')}</div>
       )}
+      {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && hasSearched && opportunities.length>0 && visibleOpportunities.length===0 && <Empty title={t('r3FilterNoMatch')} body={t('r3FilterClearHelp')}/>}
       <div className="opportunity-grid">
-        {opportunities.map((opportunity,index) => {
+        {visibleOpportunities.map((opportunity,index) => {
           const product=opportunity.product;
+          // A partial rollout must never allow unverified research items into a campaign.
+          const assessment=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? assessRevenueOpportunity(opportunity) : null;
+          const comparisons=FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED
+            ? findComparableOffers(product,comparisonProducts) : [];
           const potential=productPotentialBand(opportunity);
           const potentialLabel=potential==='EXCEPTIONAL' ? t('potentialExceptional') :
             potential==='VERY_HIGH' ? t('potentialVeryHigh') :
@@ -1283,6 +1320,48 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   ? <span className="proof-chip success">{t('shopeeAffiliateReady')}</span>
                   : null}
               </div>
+              {assessment && FEATURE_FLAGS.REVENUE_ASSESSMENT_ENABLED && <RevenueAssessmentPanel assessment={assessment}/>}
+              {FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED && <details className="revenue-assessment">
+                <summary>{t('r3Compare')} ({comparisons.length})</summary>
+                <p>{t('r3EquivalenceCaution')}</p>
+                {comparisons.map((item)=><div key={item.product.marketplace+item.product.externalId} className="compare-offer">
+                  <strong>{item.product.marketplace==='MELI'?'Mercado Livre':'Shopee'} · {item.product.title.value}</strong>
+                  <p>{item.priceKnown && item.product.price
+                    ? new Intl.NumberFormat(locale,{style:'currency',currency:item.product.currency.value}).format(item.product.price.value)
+                    : t('priceUnknown')}</p>
+                  <p>{item.estimatedCommissionPerSale!==null
+                    ? t('shopeeEstimatedCommission',{value:new Intl.NumberFormat(locale,{style:'currency',currency:item.product.currency.value}).format(item.estimatedCommissionPerSale)})
+                    : t('r3CommissionUnknown')}</p>
+                  <p>{item.affiliateLinkReady?t('r3AffiliatePresent'):t('r3AffiliateMissing')}</p>
+                  <a className="button secondary" href={item.product.url.value} rel="noreferrer" target="_blank">{t('r3SeeOffer')}</a>
+                </div>)}
+              </details>}
+              {FEATURE_FLAGS.NESTAI_OPPORTUNITY_ENRICHMENT_ENABLED && index<3 && <section className="revenue-assessment">
+                <strong>{t('r3AIReview')}</strong>
+                <p>{t('r3AIDisclaimer')}</p>
+                <button type="button" className="button secondary" disabled={nestAiLoading!==null || !identity.user} onClick={()=>{
+                  if(!identity.user) return;
+                  setNestAiLoading(opportunity.id);
+                  const input={
+                    title:product.title.value,marketplace:product.marketplace,
+                    price:product.price?.value,currency:product.currency.value,
+                    availability:product.availability.value,sales:product.soldQuantity?.value,
+                    seller:product.sellerName?.value,
+                  };
+                  void analyzeAffiliateProduct({user:identity.user,organizationId,locale,product:input})
+                    .then((analysis)=>setNestAiInsights((current)=>({...current,[opportunity.id]:analysis})))
+                    .catch(()=>setNestAiInsights((current)=>({...current,[opportunity.id]:{error:true}})))
+                    .finally(()=>setNestAiLoading(null));
+                }}>{nestAiLoading===opportunity.id?t('r3AILoading'):t('r3AIAnalyze')}</button>
+                {nestAiInsights[opportunity.id] && ('error' in nestAiInsights[opportunity.id]!
+                  ? <p role="status">{t('r3AIFallback')}</p>
+                  : <div>
+                    <strong>{t('r3AIUnknowns')}</strong>
+                    <ul>{(nestAiInsights[opportunity.id] as AffiliateProductAnalysis).unknowns.slice(0,4).map((txt,i)=><li key={i}>{txt}</li>)}</ul>
+                    <strong>{t('r3AIHypotheses')}</strong>
+                    <ul>{(nestAiInsights[opportunity.id] as AffiliateProductAnalysis).opportunities.slice(0,4).map((txt,i)=><li key={i}>{txt}</li>)}</ul>
+                  </div>)}
+              </section>}
               <div className="ranking-reasons">
                 <strong>{t('whyRanked')}</strong>
                 {opportunity.rankingReasons.slice(0,3).map((reason)=><span key={reason}>{reason}</span>)}
@@ -1291,7 +1370,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               <div className="opportunity-actions">
                 <a className="button secondary" href={product.url.value} target="_blank" rel="noreferrer">{t('openProduct')}</a>
                 <button className="button secondary" onClick={()=>prepareAffiliate(opportunity)}>{t('affiliatePrep')}</button>
-                <button className="button primary" disabled={!editable} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{t('createCampaign')}</button>
+                <button className="button primary" disabled={!editable || Boolean(assessment && assessment.track!=='VALIDATED')} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{assessment && assessment.track!=='VALIDATED' ? t('r3ReviewFirst') : t('createCampaign')}</button>
               </div>
             </div>
           </article>
@@ -1299,6 +1378,36 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       </div>
     </div>
   );
+}
+
+
+function RevenueAssessmentPanel({assessment}:{assessment:RevenueAssessment}) {
+  const {t,locale}=useI18n();
+  const trackLabel={
+    VALIDATED:'r3TrackValidated',EXPLORATORY:'r3TrackExploratory',
+    REVIEW_REQUIRED:'r3TrackReview',BLOCKED:'r3TrackBlocked',
+  } as const;
+  const confidenceLabel=(value:string)=>value==='UNKNOWN'?t('r3Unknown'):t(value.toLowerCase() as 'high'|'medium'|'low');
+  const uncertaintyLabels={
+    LISTING_NOT_VERIFIED:'r3LISTING_NOT_VERIFIED',UNKNOWN_SALES:'r3UNKNOWN_SALES',
+    COMMISSION_UNCONFIRMED:'r3COMMISSION_UNCONFIRMED',DEMAND_NOT_VERIFIED:'r3DEMAND_NOT_VERIFIED',
+    OFFER_STALE:'r3OFFER_STALE',ASSET_RIGHTS_UNKNOWN:'r3ASSET_RIGHTS_UNKNOWN',
+    AFFILIATE_LINK_NOT_CONFIRMED:'r3AFFILIATE_LINK_NOT_CONFIRMED',
+  } as const;
+  return <section className="revenue-assessment" aria-label={t('r3Track')}>
+    <strong>{t('r3Track')}: <span className="assessment-status">{t(trackLabel[assessment.track])}</span></strong>
+    <p>{t('r3DemandConfidence')}: {confidenceLabel(assessment.demandConfidence)} · {t('r3OfferConfidence')}: {confidenceLabel(assessment.offerConfidence)}</p>
+    <p>{t('r3RevenueConfidence')}: {confidenceLabel(assessment.revenueConfidence)}</p>
+    <details><summary>{t('r3Reasons')}</summary>
+      {assessment.evidence.length>0 && <ul>{assessment.evidence.slice(0,8).map((item)=><li key={item.provenanceId}>
+        {t('r3Source')}: {item.source} · {item.evidenceType} · {Number.isFinite(Date.parse(item.observedAt))?new Date(item.observedAt).toLocaleDateString(locale):t('todayUnknown')}
+      </li>)}</ul>}
+      {assessment.uncertainties.length>0 && <><strong>{t('r3Uncertainty')}</strong><ul>
+        {assessment.uncertainties.map((item)=><li key={item}>{t(uncertaintyLabels[item as keyof typeof uncertaintyLabels] || 'r3Unknown')}</li>)}
+      </ul></>}
+      <p>{t('r3SupplyNotDemand')}</p>
+    </details>
+  </section>;
 }
 
 function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update: (c: Campaign) => void; editable: boolean }) {
@@ -1481,6 +1590,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   return (
     <div className="review-page">
       <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
+      {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <ReelKitPanel campaign={activeCampaign} />}
       {creativeApprovalError && <div className="notice danger creative-approval-error">{t('creativeImageRequired')}</div>}
       <div className="review-grid">
         <PinPreview campaign={activeCampaign} />
@@ -1665,6 +1775,10 @@ function Publish({
   const identity = useAuth();
   const campaign = campaigns.find((c) => c.id === id);
   const [step, setStep] = useState(0);
+  const [publishedUrl,setPublishedUrl]=useState('');
+  const [publishedUrlError,setPublishedUrlError]=useState('');
+  const [tagConfirmed,setTagConfirmed]=useState(false);
+  const [publishing,setPublishing]=useState(false);
   const [frequency,setFrequency]=useState<PublicationFrequencyState>({publications24h:0});
   const [freshState,setFreshState]=useState<'idle'|'loading'|'pass'|'review'|'block'|'manual'|'error'>('idle');
   const [freshResult,setFreshResult]=useState<FreshValidationResult|null>(null);
@@ -1672,6 +1786,16 @@ function Publish({
   const [scheduledFor,setScheduledFor]=useState('');
   const [scheduleMessage,setScheduleMessage]=useState('');
   const [online,setOnline]=useState(()=>typeof navigator==='undefined' ? true : navigator.onLine);
+
+  const progressCampaignId=campaign?.id;
+  const progressOrganizationId=campaign?.organizationId;
+  const progressVersion=campaign?.currentVersion.version;
+  useEffect(()=>{
+    if(!progressCampaignId || !progressOrganizationId || !progressVersion || !FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED) return;
+    const key=`nestaffiliate:publish:v3:${progressOrganizationId}:${progressCampaignId}:${progressVersion}`;
+    const stored=Number(localStorage.getItem(key));
+    if(Number.isInteger(stored) && stored>=0 && stored<12)setStep(stored);
+  },[progressCampaignId,progressOrganizationId,progressVersion]);
 
   useEffect(()=>{
     const onOnline=()=>setOnline(true);
@@ -1736,6 +1860,7 @@ function Publish({
   if (!campaign) return <Navigate to="/campaigns" replace />;
   const activeCampaign: Campaign = campaign;
   const v = activeCampaign.currentVersion;
+  const progressKey=`nestaffiliate:publish:v3:${activeCampaign.organizationId}:${activeCampaign.id}:${v.version}`;
   const destination = v.product.affiliateUrl?.value ?? v.product.url.value;
   const shopeeSearchTerm=activeCampaign.marketplace==='SHOPEE' ? buildShopeePinterestSearchTerm(v.product) : '';
   const shopeeReference=activeCampaign.marketplace==='SHOPEE' ? parseShopeeProductReference(v.product.url.value) : {};
@@ -1795,6 +1920,14 @@ function Publish({
     [t('guideMarkTitle'), t('guideMarkBody')],
   ];
 
+  // Progress holds no sensitive data; it is scoped by organization and approved version.
+  // A restored checklist never implies an actual marketplace publication.
+  function nextStep(){
+    persistPackage();
+    const following=Math.min(step+1,steps.length-1);
+    setStep(following);
+    if(FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED)localStorage.setItem(progressKey,String(following));
+  }
   async function copy(text: string) { await navigator.clipboard.writeText(text); }
 
   function persistPackage() {
@@ -1861,8 +1994,33 @@ function Publish({
     link.remove();
   }
 
-  function markPublished() {
-    if(publisherBlocked || !online) return;
+  async function markPublished() {
+    if(publisherBlocked || !online || publishing || activeCampaign.status!=='PUBLICATION_READY') return;
+    if(FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED){
+      const proofValid=isPublicPinterestPinUrl(publishedUrl);
+      if(!proofValid || (activeCampaign.marketplace==='SHOPEE' && !tagConfirmed)){
+        setPublishedUrlError(t('r3InvalidPinProof'));return;
+      }
+      if(!db || !identity.organizationId){
+        setPublishedUrlError(t('r3ImportFailed'));return;
+      }
+      setPublishing(true);setPublishedUrlError('');
+      try{
+        // Persist external publication proof before mutating the local campaign state.
+        await markPublication(db,{
+          organizationId:identity.organizationId,
+          campaign:activeCampaign,
+          source:'GUIDED',
+          externalUrl:publishedUrl.trim(),
+        });
+        update({...activeCampaign,status:'PUBLISHED'});
+        completeSchedule(activeCampaign.id,v.version);
+        localStorage.removeItem(progressKey);
+      }catch{
+        setPublishedUrlError(t('r3ImportFailed'));
+      }finally{setPublishing(false);}
+      return;
+    }
     const published: Campaign = { ...activeCampaign, status: 'PUBLISHED' };
     update(published);
     completeSchedule(activeCampaign.id,v.version);
@@ -1930,6 +2088,8 @@ function Publish({
           {activeCampaign.rankingContext?.trackingCode ? <Field label={t('trackingCode')} value={activeCampaign.rankingContext.trackingCode} onCopy={() => copy(activeCampaign.rankingContext!.trackingCode!)} /> : null}
         </div>
       </section>}
+      {FEATURE_FLAGS.FACEBOOK_SHOPEE_AFFILIATE_ENABLED && activeCampaign.marketplace==='SHOPEE' &&
+        <FacebookShopeeGuide campaign={activeCampaign} actorId={identity.user?.uid??null} role={identity.role}/>}
       <section className="schedule-panel">
         <div>
           <p className="eyebrow">{t('schedulePublication')}</p>
@@ -1943,6 +2103,17 @@ function Publish({
           {scheduleMessage && <span className={scheduleMessage===t('scheduled')?'success-text':'field-error'}>{scheduleMessage}</span>}
         </div>
       </section>
+      {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && <section className="surface publication-proof">
+        <p className="eyebrow">{t('r3PublishedProof')}</p>
+        <p className="muted">{t('r3PublishedProofHelp')}</p>
+        <input inputMode="url" type="url" aria-label={t('r3PublishedProof')} placeholder="https://www.pinterest.com/pin/123456789/" value={publishedUrl} onChange={(e)=>{setPublishedUrl(e.target.value);setPublishedUrlError('');}}/>
+        {activeCampaign.marketplace==='SHOPEE' && <label className="manual-confirm">
+          <input type="checkbox" checked={tagConfirmed} onChange={(e)=>setTagConfirmed(e.target.checked)}/>
+          {t('r3ShopeeTagProof')}
+        </label>}
+        <p className="muted">{t('r3ChannelEligibility')}</p>
+        {publishedUrlError && <p className="field-error" role="alert">{publishedUrlError}</p>}
+      </section>}
       <section className="guided">
         <div className="guided-copy">
           <p className="eyebrow">{t('guidedMode')}</p>
@@ -1953,9 +2124,9 @@ function Publish({
         <div className="guided-actions">
           {step > 0 && <button className="button secondary" onClick={() => setStep(step - 1)}>{t('back')}</button>}
           {step < steps.length - 1 ? (
-            <button className="button primary" disabled={publisherBlocked} onClick={() => { persistPackage(); setStep(step + 1); }}>{t('next')}</button>
+            <button className="button primary" disabled={publisherBlocked} onClick={nextStep}>{t('next')}</button>
           ) : (
-            <button className="button primary" disabled={publisherBlocked || !online} onClick={markPublished}>{t('markPublished')}</button>
+            <button className="button primary" disabled={publisherBlocked || !online || publishing || (FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && (!publishedUrl.trim() || (activeCampaign.marketplace==='SHOPEE' && !tagConfirmed)))} onClick={() => void markPublished()}>{publishing?t('r3PublishingSync'):t('markPublished')}</button>
           )}
         </div>
       </section>
@@ -2018,6 +2189,7 @@ function Results({
   return (
     <div className="page">
       <PageTitle eyebrow={t('results').toUpperCase()} title={t('resultsTitle')} subtitle={t('resultsSub')} />
+      {FEATURE_FLAGS.REVENUE_IMPORT_V2_ENABLED && <RevenueTruthPanel organizationId={organizationId} campaigns={campaigns} performance={rows} />}
       <PerformancePanel organizationId={organizationId} campaigns={campaigns} rows={rows} approvalEvents={approvalEvents} onSave={onSave} />
     </div>
   );

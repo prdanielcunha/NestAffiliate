@@ -503,3 +503,7 @@ export function policyWatchSummary(now=new Date()){
     statuses,
   };
 }
+
+export { isPublicPinterestPinUrl } from './publishedProof';
+
+export { isPublicFacebookReelUrl } from './facebookProof';
