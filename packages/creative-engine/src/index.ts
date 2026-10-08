@@ -28,6 +28,7 @@ export interface CreativeTemplate {
 
 export const CREATIVE_TEMPLATES: CreativeTemplate[] = [
   { id:'editorial-premium', label:'Editorial Premium', eyebrow:'ACHADOS DO NEST', imageY:220, imageH:620, headlineY:950, headlineSize:72, headlineMaxLines:4, align:'left', treatment:'editorial' },
+  { id:'editorial-light', label:'Editorial Light', eyebrow:'ACHADOS DO NEST', imageY:220, imageH:620, headlineY:950, headlineSize:72, headlineMaxLines:4, align:'left', treatment:'editorial' },
   { id:'problem-solution', label:'Problem → Solution', eyebrow:'PROBLEMA → SOLUÇÃO', imageY:245, imageH:555, headlineY:905, headlineSize:76, headlineMaxLines:4, align:'left', treatment:'problem' },
   { id:'minimal', label:'Minimal', eyebrow:'ACHADO INTELIGENTE', imageY:260, imageH:520, headlineY:905, headlineSize:82, headlineMaxLines:3, align:'left', treatment:'minimal' },
   { id:'hero-product', label:'Hero Product', eyebrow:'DESTAQUE DO NEST', imageY:180, imageH:760, headlineY:1035, headlineSize:64, headlineMaxLines:3, align:'left', treatment:'editorial' },
