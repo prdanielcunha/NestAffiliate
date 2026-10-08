@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ProductTruth } from '@nestaffiliate/core';
 import { canWrite } from '@nestaffiliate/core';
 import { isReferenceAiReady } from '@nestaffiliate/radar';
-import { db, storage } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n-context';
 import {
@@ -32,10 +32,10 @@ export function ProductReferenceManager({
  useEffect(()=>{
    let active=true;
    onChanged(null);setItems([]);setSelected(null);setFile(null);setAllowed(false);setError('');
-   if(!db || !storage)return;
-   const currentDb=db,currentStorage=storage;
+   if(!db||!identity.user)return;
+   const currentDb=db,currentUser=identity.user;
    setLoading(true);
-   void listProductReferences({db:currentDb,storage:currentStorage,organizationId:product.organizationId,product})
+   void listProductReferences({db:currentDb,user:currentUser,organizationId:product.organizationId,product})
      .then(result=>{if(!active){for(const item of result)URL.revokeObjectURL(item.previewUrl);return;}setItems(result);})
      .catch(()=>{if(active)setError('REFERENCES_UNAVAILABLE');})
      .finally(()=>{if(active)setLoading(false);});
@@ -44,11 +44,11 @@ export function ProductReferenceManager({
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[product.organizationId,product.externalId,product.productId]);
  async function save(){
-   if(!db || !storage || !file || !identity.user?.uid || !editable)return;
+   if(!db || !file || !identity.user?.uid || !editable)return;
    setBusy(true);setError('');
    try{
      const next=await saveOwnedProductReference({
-       db,storage,organizationId:product.organizationId,actorId:identity.user.uid,
+       db,user:identity.user,organizationId:product.organizationId,actorId:identity.user.uid,
        product,file,sourceType:source,rightsEvidence:evidence,externalAiAllowed:allowed,
      });
      setItems(old=>[next,...old.filter(item=>item.asset.id!==next.asset.id)]);
@@ -105,10 +105,10 @@ export function ProductReferenceManager({
      <label className="manual-confirm"><input type="checkbox" checked={allowed} onChange={e=>setAllowed(e.target.checked)}/>
        <span>{pt?'Declaro ter o direito de enviar esta foto a uma IA externa para criar um anúncio deste produto exato.':'I have permission to send this photo to an external AI for this exact product.'}</span>
      </label>
-     <button type="button" className="button primary" disabled={busy||!file||!allowed||evidence.trim().length<12||!db||!storage} onClick={()=>void save()}>
+     <button type="button" className="button primary" disabled={busy||!file||!allowed||evidence.trim().length<12||!db} onClick={()=>void save()}>
        {busy?pt?'Salvando com segurança…':'Saving…':pt?'Salvar referência autorizada':'Save authorized reference'}
      </button>
-     {!storage&&<p role="alert">{pt?'Armazenamento seguro indisponível; não usaremos imagem sem autorização.':'Private storage is unavailable. No unsafe fallback.'}</p>}
+     
    </details>}
    {!editable&&<p className="muted">{pt?'Apenas um editor pode adicionar referências.':'Only an editor can add references.'}</p>}
    {selected&&<p className="reference-selected" role="status">{pt?'Referência autorizada selecionada. Próximo passo: anexe ESTA foto ao ChatGPT.':'Authorized reference selected. Next: attach THIS photo to ChatGPT.'}</p>}

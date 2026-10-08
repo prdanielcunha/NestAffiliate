@@ -1,90 +1,118 @@
 import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, where, type Firestore } from 'firebase/firestore';
-import { getBlob, ref, uploadBytes, type FirebaseStorage } from 'firebase/storage';
+import type { User } from 'firebase/auth';
 import type { ProductReferenceAsset, ProductTruth } from '@nestaffiliate/core';
 import { detectImageMime, sha256Hex, validateImageMetadata } from '@nestaffiliate/creative-engine';
 import { isReferenceAiReady } from '@nestaffiliate/radar';
 
 const root=(org:string)=>['organizations',org,'products','nestaffiliate'] as const;
-const allowed=new Set(['image/png','image/jpeg','image/webp']);
+const HUB_BASE=(import.meta.env.VITE_HUB_URL || (typeof window!=='undefined'?window.location.origin:'https://www.millionsnest.com')).replace(/\/$/,'');
+const validMimes=new Set(['image/png','image/jpeg','image/webp']);
 export interface ReferencePreview { asset:ProductReferenceAsset; previewUrl:string; }
-
-/** Strip EXIF including GPS; no inline Firestore image bytes or public download token. */
-async function sanitiseReference(file:File){
-  if(file.size>8_000_000 || file.size<128)throw new Error('REFERENCE_SIZE_INVALID');
-  const bytes=await file.arrayBuffer();
-  const mime=detectImageMime(new Uint8Array(bytes.slice(0,16)));
-  if(!mime || !allowed.has(mime) || (file.type && file.type!==mime))throw new Error('REFERENCE_FORMAT_INVALID');
-  const local=URL.createObjectURL(file);
+async function sanitizedReference(file:File){
+  if(file.size>8_000_000||file.size<128)throw new Error('REFERENCE_SIZE_INVALID');
+  const input=await file.arrayBuffer();
+  const mime=detectImageMime(new Uint8Array(input.slice(0,16)));
+  if(!mime || !validMimes.has(mime) || (file.type && mime!==file.type))throw new Error('REFERENCE_FORMAT_INVALID');
+  const objectUrl=URL.createObjectURL(file);
   try{
     const image=new Image();
     await new Promise<void>((resolve,reject)=>{
-      image.onload=()=>resolve();image.onerror=()=>reject(new Error('REFERENCE_IMAGE_INVALID'));image.src=local;
+      image.onload=()=>resolve();image.onerror=()=>reject(new Error('REFERENCE_DECODE_FAILED'));
+      image.src=objectUrl;
     });
-    const validated=validateImageMetadata({mimeType:mime,bytes:file.size,width:image.naturalWidth,height:image.naturalHeight});
-    if(!validated.valid)throw new Error('REFERENCE_DIMENSIONS_INVALID');
+    const check=validateImageMetadata({mimeType:mime,bytes:file.size,width:image.naturalWidth,height:image.naturalHeight});
+    if(!check.valid)throw new Error('REFERENCE_DIMENSIONS_INVALID');
+    // Re-encode in canvas: EXIF/GPS, ICC and XMP are discarded.
     const canvas=document.createElement('canvas');
     canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
-    const context=canvas.getContext('2d');
-    if(!context)throw new Error('REFERENCE_CANVAS_UNAVAILABLE');
-    context.drawImage(image,0,0);
-    const cleaned=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(blob=>
-      blob?resolve(blob):reject(new Error('REFERENCE_ENCODE_FAILED')),'image/webp',0.96));
-    if(cleaned.size>8_000_000)throw new Error('REFERENCE_TOO_LARGE_AFTER_SANITISE');
-    return {blob:cleaned,width:canvas.width,height:canvas.height,hash:await sha256Hex(await cleaned.arrayBuffer())};
-  }finally{URL.revokeObjectURL(local);}
+    const ctx=canvas.getContext('2d');
+    if(!ctx)throw new Error('REFERENCE_CANVAS_UNAVAILABLE');
+    ctx.drawImage(image,0,0);
+    const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(
+      img=>img?resolve(img):reject(new Error('REFERENCE_ENCODING_FAILED')),'image/webp',0.94));
+    if(blob.size>8_000_000)throw new Error('REFERENCE_TOO_LARGE');
+    return {blob,hash:await sha256Hex(await blob.arrayBuffer()),width:canvas.width,height:canvas.height};
+  }finally{URL.revokeObjectURL(objectUrl);}
+}
+function endpoint(){
+  return HUB_BASE+'/api/v1/nestaffiliate/reference-media';
+}
+async function authorizedFetch(user:User,url:string,init:RequestInit={}){
+  const token=await user.getIdToken();
+  const response=await fetch(url,{...init,headers:{
+    Accept:init.method==='POST'?'application/json':'image/webp',
+    Authorization:'Bearer '+token,
+    ...init.headers,
+  }});
+  if(!response.ok){
+    let reason='REFERENCE_PRIVATE_MEDIA_UNAVAILABLE';
+    try{
+      const payload=await response.json() as {error?:string};
+      if(typeof payload.error==='string')reason=payload.error;
+    }catch{}
+    throw new Error(reason);
+  }
+  return response;
+}
+async function toBase64(blob:Blob):Promise<string>{
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(String(reader.result).split(',')[1]||'');
+    reader.onerror=()=>reject(new Error('REFERENCE_ENCODING_FAILED'));
+    reader.readAsDataURL(blob);
+  });
 }
 export async function saveOwnedProductReference(input:{
-  db:Firestore;storage:FirebaseStorage;organizationId:string;actorId:string;
+  db:Firestore;user:User;organizationId:string;actorId:string;
   product:ProductTruth;file:File;
   sourceType:'USER_OWN_PHOTO'|'OWNER_AUTHORIZED'|'LICENSED_MEDIA';
   rightsEvidence:string;externalAiAllowed:boolean;
 }):Promise<ReferencePreview>{
-  const {db,storage,organizationId,actorId,product}=input;
-  if(product.organizationId!==organizationId||!actorId)throw new Error('REFERENCE_TENANT_MISMATCH');
-  if(input.rightsEvidence.trim().length<12)throw new Error('REFERENCE_RIGHTS_EVIDENCE_REQUIRED');
-  if(!input.externalAiAllowed)throw new Error('REFERENCE_AI_CONSENT_REQUIRED');
-  const cleaned=await sanitiseReference(input.file);
-  const now=new Date().toISOString();
-  const id='ref-'+product.marketplace+'-'+product.externalId.replace(/[^a-z0-9-_]/gi,'').slice(0,48)+'-'+cleaned.hash.slice(0,16);
-  const storagePath='organizations/'+organizationId+'/product-references/'+id+'.webp';
-  const asset:ProductReferenceAsset={
-    id,organizationId,productId:product.productId,marketplace:product.marketplace,
+  const {organizationId,actorId,product}=input;
+  if(!actorId||input.user.uid!==actorId||product.organizationId!==organizationId)throw new Error('REFERENCE_TENANT_MISMATCH');
+  if(input.rightsEvidence.trim().length<12||!input.externalAiAllowed)throw new Error('REFERENCE_RIGHTS_EVIDENCE_REQUIRED');
+  const cleaned=await sanitizedReference(input.file);
+  const payload={
+    organizationId,productId:product.productId,marketplace:product.marketplace,
     externalListingId:product.externalId,sourceType:input.sourceType,
-    rights:'USER_ATTESTED',referenceStatus:'READY_FOR_AI',canSendToExternalAI:input.externalAiAllowed,
-    rightsEvidence:input.rightsEvidence.trim(),sha256:cleaned.hash,width:cleaned.width,height:cleaned.height,
-    mimeType:'image/webp',sourceUrl:product.url.value,storagePath,
+    rightsEvidence:input.rightsEvidence.trim(),canSendToExternalAI:input.externalAiAllowed,
+    sourceUrl:product.url.value,
     variantFingerprint:[product.marketplace,product.externalId,product.title.value].join('|'),
-    capturedAt:now,updatedAt:now,createdBy:actorId,
+    sha256:cleaned.hash,imageBase64:await toBase64(cleaned.blob),
   };
-  if(!isReferenceAiReady(asset,product))throw new Error('REFERENCE_IDENTITY_INVALID');
-  // Fail closed if canonical Storage rules are not installed. Never use an inline fallback.
-  await uploadBytes(ref(storage,storagePath),cleaned.blob,{contentType:'image/webp',customMetadata:{
-    organizationId,productId:product.productId,externalListingId:product.externalId,createdBy:actorId,
-  }});
-  await setDoc(doc(db,...root(organizationId),'productReferences',id),{
-    ...asset,updatedAt:serverTimestamp(),
+  const result=await authorizedFetch(input.user,endpoint(),{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),
   });
-  return {asset,previewUrl:URL.createObjectURL(cleaned.blob)};
+  const data=await result.json() as {asset:ProductReferenceAsset};
+  if(!isReferenceAiReady(data.asset,product)||data.asset.sha256!==cleaned.hash){
+    throw new Error('REFERENCE_SERVER_IDENTITY_MISMATCH');
+  }
+  return {asset:data.asset,previewUrl:URL.createObjectURL(cleaned.blob)};
 }
 export async function listProductReferences(input:{
-  db:Firestore;storage:FirebaseStorage;organizationId:string;product:ProductTruth;
+  db:Firestore;user:User;organizationId:string;product:ProductTruth;
 }):Promise<ReferencePreview[]>{
   if(input.product.organizationId!==input.organizationId)throw new Error('REFERENCE_TENANT_MISMATCH');
-  const snapshot=await getDocs(query(
-    collection(input.db,...root(input.organizationId),'productReferences'),
-    where('productId','==',input.product.productId),limit(20),
-  ));
-  const result:ReferencePreview[]=[];
-  for(const document of snapshot.docs){
-    const asset=document.data() as ProductReferenceAsset;
-    if(asset.organizationId!==input.organizationId||asset.externalListingId!==input.product.externalId||
-      asset.marketplace!==input.product.marketplace||!asset.storagePath||!isReferenceAiReady(asset,input.product))continue;
+  const snapshots=await getDocs(query(collection(input.db,...root(input.organizationId),'productReferences'),
+    where('productId','==',input.product.productId),limit(20)));
+  const out:ReferencePreview[]=[];
+  for(const item of snapshots.docs){
+    const asset=item.data() as ProductReferenceAsset;
+    if(asset.organizationId!==input.organizationId||asset.marketplace!==input.product.marketplace||
+      asset.externalListingId!==input.product.externalId||!isReferenceAiReady(asset,input.product))continue;
     try{
-      const blob=await getBlob(ref(input.storage,asset.storagePath),8_000_000);
-      result.push({asset,previewUrl:URL.createObjectURL(blob)});
-    }catch{/* Cannot inspect actual reference -> it must not be offered for selection. */}
+      const url=new URL(endpoint());
+      url.searchParams.set('organizationId',input.organizationId);
+      url.searchParams.set('referenceId',asset.id);
+      const response=await authorizedFetch(input.user,url.toString());
+      const blob=await response.blob();
+      if(blob.size>8_000_000||blob.type!=='image/webp')continue;
+      const digest=await sha256Hex(await blob.arrayBuffer());
+      if(digest!==asset.sha256)continue;
+      out.push({asset,previewUrl:URL.createObjectURL(blob)});
+    }catch{/* No verified private download => never show an AI-sendable reference. */}
   }
-  return result;
+  return out;
 }
 export async function revokeProductReference(db:Firestore,organizationId:string,asset:ProductReferenceAsset,actorId:string){
   if(asset.organizationId!==organizationId||!actorId)throw new Error('REFERENCE_TENANT_MISMATCH');
@@ -93,19 +121,18 @@ export async function revokeProductReference(db:Firestore,organizationId:string,
     revokedBy:actorId,updatedAt:serverTimestamp(),
   },{merge:true});
 }
-
-/** Fail closed on revoked/missing references; preview URLs must never be used as proof of authorization. */
+/** Final publish step rechecks CURRENT rights from Firestore, not the cached screenshot. */
 export async function validateStoredProductReference(input:{
- db:Firestore; organizationId:string; product:ProductTruth;
- assetId:string; expectedSha256:string;
+  db:Firestore;organizationId:string;product:ProductTruth;
+  assetId:string;expectedSha256:string;
 }):Promise<boolean>{
- const {db,organizationId,product,assetId,expectedSha256}=input;
- if(product.organizationId!==organizationId || !assetId.startsWith('ref-') ||
-   !/^[a-f0-9]{64}$/.test(expectedSha256))return false;
- const snapshot=await getDoc(doc(db,...root(organizationId),'productReferences',assetId));
- if(!snapshot.exists())return false;
- const reference=snapshot.data() as ProductReferenceAsset;
- return reference.id===assetId && reference.sha256===expectedSha256 &&
-   Boolean(reference.storagePath?.startsWith('organizations/'+organizationId+'/product-references/')) &&
-   isReferenceAiReady(reference,product);
+  const {db,organizationId,product,assetId,expectedSha256}=input;
+  if(product.organizationId!==organizationId||!assetId.startsWith('ref-')||
+    !/^[a-f0-9]{64}$/.test(expectedSha256))return false;
+  const snap=await getDoc(doc(db,...root(organizationId),'productReferences',assetId));
+  if(!snap.exists())return false;
+  const ref=snap.data() as ProductReferenceAsset;
+  return ref.id===assetId&&ref.sha256===expectedSha256&&
+    Boolean(ref.storagePath?.startsWith('organizations/'+organizationId+'/product-references/'))&&
+    isReferenceAiReady(ref,product);
 }
