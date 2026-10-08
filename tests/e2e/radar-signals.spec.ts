@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test';
 test('Radar shows automatic market status, useful suggestions and real product cards', async ({ page }) => {
   await page.goto('/radar');
 
-  await expect(page.getByText('Mercado Livre conectado',{exact:true})).toBeVisible();
-  await expect(page.getByText(/Busca de catálogo e sinais de mercado atualizados automaticamente/)).toBeVisible();
+  await expect(page.getByText('Marketplaces conectados',{exact:true})).toBeVisible();
+  await expect(page.getByText(/Mercado Livre e Shopee são consultados separadamente/)).toBeVisible();
   await expect(page.getByText('Sugestões que valem testar',{exact:true})).toBeVisible();
   await expect(page.locator('.suggestion-buttons button').first()).toBeVisible();
 
