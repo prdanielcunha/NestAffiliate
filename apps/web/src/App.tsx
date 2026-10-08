@@ -15,7 +15,7 @@ import { demoCampaigns, initialBoards } from './lib/demo';
 import { useAuth } from './lib/auth';
 import { db } from './lib/firebase';
 import { listCampaigns, saveCampaign } from './services/campaignRepository';
-import { listPerformance, savePerformance } from './services/performanceRepository';
+import { listPerformance, savePerformance, savePerformanceBatch } from './services/performanceRepository';
 import { appendAudit } from './services/auditRepository';
 import { persistCampaignIntelligence } from './services/intelligenceRepository';
 import { appendApprovalEvent, markPublication, markPublicationScheduled, saveFreshComplianceCheck, savePublicationPackage } from './services/lifecycleRepository';
@@ -50,6 +50,8 @@ import { ProductSourceActions } from './features/ProductSourceActions';
 import { loadLatestRadarV4Coverage, primaryRadarBlocker, saveRadarV4Coverage, type SourceCoverageRunV4 } from './services/radarV4Repository';
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel, opportunityReasonLabel } from './features/OpportunityV4Panel';
+import { ProblemIntentExplorer } from './features/ProblemIntentExplorer';
+import { WorkspaceLibrary } from './features/WorkspaceLibrary';
 import { planCreativeEdit, type CreativeEditPlan } from './lib/creativeEdit';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
@@ -214,7 +216,17 @@ function usePerformanceStore(organizationId: string | null, actorId: string | nu
     }
   };
 
-  return { rows, save };
+  const importMany=async (incoming:PerformanceDaily[]):Promise<void>=>{
+    if(!role || !canWrite(role))throw new Error('READ_ONLY');
+    if(!organizationId || incoming.some(row=>row.organizationId!==organizationId))throw new Error('TENANT_MISMATCH');
+    if(!demoEnabled){if(!db)throw new Error('FIRESTORE_NOT_CONFIGURED');await savePerformanceBatch(db,organizationId,incoming);}
+    setRows(current=>{
+      const items=new Map(current.map(row=>[row.id,row]));
+      for(const row of incoming)items.set(row.id,row);
+      return [...items.values()].sort((a,b)=>b.date.localeCompare(a.date));
+    });
+  };
+  return { rows, save, importMany };
 }
 
 function usePreferencesStore(
@@ -1279,6 +1291,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           >{value==='ALL' ? t('marketplaceAll') : value==='MELI' ? t('marketplaceMeli') : t('marketplaceShopee')}</button>)}
         </div>
       </div>
+      <ProblemIntentExplorer busy={state==='loading'} onSearch={q=>void search(q)} />
       <div className="search-box">
         <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void search()} placeholder={t('radarSearchPlaceholder')} />
         <button className="button primary" disabled={state==='loading'} onClick={() => void search()}>
@@ -2441,12 +2454,13 @@ function Campaigns({ campaigns }: { campaigns: Campaign[] }) {
 }
 
 function Results({
-  campaigns, organizationId, rows, onSave,
+  campaigns, organizationId, rows, onSave,onImport,
 }:{
   campaigns:Campaign[];
   organizationId:string;
   rows:PerformanceDaily[];
   onSave:(row:PerformanceDaily)=>void;
+  onImport:(rows:PerformanceDaily[])=>Promise<void>;
 }) {
   const { t } = useI18n();
   const identity=useAuth();
@@ -2476,7 +2490,7 @@ function Results({
     <div className="page">
       <PageTitle eyebrow={t('results').toUpperCase()} title={t('resultsTitle')} subtitle={t('resultsSub')} />
       {FEATURE_FLAGS.REVENUE_IMPORT_V2_ENABLED && <RevenueTruthPanel organizationId={organizationId} campaigns={campaigns} performance={rows} />}
-      <PerformancePanel organizationId={organizationId} campaigns={campaigns} rows={rows} approvalEvents={approvalEvents} onSave={onSave} />
+      <PerformancePanel organizationId={organizationId} campaigns={campaigns} rows={rows} approvalEvents={approvalEvents} onSave={onSave} onImport={onImport} />
     </div>
   );
 }
@@ -2501,8 +2515,8 @@ function AiCost() {
   );
 }
 
-function Boards() { const { t }=useI18n(); return <SimpleList eyebrow={t('boards').toUpperCase()} title={t('boardsTitle')} subtitle={t('boardsSub')} rows={initialBoards.map((b,i) => [b, i < 2 ? t('priority') : t('readyStatus'), 'Casa & organização'])} />; }
-function Library() { const { t }=useI18n(); return <SimpleList eyebrow={t('library').toUpperCase()} title={t('libraryTitle')} subtitle={t('librarySub')} rows={[[t('product'),'Product Truth',t('truthPreserved')],['Creatives','Creative Engine','Deterministic and exportable versions'],['Templates','10','Editorial · Problem → Solution · Minimal · Hero · Checklist · Before/After · Small Space · Routine · Collection · Seasonal']]} />; }
+function Boards({campaigns}:{campaigns:Campaign[]}) {return <WorkspaceLibrary mode="boards" campaigns={campaigns} boards={initialBoards}/>;}
+function Library({campaigns}:{campaigns:Campaign[]}) {return <WorkspaceLibrary mode="library" campaigns={campaigns} boards={initialBoards}/>;}
 function Workspace() { const { t }=useI18n(); const { organizationId, role }=useAuth(); return <SimpleList eyebrow="WORKSPACE" title={t('workspace')} subtitle={t('workspaceSub')} rows={[[organizationId ?? '—','organizationId',t('tenantActive')],[role ?? 'viewer',t('role'),t('effectivePermission')],['Audit','Append-only','Critical events are append-only']]} />; }
 function Help() { const { t }=useI18n(); return <SimpleList eyebrow={t('help').toUpperCase()} title={t('helpTitle')} subtitle={t('helpSub')} rows={[[t('publishPin'),t('stepByStep'),t('noDeadEndPublish')],[t('aiNoCost'),'Prompt Studio',t('noDeadEndAi')],[t('productUnavailable'),t('replacementFlow'),t('noDeadEndProduct')]]} />; }
 
@@ -2567,13 +2581,13 @@ export function App() {
         <Route path="/campaigns" element={<Campaigns campaigns={store.campaigns} />} />
         <Route path="/review/:id" element={<Review campaigns={store.campaigns} update={store.update} editable={editable} />} />
         <Route path="/publish/:id" element={<Publish campaigns={store.campaigns} update={store.update} preferences={preferenceStore.preferences} onSchedule={scheduleStore.add} completeSchedule={scheduleStore.complete} />} />
-        <Route path="/results" element={<Results campaigns={store.campaigns} organizationId={org} rows={performance.rows} onSave={performance.save} />} />
+        <Route path="/results" element={<Results campaigns={store.campaigns} organizationId={org} rows={performance.rows} onSave={performance.save} onImport={performance.importMany} />} />
         <Route path="/connections" element={<Connections />} />
         <Route path="/prompt-studio" element={<PromptStudio campaigns={store.campaigns} editable={editable} onUpdate={store.update} />} />
         <Route path="/ai-cost" element={<AiCost />} />
         <Route path="/settings" element={<SettingsPanel preferences={preferenceStore.preferences} editable={editable} onChange={preferenceStore.update} />} />
-        <Route path="/boards" element={<Boards />} />
-        <Route path="/library" element={<Library />} />
+        <Route path="/boards" element={<Boards campaigns={store.campaigns} />} />
+        <Route path="/library" element={<Library campaigns={store.campaigns} />} />
         <Route path="/workspace" element={<Workspace />} />
         <Route path="/help" element={<Help />} />
         <Route path="*" element={<Navigate to="/" replace />} />
