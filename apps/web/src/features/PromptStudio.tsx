@@ -13,6 +13,7 @@ import { analyzeAffiliateProduct, generateAffiliatePinCopy, type AffiliateProduc
 import { AIImageImport } from './AIImageImport';
 import { CreativeConceptPicker } from './CreativeConceptPicker';
 import { ImagePromptPanel } from './ImagePromptPanel';
+import type { ReferencePreview } from '../services/productReferenceRepository';
 
 interface AIEditorialResult {
   headline?:string;
@@ -73,6 +74,7 @@ export function PromptStudio({
   const { t, locale } = useI18n();
   const { user, organizationId } = useAuth();
   const [campaignId,setCampaignId]=useState(campaigns[0]?.id ?? '');
+  const [reference,setReference]=useState<ReferencePreview|null>(null);
   const [tab,setTab]=useState<'image'|'copy'|'analysis'>('image');
   const [instruction,setInstruction]=useState('Crie três ângulos de campanha Pinterest, mantendo linguagem premium e prática.');
   const [copied,setCopied]=useState(false);
@@ -263,8 +265,10 @@ export function PromptStudio({
             <strong>1000 × 1500 · 2:3</strong>
           </div>
           <CreativeConceptPicker pack={pack} disabled={!editable} onSelect={selectConcept} />
-          <ImagePromptPanel pack={pack} product={campaign.currentVersion.product} />
+          <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} />
           <AIImageImport
+             product={campaign.currentVersion.product}
+             reference={reference}
             organizationId={campaign.organizationId}
             campaignId={campaign.id}
             pack={pack}

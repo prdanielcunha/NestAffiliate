@@ -206,6 +206,12 @@ export interface CreativeAsset {
   downloadUrl?: string;
   embeddedTextConfirmedAbsent: boolean;
   productFidelityConfirmed: boolean;
+  referenceAssetId?: string;
+  referenceSha256?: string;
+  referenceListingId?: string;
+  referenceRights?: ProductReferenceAsset['rights'];
+  reviewedAt?: string;
+  reviewedBy?: string;
   createdAt: string;
 }
 
