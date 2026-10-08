@@ -2051,13 +2051,13 @@ function Publish({
   async function copy(text: string) { await navigator.clipboard.writeText(text); }
 
   function persistPackage() {
-    if (db && identity.organizationId && !publisherBlocked && activeCampaign.status === 'PUBLICATION_READY') {
+    if (db && identity.organizationId && (!activeCampaign.rankingContext?.v4ResearchDraft || !publisherBlocked) && activeCampaign.status === 'PUBLICATION_READY') {
       void savePublicationPackage(db, identity.organizationId, pkg).catch(() => undefined);
     }
   }
 
   function schedulePublication(){
-    if(publisherBlocked || !online || activeCampaign.status!=='PUBLICATION_READY')return;
+    if((activeCampaign.rankingContext?.v4ResearchDraft && (publisherBlocked || !online)) || activeCampaign.status!=='PUBLICATION_READY')return;
     const parsed=validateScheduledFor(scheduledFor);
     if(!parsed.valid){
       setScheduleMessage(t('scheduleInvalid'));
@@ -2228,7 +2228,7 @@ function Publish({
         </div>
         <div className="schedule-controls">
           <input type="datetime-local" value={scheduledFor} onChange={(e)=>{setScheduledFor(e.target.value);setScheduleMessage('');}} />
-          <button className="button secondary" disabled={publisherBlocked || !online} onClick={schedulePublication}>{t('schedule')}</button>
+          <button className="button secondary" disabled={Boolean(activeCampaign.rankingContext?.v4ResearchDraft && (publisherBlocked || !online))} onClick={schedulePublication}>{t('schedule')}</button>
           {scheduleMessage && <span className={scheduleMessage===t('scheduled')?'success-text':'field-error'}>{scheduleMessage}</span>}
         </div>
       </section>
