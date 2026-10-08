@@ -11,7 +11,7 @@ export function CreativeWorkflowGuide({campaign}:{campaign:Campaign}){
   const offer=Boolean(product.listingVerified&&product.externalId);
   const commission=product.marketplace==='MELI' ?
     isMarketplaceAffiliateDestination(product.affiliateUrl?.value,product.marketplace)&&inspectAffiliateAttestation(product)==='SELF_CONFIRMED'
-    :Boolean(product.affiliateUrl?.value);
+    :false; // Shopee tagging is confirmed in the guided Pinterest flow, not by having a URL.
   const planned=Boolean(version.creativePack);
   const image=Boolean(version.creativeAsset?.productFidelityConfirmed&&version.creativeAsset?.rightsStatus!=='UNKNOWN');
   const published=campaign.status==='PUBLISHED';
