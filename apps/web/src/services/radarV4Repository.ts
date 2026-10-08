@@ -1,4 +1,4 @@
-import { doc, writeBatch, serverTimestamp, type Firestore } from 'firebase/firestore';
+import { collection, doc, getDocs, limit, orderBy, query, writeBatch, serverTimestamp, type Firestore } from 'firebase/firestore';
 import type { OpportunityV4Assessment } from '@nestaffiliate/radar';
 import { buildRadarFunnelV4 } from '@nestaffiliate/radar';
 
@@ -43,4 +43,24 @@ export async function saveRadarV4Coverage(input:{
   }
   await batch.commit();
   return runId;
+}
+
+/** Latest completed manual Radar research, never presented as a background sync. */
+export async function loadLatestRadarV4Coverage(db:Firestore,organizationId:string):Promise<SourceCoverageRunV4|null>{
+  if(!organizationId || organizationId.includes('/'))return null;
+  const ref=collection(db,'organizations',organizationId,'products','nestaffiliate','sourceCoverageRuns');
+  const rows=await getDocs(query(ref,orderBy('finishedAt','desc'),limit(5)));
+  for(const row of rows.docs){
+    const data=row.data() as SourceCoverageRunV4;
+    if(data.organizationId===organizationId && typeof data.finishedAt==='string' && data.runId)return data;
+  }
+  return null;
+}
+export function primaryRadarBlocker(run:SourceCoverageRunV4|null):{reason:string;count:number}|null{
+  if(!run?.report?.byReason)return null;
+  const sorted=Object.entries(run.report.byReason)
+    .filter(([,n])=>typeof n==='number' && n>0)
+    .sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]));
+  const first=sorted[0];
+  return first?{reason:first[0],count:first[1]}:null;
 }

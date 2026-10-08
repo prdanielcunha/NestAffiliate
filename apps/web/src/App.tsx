@@ -47,7 +47,7 @@ import { analyzeAffiliateProduct, type AffiliateProductAnalysis } from './servic
 import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
 import './features/revenue3.css';
 import { ProductSourceActions } from './features/ProductSourceActions';
-import { saveRadarV4Coverage } from './services/radarV4Repository';
+import { loadLatestRadarV4Coverage, primaryRadarBlocker, saveRadarV4Coverage, type SourceCoverageRunV4 } from './services/radarV4Repository';
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel } from './features/OpportunityV4Panel';
 
@@ -580,8 +580,21 @@ function CommandPalette({ close }: { close: () => void }) {
   );
 }
 
-function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; schedules: PublicationSchedule[]; agentReport: DailyAgentReport|null }) {
+function Today({ campaigns, schedules, agentReport, organizationId }: { campaigns: Campaign[]; schedules: PublicationSchedule[]; agentReport: DailyAgentReport|null; organizationId:string }) {
   const { t, locale } = useI18n();
+  const [latestResearch,setLatestResearch]=useState<SourceCoverageRunV4|null>(null);
+  const [researchState,setResearchState]=useState<'loading'|'ready'|'unavailable'>('loading');
+  useEffect(()=>{
+    if(!FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED || !db){setResearchState('unavailable');return;}
+    const currentDb=db;
+    let mounted=true;
+    setResearchState('loading');
+    void loadLatestRadarV4Coverage(currentDb,organizationId)
+      .then(run=>{if(mounted){setLatestResearch(run);setResearchState('ready');}})
+      .catch(()=>{if(mounted)setResearchState('unavailable');});
+    return ()=>{mounted=false;};
+  },[organizationId]);
+  const researchBlocker=primaryRadarBlocker(latestResearch);
   const ready = campaigns.filter((c) => c.status === 'READY');
   const liveSchedules=schedules
     .map((item)=>({...item,status:publicationScheduleStatus(item)}))
@@ -616,6 +629,33 @@ function Today({ campaigns, schedules, agentReport }: { campaigns: Campaign[]; s
           {ready.length ? t('reviewCount',{n:ready.length}) : t('findOpportunities')}
         </NavLink></>}
       </section>
+      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && <section className="today-research-section" aria-label={locale==='pt-BR'?'Evidências do Radar 4.0':locale==='es'?'Evidencia del Radar 4.0':'Radar 4.0 evidence'}>
+        <div className="today-research-top">
+          <div>
+            <span className="eyebrow">RADAR 4.0 · RESEARCH INTELLIGENCE</span>
+            <h2>{locale==='pt-BR'?'O que a última pesquisa realmente encontrou':locale==='es'?'Lo que encontró la última investigación':'What the last research actually found'}</h2>
+            <p>{locale==='pt-BR'?'Pesquisa manual autenticada · os números não representam vendas ou lucro.':locale==='es'?'Investigación manual autenticada · no son ventas ni ganancias.':'Authenticated manual research · not sales or profit.'}</p>
+          </div>
+          <NavLink className="button secondary" to="/radar">{locale==='pt-BR'?'Abrir Radar':locale==='es'?'Abrir Radar':'Open Radar'} →</NavLink>
+        </div>
+        {researchState==='loading' ? <p className="muted">{locale==='pt-BR'?'Carregando pesquisa…':locale==='es'?'Cargando investigación…':'Loading research…'}</p>
+        : researchState==='unavailable' ? <p className="muted">{locale==='pt-BR'?'Não foi possível consultar o relatório da organização. Os dados não foram presumidos como zero.':locale==='es'?'Informe no disponible. No se asumió cero.':'Report unavailable. Missing data was not counted as zero.'}</p>
+        : !latestResearch ? <p className="muted">{locale==='pt-BR'?'Nenhuma pesquisa Radar 4.0 foi registrada para esta organização. Abra o Radar para começar.':locale==='es'?'Todavía no hay investigaciones registradas para esta organización.':'No Radar 4.0 research recorded for this organization yet.'}</p>
+        : <>
+          <div className="today-research-metrics">
+            <div><strong>{latestResearch.examined}</strong><span>{locale==='pt-BR'?'Candidatos examinados':locale==='es'?'Candidatos examinados':'Examined candidates'}</span></div>
+            <div><strong>{latestResearch.report.discovery}</strong><span>{locale==='pt-BR'?'Em investigação':locale==='es'?'En investigación':'Research candidates'}</span></div>
+            <div><strong>{latestResearch.report.nearReady}</strong><span>{locale==='pt-BR'?'Quase prontos':locale==='es'?'Casi listos':'Nearly ready'}</span></div>
+            <div><strong>{latestResearch.report.readyToPublish}</strong><span>{locale==='pt-BR'?'Prontos para publicar':locale==='es'?'Listos para publicar':'Ready to publish'}</span></div>
+          </div>
+          <div className="today-research-bottom">
+            <div><strong>{locale==='pt-BR'?'Estado das fontes':locale==='es'?'Estado de las fuentes':'Provider status'}</strong>
+              <p>{Object.entries(latestResearch.providerStatuses).map(([source,state])=>source+': '+state).join(' · ') || '—'}</p></div>
+            {researchBlocker&&<div><strong>{locale==='pt-BR'?'Maior pendência registrada':locale==='es'?'Principal pendiente':'Top recorded gap'}</strong><p>{researchBlocker.reason} · {researchBlocker.count}</p></div>}
+          </div>
+          <p className="today-research-footnote">{locale==='pt-BR'?'Pesquisa concluída':locale==='es'?'Investigación completada':'Research completed'}: {new Date(latestResearch.finishedAt).toLocaleString(locale)} · {latestResearch.runId}</p>
+        </>}
+      </section>}
       <section className="section">
         <div className="section-heading"><h2>{t('needsYou')}</h2><span>{ready.length ? '~2 min' : t('allDone')}</span></div>
         {ready.length ? (
@@ -2473,7 +2513,7 @@ export function App() {
     <Shell locale={locale} setLocale={setLocale}>
       <SyncErrorBanner kind={store.syncError} onDismiss={store.clearSyncError} />
       <Routes>
-        <Route path="/" element={<Today campaigns={store.campaigns} schedules={scheduleStore.schedules} agentReport={dailyAgentReport} />} />
+        <Route path="/" element={<Today campaigns={store.campaigns} schedules={scheduleStore.schedules} agentReport={dailyAgentReport} organizationId={org} />} />
         <Route path="/radar" element={<Radar addCampaign={store.add} organizationId={org} editable={editable} />} />
         <Route path="/campaigns" element={<Campaigns campaigns={store.campaigns} />} />
         <Route path="/review/:id" element={<Review campaigns={store.campaigns} update={store.update} editable={editable} />} />

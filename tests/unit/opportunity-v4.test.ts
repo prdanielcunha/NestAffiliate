@@ -1,5 +1,6 @@
 import { describe,expect,it } from 'vitest';
 import { retryAfterMs } from '../../apps/web/src/services/mercadoLivreBroker';
+import { primaryRadarBlocker, type SourceCoverageRunV4 } from '../../apps/web/src/services/radarV4Repository';
 import type { ProductTruth,ProductReferenceAsset } from '@nestaffiliate/core';
 import { assessOpportunityV4,buildRadarFunnelV4,isDiscoverableProduct,isReferenceAiReady,isSafeOfferUrl,isSafeAffiliateUrl } from '../../packages/radar/src/opportunityV4';
 const now=new Date('2026-10-08T13:00:00Z');
@@ -79,5 +80,19 @@ describe('Radar V4 source resilience and safe affiliate destinations',()=>{
   expect(isSafeAffiliateUrl('https://www.mercadolivre.com.br/item/MLB-1','MELI')).toBe(true);
   expect(isSafeAffiliateUrl('https://s.shopee.com.br/offer','SHOPEE')).toBe(true);
   expect(isSafeAffiliateUrl('https://s.shopee.com.br.evil.test/offer','SHOPEE')).toBe(false);
+ });
+});
+
+describe('Radar V4 evidence-driven home panel',()=>{
+ it('shows the most frequent *recorded* reason only, not an invented explanation',()=>{
+  const summary={
+    runId:'run-1',organizationId:'org-1',query:'cozinha',provider:'MELI',providerStatuses:{MELI:'RATE_LIMITED'},
+    examined:105,assessed:3,finishedAt:'2026-10-08T13:00:00Z',
+    report:{examined:105,discovery:3,nearReady:0,readyToPublish:0,sourceLimited:3,
+      byReason:{REFERENCE_MISSING:3,AFFILIATE_LINK_MISSING:2}},
+  } as SourceCoverageRunV4;
+  expect(primaryRadarBlocker(summary)).toEqual({reason:'REFERENCE_MISSING',count:3});
+  expect(primaryRadarBlocker(null)).toBeNull();
+  expect(primaryRadarBlocker({...summary,report:{...summary.report,byReason:{}}})).toBeNull();
  });
 });
