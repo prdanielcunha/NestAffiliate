@@ -12,6 +12,7 @@ import { useAuth } from '../lib/auth';
 import { analyzeAffiliateProduct, generateAffiliatePinCopy, type AffiliateProductAnalysis } from '../services/nestAiClient';
 import { AIImageImport } from './AIImageImport';
 import { CreativeConceptPicker,templateForConcept } from './CreativeConceptPicker';
+import {narrativeForConcept} from '../lib/creativeDirection';
 import { ImagePromptPanel } from './ImagePromptPanel';
 import type { ReferencePreview } from '../services/productReferenceRepository';
 
@@ -114,7 +115,7 @@ export function PromptStudio({
     if(!campaign || !pack || !editable) return;
     const nextPack=ensureVersionedPack(pack,campaign.currentVersion.version+1,conceptId);
     const index=nextPack.imageConcepts.findIndex(item=>item.id===nextPack.recommendedConceptId);
-    const next=nextCampaignVersion(campaign,{creativePack:nextPack,creativeAsset:undefined,template:templateForConcept(index)},'Prompt Studio concept changed');
+    const next=nextCampaignVersion(campaign,{creativePack:nextPack,creativeAsset:undefined,template:templateForConcept(index),narrative:narrativeForConcept(campaign.currentVersion,nextPack,index)},'Prompt Studio concept changed');
     onUpdate(next);
     setCampaignId(next.id);
   }
