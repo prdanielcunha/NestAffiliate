@@ -18,7 +18,9 @@ test('Creative concepts have three different visual layouts and preserve 2:3 pre
  for(let n=0;n<3;n++)await expect(page.locator('.concept-visual-'+n)).toBeVisible();
  const frame=page.locator('.concept-visual-1');
  await expect(frame).toHaveCSS('aspect-ratio','2 / 3');
- await expect(page.getByText(/ESPAÇO PARA FOTO AUTORIZADA/).first()).toBeVisible();
+ await expect(page.locator('.concept-rendered-canvas')).toHaveCount(3);
+ const data=await page.locator('.concept-rendered-canvas').evaluateAll((canvases)=>canvases.map((el)=>(el as HTMLCanvasElement).toDataURL('image/png')));
+ expect(new Set(data).size).toBe(3);
 });
 
 test('Library and Boards navigate real campaign data, not static placeholders',async({page})=>{
