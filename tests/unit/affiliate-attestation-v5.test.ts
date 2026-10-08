@@ -40,6 +40,10 @@ describe('Affiliate verification v5',()=>{
    expect(isMarketplaceAffiliateDestination('https://mercadolivre.com.br.evil.tld/a','MELI')).toBe(false);
    expect(isMarketplaceAffiliateDestination('https://person:secret@mercadolivre.com.br/a','MELI')).toBe(false);
    expect(isMarketplaceAffiliateDestination(destination,'MELI')).toBe(true);
+   expect(isMarketplaceAffiliateDestination('https://meli.la/AbC123','MELI')).toBe(true);
+   expect(isMarketplaceAffiliateDestination('https://sub.meli.la/AbC123','MELI')).toBe(false);
+   expect(isMarketplaceAffiliateDestination('https://meli.la/','MELI')).toBe(false);
+   expect(isMarketplaceAffiliateDestination('https://meli.la.evil.tld/AbC123','MELI')).toBe(false);
  });
  it('retains the legacy campaign behavior when the new flag is off',()=>{
    const old=runPublishingGuard({product:base,destinationUrl:destination,disclosure:'Link de afiliado; posso receber comissão.',headline:'Organização prática',description:'Ideia útil',now});
