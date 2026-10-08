@@ -1866,7 +1866,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
                   ? (locale==='pt-BR'?'Conferência manual registrada; comissão não é garantida.':locale==='es'?'Confirmación manual registrada; comisión no garantizada.':'User confirmation saved; commission is not guaranteed.')
                   : (locale==='pt-BR'?'Comissão ainda não verificada. Um endereço HTTPS não comprova atribuição.':locale==='es'?'Comisión todavía no verificada. HTTPS no prueba atribución.':'Commission not verified. HTTPS does not prove attribution.')}</p>
               </div>}
-              {affiliateError && <p className="field-error">{affiliateError}</p>
+              {affiliateError && <p className="field-error">{affiliateError}</p>}
               {!v.product.affiliateUrl && campaign.marketplace === 'MELI' && (
                 <p className="field-hint">{t('affiliateMissing')}</p>
               )}
