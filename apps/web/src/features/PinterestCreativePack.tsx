@@ -9,7 +9,7 @@ import { db } from '../lib/firebase';
 import { useI18n } from '../lib/i18n-context';
 import { savePinterestCreativePack } from '../services/creativePackRepository';
 import { AIImageImport } from './AIImageImport';
-import { CreativeConceptPicker } from './CreativeConceptPicker';
+import { CreativeConceptPicker,templateForConcept } from './CreativeConceptPicker';
 import { ImagePromptPanel } from './ImagePromptPanel';
 import type { ReferencePreview } from '../services/productReferenceRepository';
 
@@ -87,7 +87,7 @@ export function PinterestCreativePackPanel({
       creativeAsset:undefined,
       narrative:packNarrative(nextPack,campaign.currentVersion.narrative),
       boardName:nextPack.copy.recommendedBoardName,
-      template:'Lifestyle + Headline',
+      template:templateForConcept(nextPack.imageConcepts.findIndex(item=>item.id===nextPack.recommendedConceptId)),
     },offset===0?'Pinterest Creative Pack generated':'Pinterest Creative Pack alternate direction');
     onUpdate(next);
     setSaving(true);
@@ -99,8 +99,7 @@ export function PinterestCreativePackPanel({
     const nextVersion=campaign.currentVersion.version+1;
     const nextPack=directionFromSelected(versionPinterestCreativePack(pack,nextVersion,conceptId));
     const chosen=nextPack.imageConcepts.findIndex(item=>item.id===nextPack.recommendedConceptId);
-    const layouts=['Problem → Solution','Room Inspiration','Editorial Premium'];
-    const next=nextCampaignVersion(campaign,{creativePack:nextPack,creativeAsset:undefined,template:layouts[chosen%3]??'Editorial Premium'},'creative concept changed');
+    const next=nextCampaignVersion(campaign,{creativePack:nextPack,creativeAsset:undefined,template:templateForConcept(chosen)},'creative concept changed');
     onUpdate(next);
     setSaving(true);
     void persist(nextPack).finally(()=>setSaving(false));
@@ -169,7 +168,7 @@ export function PinterestCreativePackPanel({
   }
 
   const selected=pack.imageConcepts.find((item)=>item.id===pack.recommendedConceptId) ?? pack.imageConcepts[0];
-  const hasImage=Boolean(campaign.currentVersion.creativeAsset?.downloadUrl);
+  const hasImage=Boolean(campaign.currentVersion.creativeAsset);
 
   return <section className="pinterest-creative-pack">
     <header className="creative-pack-header">
@@ -202,7 +201,7 @@ export function PinterestCreativePackPanel({
           createPack(next);
         }}>{t('generateAnotherDirection')}</button>
       </div>
-      <CreativeConceptPicker pack={pack} disabled={!editable} onSelect={selectConcept} />
+      <CreativeConceptPicker pack={pack} version={campaign.currentVersion} disabled={!editable} onSelect={selectConcept} />
     </div>
 
     <div className="pack-section">
