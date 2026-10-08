@@ -24,13 +24,21 @@ async function sanitizedReference(file:File){
     if(!check.valid)throw new Error('REFERENCE_DIMENSIONS_INVALID');
     // Re-encode in canvas: EXIF/GPS, ICC and XMP are discarded.
     const canvas=document.createElement('canvas');
-    canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
+    const ratio=Math.min(1,1600/Math.max(image.naturalWidth,image.naturalHeight));
+    canvas.width=Math.max(1,Math.round(image.naturalWidth*ratio));
+    canvas.height=Math.max(1,Math.round(image.naturalHeight*ratio));
     const ctx=canvas.getContext('2d');
     if(!ctx)throw new Error('REFERENCE_CANVAS_UNAVAILABLE');
-    ctx.drawImage(image,0,0);
-    const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(
-      img=>img?resolve(img):reject(new Error('REFERENCE_ENCODING_FAILED')),'image/webp',0.94));
-    if(blob.size>8_000_000)throw new Error('REFERENCE_TOO_LARGE');
+    ctx.drawImage(image,0,0,canvas.width,canvas.height);
+    // Keep references under the secure Firestore backend-only fallback threshold.
+    // A compromised or unavailable GCS bucket must not break the zero-cost workflow.
+    let blob:Blob|null=null;
+    for(const quality of [0.92,0.84,0.76,0.68]){
+      const trial=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(
+        img=>img?resolve(img):reject(new Error('REFERENCE_ENCODING_FAILED')),'image/webp',quality));
+      if(trial.size<=620_000){blob=trial;break;}
+    }
+    if(!blob)throw new Error('REFERENCE_TOO_COMPLEX_TO_NORMALIZE');
     return {blob,hash:await sha256Hex(await blob.arrayBuffer()),width:canvas.width,height:canvas.height};
   }finally{URL.revokeObjectURL(objectUrl);}
 }
