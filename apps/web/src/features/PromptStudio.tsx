@@ -11,7 +11,7 @@ import { useI18n } from '../lib/i18n-context';
 import { useAuth } from '../lib/auth';
 import { analyzeAffiliateProduct, generateAffiliatePinCopy, type AffiliateProductAnalysis } from '../services/nestAiClient';
 import { AIImageImport } from './AIImageImport';
-import { CreativeConceptPicker } from './CreativeConceptPicker';
+import { CreativeConceptPicker,templateForConcept } from './CreativeConceptPicker';
 import { ImagePromptPanel } from './ImagePromptPanel';
 import type { ReferencePreview } from '../services/productReferenceRepository';
 
@@ -113,7 +113,8 @@ export function PromptStudio({
   function selectConcept(conceptId:string){
     if(!campaign || !pack || !editable) return;
     const nextPack=ensureVersionedPack(pack,campaign.currentVersion.version+1,conceptId);
-    const next=nextCampaignVersion(campaign,{creativePack:nextPack},'Prompt Studio concept changed');
+    const index=nextPack.imageConcepts.findIndex(item=>item.id===nextPack.recommendedConceptId);
+    const next=nextCampaignVersion(campaign,{creativePack:nextPack,creativeAsset:undefined,template:templateForConcept(index)},'Prompt Studio concept changed');
     onUpdate(next);
     setCampaignId(next.id);
   }
@@ -126,7 +127,7 @@ export function PromptStudio({
     const next=nextCampaignVersion(campaign,{
       creativePack:nextPack,
       creativeAsset:nextAsset,
-      template:'Lifestyle + Headline',
+      template:campaign.currentVersion.template,
     },'Prompt Studio generated image imported');
     onUpdate(next);
     setCampaignId(next.id);
@@ -264,7 +265,7 @@ export function PromptStudio({
             </div>
             <strong>1000 × 1500 · 2:3</strong>
           </div>
-          <CreativeConceptPicker pack={pack} disabled={!editable} onSelect={selectConcept} />
+          <CreativeConceptPicker pack={pack} version={campaign.currentVersion} disabled={!editable} onSelect={selectConcept} />
           <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true} />
           <AIImageImport
              product={campaign.currentVersion.product}
