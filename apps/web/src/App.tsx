@@ -54,6 +54,7 @@ import { ProblemIntentExplorer } from './features/ProblemIntentExplorer';
 import { WorkspaceLibrary } from './features/WorkspaceLibrary';
 import { CreativeWorkflowGuide } from './features/CreativeWorkflowGuide';
 import { publicationCalendarIcs } from './lib/publicationCalendar';
+import { generatePublishingZip, publicationBundleText } from './lib/publicationBundle';
 import { planCreativeEdit, type CreativeEditPlan } from './lib/creativeEdit';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
@@ -2278,6 +2279,34 @@ function Publish({
     }catch{setScheduleMessage(t('scheduleInvalid'));}
   }
 
+  async function downloadPackage() {
+    if(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)return;
+    try{
+      persistPackage();
+      const canvas=document.createElement('canvas');
+      let version=v;
+      let objectUrl:string|undefined;
+      try{
+        if(v.creativeAsset && !v.creativeAsset.downloadUrl && db){
+          const resolved=await resolveCreativeAssetUrl(db,activeCampaign.organizationId,v.creativeAsset).catch(()=>null);
+          if(resolved){
+            objectUrl=resolved.revoke?resolved.url:undefined;
+            version={...v,creativeAsset:{...v.creativeAsset,downloadUrl:resolved.url}};
+          }
+        }
+        const image=await renderPin(canvas,version);
+        const binary=atob(image.split(',')[1]??'');
+        const png=Uint8Array.from(binary,(char)=>char.charCodeAt(0));
+        const zip=generatePublishingZip(pkg,png);
+        const url=URL.createObjectURL(new Blob([zip.buffer as ArrayBuffer],{type:'application/zip'}));
+        const link=document.createElement('a');
+        link.href=url;link.download=pkg.filename.replace(/\.png$/i,'')+'-pacote.zip';
+        document.body.appendChild(link);link.click();link.remove();
+        window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+      }finally{if(objectUrl)URL.revokeObjectURL(objectUrl);}
+    }catch{setPublishedUrlError(locale==='pt-BR'?'Não foi possível exportar o pacote. Confira a imagem criativa e tente novamente.':locale==='es'?'No se pudo exportar el paquete.':'Unable to export package; check the creative image.');}
+  }
+
   async function downloadImage() {
     if(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)return;
     persistPackage();
@@ -2378,7 +2407,12 @@ function Publish({
       <div className="publish-grid">
         <PinPreview campaign={campaign} />
         <section className="package-card">
-          <button className="button primary download-button" disabled={Boolean(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)} onClick={() => void downloadImage()}>{t('downloadPng')}</button>
+          <div className="publish-package-actions">
+            <button className="button primary download-button" disabled={Boolean(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)} onClick={() => void downloadPackage()}>{locale==='pt-BR'?'Baixar pacote completo (.zip)':locale==='es'?'Descargar paquete completo (.zip)':'Download full Pin package (.zip)'}</button>
+            <button className="button secondary" disabled={Boolean(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)} onClick={() => void downloadImage()}>{t('downloadPng')}</button>
+            <button className="button secondary" onClick={() => void copy(publicationBundleText(pkg))}>{locale==='pt-BR'?'Copiar todos os dados':locale==='es'?'Copiar todos los datos':'Copy entire posting pack'}</button>
+            <small>{locale==='pt-BR'?'Inclui PNG + descrição, disclosure, link, pasta e texto alternativo. Não publica automaticamente.':locale==='es'?'Incluye PNG, descripción, enlace y texto alternativo. No publica automáticamente.':'Includes PNG and posting metadata. Never auto-publishes.'}</small>
+          </div>
           <Field label={t('file')} value={pkg.filename} onCopy={() => copy(pkg.filename)} />
           <Field label={t('title')} value={pkg.title} onCopy={() => copy(pkg.title)} />
           <Field label={t('description')} value={pkg.description} onCopy={() => copy(`${pkg.description}\n\n${pkg.disclosure}`)} />
