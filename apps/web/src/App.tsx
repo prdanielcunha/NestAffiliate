@@ -52,6 +52,7 @@ import { validateStoredProductReference } from './services/productReferenceRepos
 import { OpportunityV4Panel, opportunityReasonLabel } from './features/OpportunityV4Panel';
 import { ProblemIntentExplorer } from './features/ProblemIntentExplorer';
 import { WorkspaceLibrary } from './features/WorkspaceLibrary';
+import { CreativeWorkflowGuide } from './features/CreativeWorkflowGuide';
 import { planCreativeEdit, type CreativeEditPlan } from './lib/creativeEdit';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
@@ -1836,7 +1837,8 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
 
   return (
     <div className="review-page">
-      <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
+      <CreativeWorkflowGuide campaign={activeCampaign} />
+      <div id="review-creative"><PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} /></div>
       {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <ReelKitPanel campaign={activeCampaign} />}
       {creativeApprovalError && <div className="notice danger creative-approval-error">{t('creativeImageRequired')}</div>}
       {editError && <div className="notice edit-feedback" role="alert">{editError}</div>}
@@ -1854,7 +1856,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             <div><p className="eyebrow">{t('review')}</p><h1>{v.keyword}</h1></div>
             <div className="score-badge"><strong>{campaign.score.score}</strong><span>NestScore<br/>{t('confidence')} {t(campaign.score.confidence as 'high'|'medium'|'low')}</span></div>
           </div>
-          <Disclosure title={t('product')} defaultOpen>
+          <div id="review-product"><Disclosure title={t('product')} defaultOpen>
             <h3>{v.product.title.value}</h3>
             <ProductSourceActions product={v.product} />
             <p className="muted">{campaign.marketplace} · {v.product.sellerName?.value ?? t('sellerUnknown')}</p>
@@ -1884,7 +1886,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
                 <p className="field-hint">{t('affiliateMissing')}</p>
               )}
             </div>
-          </Disclosure>
+          </Disclosure></div>
           <Disclosure title={t('why')} defaultOpen>
             <ul>{(campaign.rankingContext?.evidence?.length ? campaign.rankingContext.evidence : campaign.score.reasons).map((reason) => <li key={reason}>{reason}</li>)}</ul>
             {campaign.rankingContext?.trackingCode && <div className="tracking-row"><code>{campaign.rankingContext.trackingCode}</code><button className="text-button" onClick={()=>void navigator.clipboard.writeText(campaign.rankingContext!.trackingCode!)}>{t('copyTracking')}</button></div>}
@@ -1941,7 +1943,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             </div>
           </Disclosure>
           <div className="save-state">{saved ? t('saved') : t('saving')} · v{v.version}</div>
-          <div className="primary-actions">
+          <div className="primary-actions" id="review-final">
             <button className="button primary" disabled={!editable} onClick={approve}>{t('approve')}</button>
             <button className="button secondary" disabled={!editable} onClick={() => document.getElementById('ai-edit')?.focus()}>{t('edit')}</button>
           </div>
