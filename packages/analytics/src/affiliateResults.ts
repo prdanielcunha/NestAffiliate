@@ -70,10 +70,14 @@ export function parseAffiliateStatement(input:{
     const claimedCampaign=raw.campaignid?.trim()??'';
     const trackingCode=raw.trackingcode?.trim()??'';
     const campaignById=input.knownCampaigns.find((campaign)=>campaign.id===claimedCampaign);
-    const campaignByTracking=trackingCode && input.knownCampaigns.find((campaign)=>campaign.trackingCode===trackingCode);
+    const trackingMatches=trackingCode ? input.knownCampaigns.filter(campaign=>campaign.trackingCode===trackingCode) : [];
     if(claimedCampaign && !campaignById)throw new Error('CAMPAIGN_OUTSIDE_ORGANIZATION');
     if(campaignById && trackingCode && campaignById.trackingCode!==trackingCode)throw new Error('ATTRIBUTION_CONFLICT');
-    const matched=campaignById ?? campaignByTracking;
+    // A manually typed campaignId isn't provider evidence. Even a tracking code is
+    // only exact when it maps uniquely to ONE current tenant campaign.
+    const exactTracking=trackingMatches.length===1;
+    if(trackingCode && !exactTracking && trackingMatches.length>1)throw new Error('TRACKING_CODE_AMBIGUOUS');
+    const matched=campaignById ?? (exactTracking?trackingMatches[0]:undefined);
     const channel=raw.channel?.toUpperCase()??'UNKNOWN';
     if(!['PINTEREST','FACEBOOK_REELS','UNKNOWN',''].includes(channel))throw new Error('CHANNEL_INVALID');
     const id=`${market}:${transactionId}`;
@@ -88,7 +92,7 @@ export function parseAffiliateStatement(input:{
       ...(matched ? {campaignId:matched.id} : {}),
       ...(trackingCode ? {trackingCode} : {}),
       channel:(channel||'UNKNOWN') as AffiliateResultChannel,
-      attribution:matched?'EXACT' as const:'UNKNOWN' as const,
+      attribution:matched && exactTracking && matched.id===trackingMatches[0]?.id?'EXACT' as const:'UNKNOWN' as const,
     };
   });
 }
