@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {PROBLEM_INTENTS,type ProblemIntent} from '@nestaffiliate/radar/problemIntents';
+import {PROBLEM_INTENTS,type ProblemIntent} from '@nestaffiliate/radar';
 import {useI18n} from '../lib/i18n-context';
 
 export function ProblemIntentExplorer({onSearch,busy=false}:{onSearch:(query:string)=>void;busy?:boolean}){
