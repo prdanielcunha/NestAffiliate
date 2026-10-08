@@ -726,6 +726,13 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [confirmedCommissionOnly,setConfirmedCommissionOnly]=useState(false);
   const [authorizedAssetsOnly,setAuthorizedAssetsOnly]=useState(false);
   const [v4StatusFilter,setV4StatusFilter]=useState<'ALL'|'READY_NOW'|'NEAR_READY'|'PROMISING'|'SOURCE_LIMITED'>('ALL');
+  const v4FilterLabels={
+    ALL:locale==='pt-BR'?'Todas':locale==='es'?'Todas':'All',
+    READY_NOW:locale==='pt-BR'?'Prontas':locale==='es'?'Listas':'Ready',
+    NEAR_READY:locale==='pt-BR'?'Quase prontas':locale==='es'?'Casi listas':'Nearly ready',
+    PROMISING:locale==='pt-BR'?'Vale investigar':locale==='es'?'Vale investigar':'Investigate',
+    SOURCE_LIMITED:locale==='pt-BR'?'Aguardando fonte':locale==='es'?'Datos limitados':'Source limited',
+  } as const;
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
   const [errorCode,setErrorCode]=useState('');
   const [hasSearched,setHasSearched]=useState(false);
@@ -1272,9 +1279,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           {(['ALL','READY_NOW','NEAR_READY','PROMISING','SOURCE_LIMITED'] as const).map(s=>
             <button key={s} type="button" aria-pressed={v4StatusFilter===s}
               className={v4StatusFilter===s?'active':''} onClick={()=>setV4StatusFilter(s)}>{
-                s==='ALL'?'Todas':s==='READY_NOW'?'Prontas':s==='NEAR_READY'?'Quase prontas':s==='PROMISING'?'Vale investigar':'Aguardando fonte'
+                v4FilterLabels[s]
               }</button>)}
-          {v4StatusFilter!=='ALL'&&<button type="button" className="text-button" onClick={()=>setV4StatusFilter('ALL')}>Limpar filtros</button>}
+          {v4StatusFilter!=='ALL'&&<button type="button" className="text-button" onClick={()=>setV4StatusFilter('ALL')}>{locale==='pt-BR'?'Limpar filtros':locale==='es'?'Limpiar filtros':'Clear filters'}</button>}
         </div>
       </div>}
       {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && <div className="radar-filters r3-filters">
@@ -1310,12 +1317,12 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         <p className="eyebrow">RADAR 4.0 · EVIDENCE</p>
         <h3>{locale==='pt-BR'?'Investigação, não volume artificial':'Evidence-first investigation'}</h3>
         <div className="v4-funnel-metrics">
-          <div><strong>{searchMeta?.candidates??v4Funnel.examined}</strong><span>Candidatos</span></div>
-          <div><strong>{v4Funnel.discovery}</strong><span>Em pesquisa</span></div>
-          <div><strong>{v4Funnel.nearReady}</strong><span>Quase prontos</span></div>
-          <div><strong>{v4Funnel.readyToPublish}</strong><span>Prontos para publicar</span></div>
+          <div><strong>{searchMeta?.candidates??v4Funnel.examined}</strong><span>{locale==='pt-BR'?'Candidatos':locale==='es'?'Candidatos':'Candidates'}</span></div>
+          <div><strong>{v4Funnel.discovery}</strong><span>{locale==='pt-BR'?'Em pesquisa':locale==='es'?'En investigación':'In research'}</span></div>
+          <div><strong>{v4Funnel.nearReady}</strong><span>{locale==='pt-BR'?'Quase prontos':locale==='es'?'Casi listos':'Nearly ready'}</span></div>
+          <div><strong>{v4Funnel.readyToPublish}</strong><span>{locale==='pt-BR'?'Prontos para publicar':locale==='es'?'Listos para publicar':'Ready to publish'}</span></div>
         </div>
-        {v4Funnel.readyToPublish===0&&<p className="muted">Nenhuma publicação liberada. Investigue as ofertas e resolva pendências reais sem preencher a fila artificialmente.</p>}
+        {v4Funnel.readyToPublish===0&&<p className="muted">{locale==='pt-BR'?'Nenhuma publicação liberada. Investigue as ofertas e resolva pendências reais sem preencher a fila artificialmente.':locale==='es'?'Ninguna publicación autorizada. Investigue las ofertas y resuelva pendientes reales.':'Nothing cleared for publication. Investigate offers and resolve real evidence gaps.'}</p>}
       </section>}
       {searchMeta && state==='idle' && <section className="radar-search-summary">
         <div>
