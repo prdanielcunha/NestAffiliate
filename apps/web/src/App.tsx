@@ -1145,7 +1145,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       </div>
 
       {marketplaceScope==='SHOPEE' && (shopeeApiConfigured===false || shopeeProviderFallback) && <>
-        <ShopeeResearchBridge query={query} />
+        <ShopeeResearchBridge query={query} degraded={shopeeProviderFallback && shopeeApiConfigured===true} />
         {editable
           ? <ManualProductImport
               organizationId={organizationId}
