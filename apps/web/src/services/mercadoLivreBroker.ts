@@ -12,6 +12,7 @@ export interface MercadoLivreSearchMeta {
   discoveryMode?:boolean;
   researchOnly?:boolean;
   sourceLimited?:boolean;
+  staleObservation?:boolean;
   rejectedUnavailable:number;
   rejectedLowSales:number;
   rejectedUnverified:number;
