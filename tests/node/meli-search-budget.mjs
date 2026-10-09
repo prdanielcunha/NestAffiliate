@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {MELI_BACKGROUND_RESEARCH_LIMITS,catalogResolutionSelection} from '../../scripts/meli-search-budget.mjs';
+import {MELI_BACKGROUND_RESEARCH_LIMITS,catalogResolutionSelection,isSellerPrivateHighlight} from '../../scripts/meli-search-budget.mjs';
 test('background resolver does not fan out dozens of catalog detail requests',()=>{
  const rows=Array.from({length:20},(_,i)=>({id:'MLB'+i}));
  const chosen=catalogResolutionSelection(rows);
@@ -17,4 +17,11 @@ test('quota-aware defaults cap retries and background traffic',()=>{
  assert.equal(MELI_BACKGROUND_RESEARCH_LIMITS.retryAttempts,2);
  assert.ok(MELI_BACKGROUND_RESEARCH_LIMITS.minimumSpacingMs>=650);
  assert.ok(MELI_BACKGROUND_RESEARCH_LIMITS.highlightsPerSync<=18);
+});
+
+test('seller-owned USER_PRODUCT highlights are not queried with an unrelated OAuth account',()=>{
+ assert.equal(isSellerPrivateHighlight('USER_PRODUCT','MLBU123456'),true);
+ assert.equal(isSellerPrivateHighlight('','MLBU99999'),true);
+ assert.equal(isSellerPrivateHighlight('PRODUCT','MLB123'),false);
+ assert.equal(isSellerPrivateHighlight('ITEM','MLB123'),false);
 });
