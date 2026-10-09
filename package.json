@@ -18,7 +18,7 @@
     "test:integration": "vitest run tests/integration",
     "e2e": "playwright test",
     "ci": "pnpm lint && pnpm typecheck && pnpm test && pnpm scripts:check && pnpm build",
-    "scripts:check": "node --check scripts/bootstrap-meli-oauth.mjs && node --check scripts/revenue-offer-gates.mjs && node --check scripts/sync-meli-market-signals.mjs && node --check scripts/meli-rate-gate.mjs && node --test tests/node/revenue-offer-gates.mjs tests/node/meli-rate-gate.mjs"
+    "scripts:check": "node --check scripts/bootstrap-meli-oauth.mjs && node --check scripts/revenue-offer-gates.mjs && node --check scripts/sync-meli-market-signals.mjs && node --check scripts/meli-rate-gate.mjs && node --check scripts/meli-search-budget.mjs && node --test tests/node/revenue-offer-gates.mjs tests/node/meli-rate-gate.mjs tests/node/meli-search-budget.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
