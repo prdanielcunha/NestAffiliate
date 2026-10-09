@@ -51,6 +51,7 @@ import { loadLatestRadarV4Coverage, primaryRadarBlocker, saveRadarV4Coverage, ty
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel, opportunityReasonLabel } from './features/OpportunityV4Panel';
 import { ProblemIntentExplorer } from './features/ProblemIntentExplorer';
+import { RadarProductImage } from './features/RadarProductImage';
 import { WorkspaceLibrary } from './features/WorkspaceLibrary';
 import { CreativeWorkflowGuide } from './features/CreativeWorkflowGuide';
 import { publicationCalendarIcs } from './lib/publicationCalendar';
@@ -1506,7 +1507,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           return (
           <article className="opportunity-card radar2-card" key={product.externalId}>
             <div className="product-image">
-              {product.imageUrl ? <img src={product.imageUrl.value} alt="" /> : <span>{t('assetUnavailable')}</span>}
+              <RadarProductImage product={product} />
               <span className="rank-pill">#{index+1}</span>
               {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED&&v4ById[opportunity.id]
                 ? <span className="radar-score radar-score-v4" title={locale==='pt-BR'?'Faixa provisória do potencial editorial':'Provisional editorial potential range'}>{v4ById[opportunity.id]!.potential.lower}–{v4ById[opportunity.id]!.potential.upper}</span>
