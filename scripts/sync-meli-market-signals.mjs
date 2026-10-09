@@ -903,6 +903,21 @@ async function runDailyAgent(accessToken,signals,observedAt){
     ranked.push(opportunity);
   }
   report.opportunitiesAnalyzed=ranked.length;
+  // One bounded server-generated snapshot keeps verified research discoverable if
+  // a live query is blocked by provider policy. Never treated as live prices/commissions.
+  try {
+    await writeDoc(dailyAgentRoot+'/dailyAgentResearchPool/current',{
+      organizationId:ORG_ID,provider:'MELI',source:'mercadolivre-official-sync',
+      observedAt:new Date().toISOString(),researchOnly:true,
+      items:ranked.slice(0,80).map(item=>({
+        keyword:item.keyword,product:item.product,
+        observedAt:item.product?.title?.observedAt || item.createdAt,
+      })),
+    });
+  } catch(err) {
+    console.warn('MELI_RESEARCH_POOL_SNAPSHOT_UNAVAILABLE',
+      err instanceof Error ? err.name : 'UNKNOWN');
+  }
 
   const diversified=[];
   const perTheme=new Map();
