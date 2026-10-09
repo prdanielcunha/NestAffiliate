@@ -880,3 +880,10 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .campaign-card-handoff{color:var(--accent)!important;font-size:12px;font-weight:750;margin-top:14px}
 @media(max-width:800px){.campaign-journey-stages{grid-template-columns:repeat(2,minmax(0,1fr))}.campaign-journey{padding:17px}.campaign-journey-intro .button{width:100%}}
 @media(max-width:420px){.campaign-journey-stages{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.campaign-journey-stages .journey-step{padding:10px;min-height:82px}.journey-step strong{font-size:11px}.journey-step small{font-size:10px}.campaign-journey-intro>div{min-width:0}.affiliate-guided-help>.button{width:100%}}
+
+
+.pin-preview-provisional{font-size:11px;line-height:1.5;color:var(--muted);background:var(--surface2);border-bottom:1px solid var(--border);padding:10px 14px;margin:0}
+.publish-complete-banner{border:1px solid color-mix(in srgb,var(--accent) 48%,var(--border));background:var(--accent-soft);border-radius:18px;padding:22px;margin:18px 0}
+.publish-complete-banner h2{font-size:22px;margin:0 0 9px}.publish-complete-banner p{font-size:13px;line-height:1.6;margin:0 0 15px}
+.publish-complete-banner>div{display:flex;flex-wrap:wrap;gap:10px}
+@media(max-width:520px){.publish-complete-banner>div>.button{width:100%;min-height:44px}}
