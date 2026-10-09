@@ -107,7 +107,7 @@ test('Review can prepare a full Pinterest Creative Pack and blocks approval unti
   await expect(page.getByRole('heading', { name: 'Seu Creative Pack está pronto.' })).toBeVisible();
   await expect(page.locator('.concept-card')).toHaveCount(3);
   await expect(page.getByText('PROMPT DE IMAGEM')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Copiar para ChatGPT' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copiar e abrir ChatGPT' })).toBeVisible();
   await expect(page.getByText('1000 × 1500', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
@@ -125,4 +125,31 @@ test('unsupported creative command is explicit and cannot alter the campaign', a
   await expect(page.getByRole('alert')).toContainText('Ainda não consigo executar');
   await expect(page.locator('.save-state')).toContainText('v1');
   await expect(page.getByText(/Ajuste solicitado:/i)).toHaveCount(0);
+});
+
+test('final Pinterest screen explains every field and offers independent copy buttons',async({page})=>{
+ await page.goto('/');
+ await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'Aprovar',exact:true}).click();
+ const guide=page.getByRole('region',{name:'Dados para criar seu Pin'});
+ await expect(guide).toBeVisible();
+ await expect(guide.getByRole('button',{name:'Baixar tudo (.zip)'})).toBeVisible();
+ await expect(guide.getByRole('button',{name:'Baixar imagem PNG'})).toBeVisible();
+ await expect(guide.getByRole('heading',{name:'Título do Pin'})).toBeVisible();
+ await expect(guide.getByRole('heading',{name:'Descrição + aviso de afiliado'})).toBeVisible();
+ await expect(guide.getByRole('heading',{name:'Link de destino afiliado'})).toBeVisible();
+ await expect(guide.getByRole('heading',{name:'Pasta do Pinterest'})).toBeVisible();
+ await expect(guide.getByRole('heading',{name:'Texto alternativo'})).toBeVisible();
+ await expect(guide.getByText(/No Pinterest: Criar → Criar Pin/)).toBeVisible();
+ await expect(guide.getByText(/não confirmam postagem/)).toBeVisible();
+});
+test('custom ChatGPT image prompt preserves mandatory source rules in visible final prompt',async({page})=>{
+ await page.goto('/');
+ await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'Preparar Pin',exact:true}).click();
+ await page.getByLabel('Suas instruções extras para a IA (opcional)').fill('Luz natural suave, manter forma e cor da referência.');
+ const prompt=page.locator('.image-prompt-box');
+ await expect(prompt).toContainText('Luz natural suave');
+ await expect(page.getByText('Como gerar com seu ChatGPT (sem API)')).toBeVisible();
+ await expect(page.getByText(/assinatura ChatGPT Pro e API são produtos separados/i)).toBeVisible();
 });
