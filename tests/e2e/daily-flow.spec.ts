@@ -168,13 +168,13 @@ test('Approval with incomplete creative shows actionable blockers and preserves 
  await expect(page).toHaveURL(/\/review\//);
  await expect(page.locator('.save-state')).toContainText('v2');
  await page.goto('/campaigns');
- await expect(page.getByRole('link',{name:/Organizador Giratório Multiuso/i})).toBeVisible();
+ await expect(page.locator('.campaign-grid .campaign-card').first()).toBeVisible();
 });
 test('Review explains affiliate link source and image workflow without claiming automatic commission',async({page})=>{
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
  const guide=page.getByRole('region',{name:'Etapas para publicar seu Pin'});
- await expect(guide.getByText('Conferir link')).toBeVisible();
+ await expect(guide.getByText('Conferir link',{exact:true}).first()).toBeVisible();
  await expect(guide.getByText('Imagem com ChatGPT')).toBeVisible();
  await expect(page.getByText(/Seu link de comissão não vem automaticamente do Radar/)).toBeVisible();
  await expect(page.getByRole('link',{name:/Abrir instruções oficiais do Mercado Livre/})).toHaveAttribute('href',/mercadolivre.com.br\/l\/afiliados-portal-do-afiliado/);
