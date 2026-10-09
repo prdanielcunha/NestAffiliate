@@ -17,7 +17,7 @@ export function ImagePromptPanel({
  referenceLockRequired?:boolean;
 }){
  const {t,locale}=useI18n();
- const [language,setLanguage]=useState<'en'|'pt-BR'>('pt-BR');
+ const [language,setLanguage]=useState<'en'|'pt-BR'>('en');
  const [copied,setCopied]=useState(false);
  const [extraInstructions,setExtraInstructions]=useState('');
  const [error,setError]=useState('');
@@ -75,7 +75,7 @@ export function ImagePromptPanel({
    <div className="prompt-panel-head">
      <div><p className="eyebrow">{t('imagePrompt')}</p><h3>{concept.title}</h3></div>
      <div className="prompt-language" role="group" aria-label={t('promptLanguage')}>
-       <button type="button" className={language==='en'?'active':''} onClick={()=>setLanguage('en')}>EN</button>
+       <button type="button" className={language==='en'?'active':''} onClick={()=>setLanguage('en')}>EN · AI</button>
        <button type="button" className={language==='pt-BR'?'active':''} onClick={()=>setLanguage('pt-BR')}>{t('viewPortuguese')}</button>
      </div>
    </div>
