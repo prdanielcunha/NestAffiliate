@@ -19,6 +19,7 @@ export function ImagePromptPanel({
  const {t,locale}=useI18n();
  const [language,setLanguage]=useState<'en'|'pt-BR'>('pt-BR');
  const [copied,setCopied]=useState(false);
+ const [extraInstructions,setExtraInstructions]=useState('');
  const [error,setError]=useState('');
  const concept=pack.imageConcepts.find(item=>item.id===pack.recommendedConceptId)??pack.imageConcepts[0];
  const base=useMemo(()=>{
@@ -58,13 +59,14 @@ export function ImagePromptPanel({
   '',
   base.prompt,
  ]).join('\n'):base.prompt;
+ const fullPrompt=extraInstructions.trim()?realPrompt+'\n\nUSER ART DIRECTION (do not override product identity, rights or image reference):\n'+extraInstructions.trim():realPrompt;
  async function copyPrompt(openChat=false){
    if(!ready)return;
    setError('');
    try{
      // Opens synchronously on click to avoid popup blockers. No automatic attachment occurs.
      if(openChat)window.open('https://chatgpt.com/','_blank','noopener,noreferrer');
-     await navigator.clipboard.writeText(realPrompt);
+     await navigator.clipboard.writeText(fullPrompt);
      setCopied(true);
    }catch{setError(locale==='pt-BR'?'Copie manualmente o prompt.':locale==='es'?'Copie el prompt manualmente.':'Copy the prompt manually.');}
  }
@@ -93,9 +95,23 @@ export function ImagePromptPanel({
      {reference&&ready&&<a className="button secondary" download={'nestaffiliate-referencia-'+product.externalId+'.webp'} href={reference.previewUrl}>
        {locale==='pt-BR'?'Baixar referência autorizada':locale==='es'?'Descargar referencia autorizada':'Download authorized reference'}</a>}
    </div>}
-   <pre className="prompt-box image-prompt-box">{realPrompt}</pre>
+   <div className="prompt-studio-custom">
+     <label htmlFor="na-extra-image-instructions">{locale==='pt-BR'?'Suas instruções extras para a IA (opcional)':locale==='es'?'Tus instrucciones adicionales para IA (opcional)':'Your optional AI directions'}</label>
+     <textarea id="na-extra-image-instructions" rows={3} maxLength={600} value={extraInstructions}
+      placeholder={locale==='pt-BR'?'Ex.: luz natural lateral, home office clean, manter a cadeira na cor original. Ou cole aqui instruções adicionais.':locale==='es'?'Ej.: luz natural lateral, composición minimalista.':'E.g. natural side light, editorial desk scene; keep original product color.'}
+      onChange={e=>{setExtraInstructions(e.target.value);setCopied(false);}}/>
+     <small>{locale==='pt-BR'?'Você pode colar instruções próprias. Elas serão acrescentadas ao prompt protegido; não substituem a referência real autorizada.':locale==='es'?'Puedes pegar tus propias instrucciones, sin eliminar la referencia autorizada.':'Paste your own instructions here. They are appended to the protected prompt; the real licensed reference remains mandatory.'}</small>
+   </div>
+   <pre className="prompt-box image-prompt-box">{fullPrompt}</pre>
+   <div className="chatgpt-bridge-steps">
+      <strong>{locale==='pt-BR'?'Como gerar com seu ChatGPT (sem API)':locale==='es'?'Cómo generar con tu ChatGPT (sin API)':'Use your ChatGPT without an API'}</strong>
+      <ol><li>{locale==='pt-BR'?'Clique em “Copiar e abrir ChatGPT” e cole o prompt na conversa.':locale==='es'?'Copia y abre ChatGPT, luego pega el prompt.':'Copy the prompt and open ChatGPT; paste the prompt.'}</li>
+      <li>{locale==='pt-BR'?'Anexe também a foto real autorizada, quando solicitada pelo Reference Lock.':locale==='es'?'Adjunta la foto real autorizada cuando se requiera.':'Attach the authorized source photo when Reference Lock requires it.'}</li>
+      <li>{locale==='pt-BR'?'Baixe a imagem gerada. Volte ao NestAffiliate, arraste ou cole a imagem e aprove após comparar.':locale==='es'?'Descarga la imagen, vuelve a NestAffiliate e impórtala para comparar.':'Download the image, return to NestAffiliate, paste/drop it and review fidelity.'}</li></ol>
+      <p>{locale==='pt-BR'?'Assinatura ChatGPT Pro e API são produtos separados: você não precisa inserir senha nem chave do ChatGPT aqui. Uma API para geração dentro do app exigiria backend seguro e cobrança separada.':locale==='es'?'La suscripción ChatGPT Pro no incluye API. Nunca ingreses tu contraseña ni clave aquí.':'ChatGPT Pro is separate from the API. Never enter your password or API key here.'}</p>
+   </div>
    <div className="prompt-actions">
-     <button type="button" className="button primary" disabled={!ready} onClick={()=>void copyPrompt(true)}>{t('copyToChatGPT')}</button>
+     <button type="button" className="button primary" disabled={!ready} onClick={()=>void copyPrompt(true)}>{locale==='pt-BR'?'Copiar e abrir ChatGPT':locale==='es'?'Copiar y abrir ChatGPT':'Copy & open ChatGPT'}</button>
      <button type="button" className="button secondary" disabled={!ready} onClick={()=>void copyPrompt()}>{copied?t('copied'):t('copyPrompt')}</button>
    </div>
    {enabled&&!ready&&<p className="field-hint" role="status">{locale==='pt-BR'?'Envio à IA bloqueado: confirme direitos e escolha a referência visual exata.':locale==='es'?'Envío a IA bloqueado: confirme los derechos y seleccione la referencia exacta.':'AI upload blocked: confirm rights and select the exact visual reference.'}</p>}
