@@ -841,3 +841,42 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .meli-manual-research>a{max-width:100%;white-space:normal;justify-self:start}
 .meli-manual-research .manual-import{margin:8px 0 0;min-width:0}
 @media(max-width:620px){.intent-detail>.button,.meli-manual-research>a{width:100%;max-width:100%}.radar-image-placeholder{padding:16px}}
+
+
+/* Six-stage product journey — navigable, clear and mobile-first. */
+.campaign-journey,.radar-start-guide,.review-stage-heading{max-width:100%;min-width:0;box-sizing:border-box}
+.campaign-journey{border:1px solid var(--border-strong);border-radius:22px;padding:24px;margin-bottom:24px;background:linear-gradient(120deg,var(--surface2),var(--surface));display:grid;gap:18px}
+.campaign-journey-intro{display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap}
+.campaign-journey-intro>div{flex:1;min-width:220px}
+.campaign-journey-intro h2{font-size:clamp(20px,2.4vw,28px);letter-spacing:-.04em;margin:9px 0}
+.campaign-journey-intro p,.radar-start-guide p,.review-stage-heading p{font-size:13px;line-height:1.65;color:var(--muted);margin:7px 0}
+.campaign-journey-stages{padding:0;margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;list-style:none}
+.campaign-journey-stages li{min-width:0;border-radius:13px;border:1px solid var(--border-strong);background:var(--surface)}
+.campaign-journey-stages li.current{outline:2px solid var(--accent);outline-offset:0;background:var(--accent-soft)}
+.campaign-journey-stages li.done{border-color:color-mix(in srgb,var(--accent) 40%,var(--border))}
+.campaign-journey-stages .journey-step{display:flex;gap:9px;align-items:flex-start;text-decoration:none;color:var(--text);padding:13px;min-height:77px;box-sizing:border-box}
+.journey-step-number{display:grid;place-items:center;width:27px;height:27px;flex:0 0 27px;border-radius:50%;font-weight:750;font-size:12px;background:var(--surface2);border:1px solid var(--border-strong)}
+.campaign-journey-stages li.current .journey-step-number{background:var(--accent);color:#112014;border-color:transparent}
+.journey-step span:last-child{min-width:0}.journey-step strong{display:block;font-size:12px;line-height:1.35}.journey-step small{display:block;font-size:10px;color:var(--muted);line-height:1.55;margin-top:6px;overflow-wrap:anywhere}
+.campaign-journey-note{font-size:11px;color:var(--muted);margin:0;line-height:1.55}
+.journey-next-link{max-width:100%;white-space:normal;text-align:center;min-height:44px}
+.radar-start-guide,.review-stage-heading{padding:21px;margin:14px 0 22px;border:1px solid var(--border);background:var(--surface2);border-radius:18px}
+.radar-start-guide strong{font-size:14px;line-height:1.5}.review-stage-heading h2{font-size:clamp(18px,2.2vw,24px);letter-spacing:-.035em;margin:9px 0}
+.review-creative-stage,.review-page,.decision-panel{min-width:0}
+.affiliate-guided-help{padding:17px;margin:15px 0;border:1px solid var(--border-strong);border-radius:14px;background:var(--surface2);display:grid;gap:10px}
+.affiliate-guided-help strong{font-size:13px;line-height:1.5}
+.affiliate-guided-help ol{margin:0;padding-left:19px;font-size:12px;line-height:1.6;color:var(--text)}
+.affiliate-guided-help li{margin:6px 0}.affiliate-guided-help>.button{min-height:44px;width:fit-content;max-width:100%;white-space:normal}
+.affiliate-guided-help p{margin:0;font-size:12px;line-height:1.6}
+.review-approval-gate{background:var(--surface2);border:1px solid var(--border-strong);border-radius:16px;padding:19px;margin:16px 0;scroll-margin-top:110px}
+.review-approval-gate h3{font-size:17px;line-height:1.4;margin:8px 0 12px}
+.review-blocker-list{display:grid;gap:10px;list-style:none;margin:0;padding:0;counter-reset:remaining}
+.review-blocker-list li{counter-increment:remaining;display:flex;align-items:start;flex-direction:column;gap:5px;min-width:0;padding:12px;border-radius:12px;border:1px solid var(--border-strong);background:var(--surface)}
+.review-blocker-list li span{font-size:12px;line-height:1.6}
+.review-blocker-list li a{font-size:12px;font-weight:750;color:var(--accent)}
+.review-approval-explain{font-size:12px;line-height:1.65;color:var(--muted);margin:12px 0 0}
+.approval-blocker-alert{margin-top:12px;font-size:12px}
+#review-product,#review-creative,#review-copy,#review-final{scroll-margin-top:105px}
+.campaign-card-handoff{color:var(--accent)!important;font-size:12px;font-weight:750;margin-top:14px}
+@media(max-width:800px){.campaign-journey-stages{grid-template-columns:repeat(2,minmax(0,1fr))}.campaign-journey{padding:17px}.campaign-journey-intro .button{width:100%}}
+@media(max-width:420px){.campaign-journey-stages{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.campaign-journey-stages .journey-step{padding:10px;min-height:82px}.journey-step strong{font-size:11px}.journey-step small{font-size:10px}.campaign-journey-intro>div{min-width:0}.affiliate-guided-help>.button{width:100%}}
