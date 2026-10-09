@@ -53,7 +53,8 @@ import { OpportunityV4Panel, opportunityReasonLabel } from './features/Opportuni
 import { ProblemIntentExplorer } from './features/ProblemIntentExplorer';
 import { RadarProductImage } from './features/RadarProductImage';
 import { WorkspaceLibrary } from './features/WorkspaceLibrary';
-import { CreativeWorkflowGuide } from './features/CreativeWorkflowGuide';
+import { CampaignJourney } from './features/CampaignJourney';
+import { reviewBlockers } from './lib/reviewReadiness';
 import { publicationCalendarIcs } from './lib/publicationCalendar';
 import { FinalPinPublicationGuide } from './features/FinalPinPublicationGuide';
 import { generatePublishingZip } from './lib/publicationBundle';
@@ -1711,7 +1712,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   const [editError,setEditError] = useState('');
   const [swapOptions, setSwapOptions] = useState<ProductTruth[]>([]);
   const [swapLoading, setSwapLoading] = useState(false);
-  const [creativeApprovalError,setCreativeApprovalError]=useState(false);
+  const [approvalAttempted,setApprovalAttempted]=useState(false);
   const approvingRef = useRef(false);
 
   useEffect(() => {
@@ -1725,6 +1726,16 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   if (!campaign) return <Navigate to="/campaigns" replace />;
   const activeCampaign: Campaign = campaign;
   const v = activeCampaign.currentVersion;
+  const approvalGuard=runPublishingGuard({
+    product:v.product,
+    disclosure:v.narrative.disclosure,
+    destinationUrl:v.product.affiliateUrl?.value ?? v.product.url.value,
+    headline:v.narrative.headline,description:v.narrative.description,
+    creativeAsset:v.creativeAsset,
+    requireAffiliateAttestation:Boolean(campaign.rankingContext?.v4ResearchDraft),
+    duplicateSimilarity:campaignDuplicateSimilarity(campaign,campaigns),
+  });
+  const missingSteps=reviewBlockers(activeCampaign,approvalGuard);
 
   function recordDecision(
     decision:ApprovalEvent['decision'],
@@ -1834,64 +1845,32 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   }
 
   function approve() {
-    if (approvingRef.current) return;
-    approvingRef.current = true;
-    // Only V4 research drafts are subject to this additive protection;
-    // pre-existing campaigns keep their original approval semantics.
-    if(campaign.rankingContext?.v4ResearchDraft && (
-      !v.creativeAsset?.referenceAssetId ||
-      v.creativeAsset.referenceListingId!==v.product.externalId ||
-      !v.creativeAsset.referenceSha256 ||
-      !v.creativeAsset.reviewedAt ||
-      !v.creativeAsset.productFidelityConfirmed
-    )){
-      setCreativeApprovalError(true);
-      approvingRef.current=false;
+    if (approvingRef.current)return;
+    // A failed validation must NEVER change the status to BLOCKED, remove the
+    // campaign from the active queue or require the user to guess what went wrong.
+    if(missingSteps.length>0 || approvalGuard.outcome==='BLOCK'){
+      setApprovalAttempted(true);
+      window.requestAnimationFrame(()=>document.getElementById('review-blockers')?.scrollIntoView({behavior:'smooth',block:'center'}));
       return;
     }
-    if(v.creativePack && !v.creativeAsset){
-      setCreativeApprovalError(true);
-      approvingRef.current=false;
-      return;
-    }
-    setCreativeApprovalError(false);
-    const destination = v.product.affiliateUrl?.value ?? v.product.url.value;
-    const guard = runPublishingGuard({
-      product: v.product,
-      disclosure: v.narrative.disclosure,
-      destinationUrl: destination,
-      headline: v.narrative.headline,
-      description: v.narrative.description,
-      creativeAsset:v.creativeAsset,
-      requireAffiliateAttestation:Boolean(campaign.rankingContext?.v4ResearchDraft),
-      duplicateSimilarity: campaignDuplicateSimilarity(campaign,campaigns),
-    });
-    const next: Campaign = {
-      ...campaign,
-      status: guard.outcome === 'BLOCK' ? 'BLOCKED' : 'PUBLICATION_READY',
-    };
+    approvingRef.current=true;
+    setApprovalAttempted(false);
+    const next:Campaign={...campaign,status:'PUBLICATION_READY'};
     update(next);
-    if (db && identity.organizationId && identity.user?.uid && guard.outcome !== 'BLOCK') {
-      void appendApprovalEvent(db, {
-        organizationId: identity.organizationId,
-        campaign: next,
-        actorId: identity.user.uid,
-        decision: 'APPROVED',
-      }).catch(() => undefined);
+    if(db && identity.organizationId && identity.user?.uid){
+      void appendApprovalEvent(db,{
+        organizationId:identity.organizationId,campaign:next,actorId:identity.user.uid,decision:'APPROVED',
+      }).catch(()=>undefined);
     }
-    if (guard.outcome !== 'BLOCK') {
-      navigate(`/publish/${campaign.id}`);
-    } else {
-      approvingRef.current = false;
-    }
+    navigate('/publish/'+campaign.id);
+    approvingRef.current=false;
   }
 
   return (
     <div className="review-page">
-      <CreativeWorkflowGuide campaign={activeCampaign} />
+      <CampaignJourney campaign={activeCampaign} />
       <div id="review-creative"><PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} /></div>
       {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <ReelKitPanel campaign={activeCampaign} />}
-      {creativeApprovalError && <div className="notice danger creative-approval-error">{t('creativeImageRequired')}</div>}
       {editError && <div className="notice edit-feedback" role="alert">{editError}</div>}
       {pendingEdit?.ok && <section className="edit-preview" aria-label="Prévia da alteração">
         <div><p className="eyebrow">{locale==='pt-BR'?'PRÉVIA · NÃO SALVO':locale==='es'?'VISTA PREVIA · NO GUARDADO':'PREVIEW · NOT SAVED'}</p>
@@ -1914,6 +1893,16 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             <small>{t('source')}: {v.product.title.source} · {new Date(v.product.title.observedAt).toLocaleString(locale)}</small>
             <div className="affiliate-editor">
               <label>{campaign.marketplace === 'MELI' ? t('affiliateRequired') : t('affiliateOfficial')}</label>
+              <div className="affiliate-guided-help">
+                <strong>{locale==='pt-BR'?'Etapa 2 · Seu link de comissão não vem automaticamente do Radar':locale==='es'?'Paso 2 · Tu enlace de afiliado no llega automáticamente':'Step 2 · The Radar does not automatically provide your commission link'}</strong>
+                {campaign.marketplace==='MELI' ? <ol>
+                  <li>{locale==='pt-BR'?'Abra o anúncio original acima e confira se o produto realmente está disponível.':locale==='es'?'Abre el anuncio del producto y verifica la oferta.':'Open the exact listing above and confirm the product.'}</li>
+                  <li>{locale==='pt-BR'?'Entre na Central de Afiliados do Mercado Livre com sua conta aprovada. No computador, use Gerador de Links e cole o anúncio; no celular, use a Barra de Afiliados ativada e Compartilhar.':locale==='es'?'Entra en el Portal de Afiliados para generar el enlace real, no el enlace común.':'In your Mercado Livre affiliate portal, generate the real referral link for this listing; on mobile use the authorized affiliate share bar.'}</li>
+                  <li>{locale==='pt-BR'?'Confirme se o Pinterest está autorizado como canal, copie o link gerado e cole no campo abaixo. Marque a conferência e salve.':locale==='es'?'Comprueba Pinterest como canal, pega el enlace y confirma.':'Verify Pinterest as your channel, paste the generated affiliate URL below, check and save.'}</li>
+                </ol> : <p>{locale==='pt-BR'?'Na Shopee, confira as regras de afiliados e, se necessário, use a marcação oficial do produto no Pinterest antes de publicar.':locale==='es'?'Verifica las reglas de afiliados y la etiqueta oficial de Pinterest.':'Follow Shopee affiliate eligibility and official Pinterest product-tagging rules.'}</p>}
+                {campaign.marketplace==='MELI'&&<a className="button secondary" href="https://www.mercadolivre.com.br/l/afiliados-portal-do-afiliado" target="_blank" rel="noopener noreferrer">{locale==='pt-BR'?'Abrir instruções oficiais do Mercado Livre ↗':locale==='es'?'Instrucciones oficiales ↗':'Open official affiliate guide ↗'}</a>}
+                <p className="muted">{locale==='pt-BR'?'A URL comum do anúncio ou um código de tracking interno não provam comissão. Só sua conta de afiliado pode gerar e confirmar a atribuição.':locale==='es'?'El enlace común y el tracking interno no garantizan comisión.':'A normal product URL and internal tracking code do not prove affiliate commission.'}</p>
+              </div>
               <div className="inline-editor">
                 <input
                   value={affiliateDraft}
@@ -1942,11 +1931,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             <ul>{(campaign.rankingContext?.evidence?.length ? campaign.rankingContext.evidence : campaign.score.reasons).map((reason) => <li key={reason}>{reason}</li>)}</ul>
             {campaign.rankingContext?.trackingCode && <div className="tracking-row"><code>{campaign.rankingContext.trackingCode}</code><button className="text-button" onClick={()=>void navigator.clipboard.writeText(campaign.rankingContext!.trackingCode!)}>{t('copyTracking')}</button></div>}
           </Disclosure>
-          <Disclosure title={t('content')}>
+          <div id="review-copy"><Disclosure title={t('content')}>
             <label>{t('title')}</label><p>{v.narrative.pinterestTitle}</p>
             <label>{t('description')}</label><p>{v.narrative.description}</p>
             <label>Disclosure</label><p>{v.narrative.disclosure}</p>
-          </Disclosure>
+          </Disclosure></div>
           <Disclosure title={t('pinterest')}>
             <label>{t('board')}</label>
             <select
@@ -1994,10 +1983,22 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             </div>
           </Disclosure>
           <div className="save-state">{saved ? t('saved') : t('saving')} · v{v.version}</div>
+          <section className="review-approval-gate" id="review-blockers" aria-label={locale==='pt-BR'?'Conferência antes de aprovar':'Approval readiness'}>
+            <p className="eyebrow">{locale==='pt-BR'?'ETAPA 5 · CONFERÊNCIA FINAL':locale==='es'?'PASO 5 · VERIFICACIÓN FINAL':'STEP 5 · FINAL REVIEW'}</p>
+            <h3>{missingSteps.length
+              ? (locale==='pt-BR'?'Ainda faltam algumas coisas antes de aprovar':locale==='es'?'Faltan pasos antes de aprobar':'A few steps remain before approval')
+              : (locale==='pt-BR'?'Tudo conferido. Pode avançar para publicar.':locale==='es'?'Listo para continuar':'Ready to proceed')}</h3>
+            {missingSteps.length>0 && <ol className="review-blocker-list">{missingSteps.map(item=><li key={item.key}>
+               <span>{item.message}</span><a href={item.target}>{locale==='pt-BR'?'Resolver esta etapa →':locale==='es'?'Resolver paso →':'Fix this step →'}</a>
+            </li>)}</ol>}
+            <p className="review-approval-explain">{locale==='pt-BR'?'Aprovar significa: a imagem e os dados foram revisados. O próximo destino é o pacote de publicação, não uma postagem automática.':locale==='es'?'Aprobar abre el paquete de publicación. No publica automáticamente.':'Approval opens the posting package; it does not automatically publish.'}</p>
+            {approvalAttempted && missingSteps.length>0 && <p className="notice danger approval-blocker-alert" role="alert" tabIndex={-1}>{locale==='pt-BR'?'A aprovação ainda não foi realizada. Selecione “Resolver esta etapa” acima para continuar; sua campanha continua salva e editável.':locale==='es'?'No se aprobó. Resuelve los pasos pendientes; la campaña sigue editable.':'Approval did not happen. Resolve the steps above; the campaign is saved and remains editable.'}</p>}
+          </section>
           <div className="primary-actions" id="review-final">
-            <button className="button primary" disabled={!editable} onClick={approve}>{t('approve')}</button>
+            <button className="button primary" disabled={!editable} onClick={approve}>{locale==='pt-BR'?'Aprovar e ir para publicação →':locale==='es'?'Aprobar y continuar →':'Approve and continue →'}</button>
             <button className="button secondary" disabled={!editable} onClick={() => document.getElementById('ai-edit')?.focus()}>{t('edit')}</button>
           </div>
+          {!editable&&<p className="muted" role="status">{locale==='pt-BR'?'Você está em modo leitura. É necessária permissão de edição para aprovar.':locale==='es'?'Sin permiso para aprobar':'Read-only mode: editing permission required.'}</p>}
           <div className="minor-actions">
             <button disabled={!editable} onClick={() => void loadSwaps()}>{swapLoading ? t('searching') : t('swap')}</button>
             <button disabled={!editable} onClick={() => previewEdit('Novo ângulo')}>{t('redo')}</button>
@@ -2421,6 +2422,7 @@ function Publish({
   return (
     <div className="page publish-page">
       <PageTitle eyebrow={t('publishEyebrow')} title={t('publishReady')} subtitle={t('publishSub')} />
+      <CampaignJourney campaign={activeCampaign} mode="publish" />
       <ProductSourceActions product={v.product} compact />
       <div className="validation-row">
         {guard.checks.map((check) => <span key={check.key} className={`check ${check.outcome.toLowerCase()}`}>{check.outcome === 'PASS' ? '✓' : check.outcome === 'WARN' ? '!' : '×'} {check.key}</span>)}
@@ -2533,7 +2535,7 @@ function Campaigns({ campaigns }: { campaigns: Campaign[] }) {
   const { t } = useI18n();
   const [tab,setTab] = useState<'READY'|'PUBLICATION_READY'|'PUBLISHED'|'REJECTED'>('READY');
   const map = { READY:t('toReview'), PUBLICATION_READY:t('approved'), PUBLISHED:t('published'), REJECTED:t('archived') };
-  const visible = campaigns.filter((c) => c.status === tab || (tab === 'REJECTED' && c.status === 'BLOCKED'));
+  const visible = campaigns.filter((c) => c.status === tab || (tab === 'READY' && c.status === 'BLOCKED'));
   return (
     <div className="page">
       <PageTitle eyebrow={t('campaigns').toUpperCase()} title={t('campaigns')} subtitle={t('campaignsSub')} />
