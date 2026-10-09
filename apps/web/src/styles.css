@@ -770,3 +770,44 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .revenue-import-form textarea{box-sizing:border-box;display:block;width:100%;min-width:0;max-width:100%}
 .pinterest-csv-import code,
 .revenue-import-form code{overflow-wrap:anywhere;word-break:break-word;white-space:normal}
+
+
+/* V5 publication guide — exact Pinterest field mapping, large tap targets, protected wrap. */
+.guided-publish-v5{display:grid;gap:22px;min-width:0;max-width:100%}
+.guided-publish-header h2{font-size:clamp(21px,2.7vw,29px);line-height:1.13;letter-spacing:-.035em;margin:8px 0}
+.guided-publish-header p,.guided-publish-file p,.guided-publish-finish p{font-size:13px;line-height:1.6;color:var(--muted);margin:6px 0 0}
+.guided-publish-actions{display:grid;gap:9px;grid-template-columns:1fr 1fr}
+.guided-publish-actions .button{min-width:0;min-height:44px;white-space:normal}
+.guided-publish-actions .button:first-child{grid-column:1/-1}
+.guided-publish-file,.guided-publish-finish{border:1px solid var(--border-strong);background:var(--surface2);border-radius:15px;padding:17px;min-width:0}
+.guided-publish-file strong,.guided-publish-finish strong{font-size:14px}
+.guided-publish-file code{display:block;font-size:11px;overflow-wrap:anywhere;margin-top:10px;color:var(--text)}
+.guided-publish-fields{display:grid;gap:0;min-width:0}
+.guided-publish-field{border-top:1px solid var(--border);padding:17px 0;display:grid;gap:11px;min-width:0}
+.guided-field-name{display:flex;align-items:flex-start;gap:11px;min-width:0}
+.guided-field-name>div{min-width:0;flex:1}
+.guided-field-name h3{font-size:14px;margin:0 0 5px;line-height:1.3}
+.guided-field-name p{font-size:12px;line-height:1.5;margin:0;color:var(--muted)}
+.guided-field-step{display:grid;place-items:center;flex:0 0 29px;width:29px;height:29px;border-radius:10px;background:var(--accent-soft);color:var(--accent);font-weight:750;font-size:11px}
+.guided-field-value{padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;min-width:0}
+.guided-field-value span{display:block;font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
+.guided-field-actions,.guided-finish-row{display:flex;align-items:center;flex-wrap:wrap;gap:14px;justify-content:space-between}
+.guided-field-actions .button{min-height:42px}
+.guided-field-check{display:flex;align-items:center;gap:9px;font-size:11px;color:var(--muted);cursor:pointer}
+.guided-field-check input{width:18px;height:18px;accent-color:var(--accent)}
+.guided-publish-finish small{display:block;color:var(--muted);font-size:11px;margin-top:12px}
+.guided-finish-row{margin-top:14px}.guided-finish-row span{font-size:12px}
+.prompt-studio-custom{display:grid;gap:9px;margin:14px 0}.prompt-studio-custom label{font-size:12px;color:var(--text);font-weight:750}
+.prompt-studio-custom textarea{width:100%;min-height:92px;min-width:0;max-width:100%;box-sizing:border-box;background:var(--surface2);color:var(--text);border:1px solid var(--border-strong);border-radius:12px;padding:12px;font:inherit;resize:vertical}
+.prompt-studio-custom small{font-size:11px;line-height:1.6;color:var(--muted)}
+.chatgpt-bridge-steps{padding:16px;margin:14px 0;background:var(--surface2);border:1px solid var(--border);border-radius:14px}
+.chatgpt-bridge-steps strong{font-size:13px}.chatgpt-bridge-steps ol{padding-left:18px;color:var(--text);font-size:12px;line-height:1.6}
+.chatgpt-bridge-steps li{margin:5px 0}.chatgpt-bridge-steps p{font-size:11px;color:var(--muted);margin:8px 0 0;line-height:1.6}
+@media(max-width:520px){.guided-publish-v5{padding:16px}.guided-publish-actions{grid-template-columns:1fr}.guided-publish-actions .button:first-child{grid-column:auto}.guided-field-actions{align-items:flex-start;flex-direction:column;gap:8px}.guided-field-actions .button,.guided-finish-row .button{width:100%}}
+/* Layout constraint: prevent long CSV examples, file names and labels from forcing page-wide overflow. */
+.performance-stack,.performance-stack>.surface,.performance-stack>.metric-grid{min-width:0;max-width:100%;width:100%;box-sizing:border-box}
+.performance-stack>.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.performance-stack .metric-card,.performance-stack .metric-card strong,.performance-stack .metric-card span{min-width:0;overflow-wrap:anywhere}
+.performance-stack .form-grid input,.performance-stack .form-grid select,.performance-stack .form-grid textarea{box-sizing:border-box;max-width:100%;min-width:0}
+.performance-stack code,.performance-stack pre{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:520px){.performance-stack>.metric-grid{grid-template-columns:minmax(0,1fr)}.performance-stack>.surface{padding:16px}}
