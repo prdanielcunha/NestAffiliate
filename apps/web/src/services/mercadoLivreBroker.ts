@@ -53,6 +53,9 @@ export async function searchMercadoLivreBrokerDetailed(input:{
   const query=input.query.trim();
 
   if(import.meta.env.VITE_E2E_MOCK_AUTH==='true'){
+    const scenario=typeof window!=='undefined'?new URLSearchParams(window.location.search).get('meliApi'):null;
+    if(scenario==='restricted')throw new Error('MELI_PROVIDER_SEARCH_RESTRICTED_403');
+    if(scenario==='slow')await new Promise(resolve=>setTimeout(resolve,650));
     const observedAt='2026-10-02T20:10:00.000Z';
     const mock=(id:string,title:string,price:number):ProductTruth=>({
       productId:`meli:${id}`,
