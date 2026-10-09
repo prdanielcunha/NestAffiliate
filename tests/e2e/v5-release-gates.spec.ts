@@ -8,6 +8,12 @@ test('V5 core routes fit 360–1440px without horizontal overflow',async({page})
    await page.goto(url);
    await expect(page.locator('.page').first()).toBeVisible();
    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
+   if(overflow>1){
+    const offenders=await page.locator('*').evaluateAll(elements=>elements
+      .map(el=>({element:el.tagName,cls:String(el.className).slice(0,70),right:Math.round(el.getBoundingClientRect().right),scroll:el.scrollWidth,width:el.clientWidth}))
+      .filter(item=>item.right>document.documentElement.clientWidth+1).sort((a,b)=>b.right-a.right).slice(0,10));
+    console.error('V5_LAYOUT_OVERFLOW',JSON.stringify({url,width,overflow,offenders}));
+   }
    expect(overflow, `${url} overflows by ${overflow}px at ${width}px`).toBeLessThanOrEqual(1);
   }
  }
