@@ -110,7 +110,7 @@ test('Review can prepare a full Pinterest Creative Pack and blocks approval unti
   await expect(page.getByRole('button', { name: 'Copiar e abrir ChatGPT' })).toBeVisible();
   await expect(page.getByText('1000 × 1500', { exact: true })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Aprovar e ir para publicação →' }).click();
+  await page.getByRole('button', { name: /Ver \d+ pendência\(s\) para aprovar/ }).click();
   await expect(page.getByRole('heading',{name:/Ainda faltam algumas coisas antes de aprovar/})).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('A aprovação ainda não foi realizada');
   await expect(page).toHaveURL(/\/review\//);
@@ -161,7 +161,7 @@ test('Approval with incomplete creative shows actionable blockers and preserves 
  await expect(page.getByRole('region',{name:'Etapas para publicar seu Pin'})).toBeVisible();
  await expect(page.getByText('DO RADAR AO PIN · PASSO A PASSO')).toBeVisible();
  await page.getByRole('button',{name:'Preparar Pin',exact:true}).click();
- await page.getByRole('button',{name:'Aprovar e ir para publicação →'}).click();
+ await page.getByRole('button',{name:/Ver \d+ pendência\(s\) para aprovar/}).click();
  const errors=page.locator('#review-blockers');
  await expect(errors).toContainText('ainda não foi realizada');
  await expect(errors.getByRole('link',{name:/Resolver esta etapa/}).first()).toHaveAttribute('href','#review-creative');
@@ -189,4 +189,27 @@ test('Approved campaign list leads to publishing rather than a confusing review 
  const ready=page.locator('.campaign-card').first();
  await expect(ready).toHaveAttribute('href',/\/publish\//);
  await expect(ready).toContainText('Ir para publicação');
+});
+
+test('Review shows NestAI copy as optional, safely previewed, never auto-approved',async({page})=>{
+ await page.goto('/');
+ await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ const assist=page.getByRole('region',{name:'Criar textos com NestAI'});
+ await expect(assist).toBeVisible();
+ await expect(assist.getByRole('heading',{name:/Quer que a IA sugira título e descrição aqui mesmo/})).toBeVisible();
+ await expect(assist.getByLabel('Orientação para a IA')).toBeVisible();
+ await expect(assist.getByRole('button',{name:/Sugerir título e descrição com NestAI/})).toBeEnabled();
+ await expect(assist.getByRole('button',{name:'Usar estes textos e salvar'})).toHaveCount(0);
+ await expect(assist).toContainText('não gera ou valida links de comissão');
+});
+test('an incomplete Pin uses a visible requirement count instead of a misleading Approve button',async({page})=>{
+ await page.goto('/');
+ await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'Preparar Pin',exact:true}).click();
+ const resolve=page.getByRole('button',{name:/Ver \d+ pendência\(s\) para aprovar/});
+ await expect(resolve).toBeVisible();
+ await resolve.click();
+ await expect(page.locator('#review-blockers')).toContainText('Ainda faltam algumas coisas');
+ await expect(page.getByRole('alert')).toContainText('A aprovação ainda não foi realizada');
+ await expect(page).toHaveURL(/\/review\//);
 });
