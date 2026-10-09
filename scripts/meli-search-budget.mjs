@@ -16,3 +16,12 @@ export function catalogResolutionSelection(candidates,{detailLookupsPerQuery=MEL
   const parentBudget=Math.min(Math.max(0,Math.floor(parentLookupsPerQuery)),safeBudget);
   return candidates.slice(0,safeBudget).map((candidate,index)=>({candidate,allowParentSearch:index<parentBudget}));
 }
+
+/** USER_PRODUCT refers to seller-owned resources; without seller-specific
+ * OAuth consent, a research app must not query /user-products or private
+ * /users/:seller/items/search routes.
+ */
+export function isSellerPrivateHighlight(type,id){
+ const kind=String(type||'').toUpperCase(),value=String(id||'');
+ return kind==='USER_PRODUCT'||/^MLBU\d+$/.test(value);
+}
