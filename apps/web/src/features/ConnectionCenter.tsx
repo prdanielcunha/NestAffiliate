@@ -125,6 +125,17 @@ export function ConnectionCenter() {
       safety: 'Custo de API obrigatório: R$ 0.',
     },
     {
+      name: 'Usar meu plano ChatGPT Pro',
+      status: 'external',
+      capability: 'Sign in with ChatGPT · aprovação externa',
+      detail: locale==='pt-BR'
+        ? 'Alguns apps elegíveis podem usar franquia ChatGPT via autorização OAuth. Para um app comercial hospedado, a OpenAI precisa aprovar o acesso. A integração de plano disponível para open source não suporta geração de imagens.'
+        : locale==='es'
+          ? 'Algunas apps elegibles pueden usar el plan con OAuth. Una app comercial alojada requiere aprobación; la modalidad open-source no admite generación de imágenes.'
+          : 'Eligible apps may use ChatGPT plan via OAuth consent. Commercial hosted apps require approval; open-source plan sharing does not support image generation.',
+      safety: locale==='pt-BR'?'Nunca solicite senha, cookie ou chave de API do ChatGPT no NestAffiliate.':'Never enter ChatGPT password, cookies or API keys into NestAffiliate.',
+    },
+    {
       name: 'OpenAI API / Image',
       status: FEATURE_FLAGS.OPENAI_API_ENABLED ? 'active' : 'blocked',
       capability: 'Adapter futuro',
