@@ -2082,6 +2082,7 @@ function PinPreview({ campaign }: { campaign: Campaign }) {
   return (
     <section className="preview-panel">
       <div className="preview-toolbar"><span>{t('pinPreview')}</span><span>1000 × 1500 · 2:3</span></div>
+      {!campaign.currentVersion.creativeAsset && <p className="pin-preview-provisional">PRÉVIA DE LAYOUT · Ainda falta a imagem real gerada e revisada. O texto demonstrativo não é o Pin final.</p>}
       <canvas ref={canvasRef} className="pin-canvas" aria-label="Prévia do Pin" />
     </section>
   );
@@ -2435,6 +2436,11 @@ function Publish({
     <div className="page publish-page">
       <PageTitle eyebrow={t('publishEyebrow')} title={t('publishReady')} subtitle={t('publishSub')} />
       <CampaignJourney campaign={activeCampaign} mode="publish" />
+      {activeCampaign.status==='PUBLISHED' && <section className="publish-complete-banner" role="status">
+        <h2>{locale==='pt-BR'?'Publicação registrada!':locale==='es'?'¡Publicación registrada!':'Publication recorded!'}</h2>
+        <p>{locale==='pt-BR'?'O Pin foi marcado como publicado após o registro da URL pública. Acompanhe cliques e comissões reais em Resultados — a comissão não é garantida apenas pela publicação.':locale==='es'?'El Pin se registró con su URL pública. Consulta resultados reales.':'Your Pin was recorded with its public URL. Track actual performance; commissions are not guaranteed.'}</p>
+        <div><NavLink className="button primary" to="/results">{locale==='pt-BR'?'Ver Resultados →':locale==='es'?'Ver Resultados →':'View Results →'}</NavLink><NavLink className="button secondary" to="/radar">{locale==='pt-BR'?'Encontrar próximo produto':locale==='es'?'Encontrar siguiente producto':'Find next product'}</NavLink></div>
+      </section>}
       <ProductSourceActions product={v.product} compact />
       <div className="validation-row">
         {guard.checks.map((check) => <span key={check.key} className={`check ${check.outcome.toLowerCase()}`}>{check.outcome === 'PASS' ? '✓' : check.outcome === 'WARN' ? '!' : '×'} {check.key}</span>)}
