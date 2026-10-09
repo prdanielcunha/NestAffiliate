@@ -6,7 +6,7 @@ import { maxDuplicateSimilarity, runPublishingGuard, inspectAffiliateAttestation
 import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
-import { campaignFilename, CREATIVE_TEMPLATES, renderPin } from '@nestaffiliate/creative-engine';
+import { campaignFilename, CREATIVE_TEMPLATES, renderPin,versionPinterestCreativePack } from '@nestaffiliate/creative-engine';
 import { FEATURE_FLAGS, KILL_SWITCHES, canAttemptPinterestPublish } from '@nestaffiliate/config';
 import { buildShopeePinterestSearchTerm, parseShopeeProductReference } from '@nestaffiliate/integrations';
 import { type Locale } from './lib/i18n';
@@ -26,6 +26,7 @@ import { ShopeeResearchBridge } from './features/ShopeeResearchBridge';
 import { PerformancePanel } from './features/PerformancePanel';
 import { PromptStudio } from './features/PromptStudio';
 import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
+import { NestAiDraftReview, type PinCopyDraft } from './features/NestAiDraftReview';
 import { resolveCreativeAssetUrl } from './services/creativePackRepository';
 import { ConnectionCenter } from './features/ConnectionCenter';
 import { ensureNestAffiliateWorkspace } from './services/workspaceBootstrap';
@@ -1849,6 +1850,24 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     setAffiliateDraft('');
   }
 
+  function applyNestAiCopy(draft:PinCopyDraft){
+    if(!editable)return;
+    const nextVersion=campaign.currentVersion.version+1;
+    // Respect existing affiliate disclosure and product truth. AI cannot
+    // overwrite commission URL, rights, pricing or actual publication status.
+    const narrative={...v.narrative,pinterestTitle:draft.title,
+      headline:draft.title.slice(0,90),description:draft.description};
+    const next=nextCampaignVersion(campaign,{
+      narrative,
+      ...(v.creativePack?{creativePack:versionPinterestCreativePack(v.creativePack,nextVersion)}:{}),
+    },'NestAI copy suggestion explicitly reviewed and applied');
+    update(next);
+    recordDecision('EDITED',next,'NestAI copy suggestion reviewed');
+    setSaved(true);
+    setApprovalAttempted(false);
+    window.requestAnimationFrame(()=>document.getElementById('review-creative')?.scrollIntoView({behavior:'smooth',block:'start'}));
+  }
+
   function approve() {
     if (approvingRef.current)return;
     // A failed validation must NEVER change the status to BLOCKED, remove the
@@ -1881,6 +1900,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           <p>{locale==='pt-BR'?'O NestAffiliate prepara títulos, descrições e um prompt em inglês. Clique em “Copiar e abrir ChatGPT”, anexe uma foto autorizada do produto, gere a imagem e volte aqui para importar e revisar. A prévia com apenas texto ainda NÃO é a imagem final.':locale==='es'?'El Pin textual es solo una vista previa. Genera la imagen en ChatGPT, impórtala y revísala antes de aprobar.':'The text-only preview is not the final Pin image. Generate with ChatGPT, import it and review before approval.'}</p>
         </div>
         <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
+        <NestAiDraftReview campaign={activeCampaign} editable={editable} onApply={applyNestAiCopy} />
       </div>
       {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <ReelKitPanel campaign={activeCampaign} />}
       {editError && <div className="notice edit-feedback" role="alert">{editError}</div>}
@@ -1997,7 +2017,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           <div className="save-state">{saved ? t('saved') : t('saving')} · v{v.version}</div>
           <section className="review-approval-gate" id="review-blockers" aria-label={locale==='pt-BR'?'Conferência antes de aprovar':'Approval readiness'}>
             <p className="eyebrow">{locale==='pt-BR'?'ETAPA 5 · CONFERÊNCIA FINAL':locale==='es'?'PASO 5 · VERIFICACIÓN FINAL':'STEP 5 · FINAL REVIEW'}</p>
-            <h3>{missingSteps.length
+            <h3 id="review-approval-summary">{missingSteps.length
               ? (locale==='pt-BR'?'Ainda faltam algumas coisas antes de aprovar':locale==='es'?'Faltan pasos antes de aprobar':'A few steps remain before approval')
               : (locale==='pt-BR'?'Tudo conferido. Pode avançar para publicar.':locale==='es'?'Listo para continuar':'Ready to proceed')}</h3>
             {missingSteps.length>0 && <ol className="review-blocker-list">{missingSteps.map(item=><li key={item.key}>
@@ -2007,7 +2027,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             {approvalAttempted && missingSteps.length>0 && <p className="notice danger approval-blocker-alert" role="alert" tabIndex={-1}>{locale==='pt-BR'?'A aprovação ainda não foi realizada. Selecione “Resolver esta etapa” acima para continuar; sua campanha continua salva e editável.':locale==='es'?'No se aprobó. Resuelve los pasos pendientes; la campaña sigue editable.':'Approval did not happen. Resolve the steps above; the campaign is saved and remains editable.'}</p>}
           </section>
           <div className="primary-actions" id="review-final">
-            <button className="button primary" disabled={!editable} onClick={approve}>{locale==='pt-BR'?'Aprovar e ir para publicação →':locale==='es'?'Aprobar y continuar →':'Approve and continue →'}</button>
+            <button className="button primary" disabled={!editable} aria-describedby="review-approval-summary" onClick={approve}>
+              {missingSteps.length
+                ? (locale==='pt-BR'?`Ver ${missingSteps.length} pendência(s) para aprovar →`:locale==='es'?`Resolver ${missingSteps.length} paso(s) →`:`Resolve ${missingSteps.length} requirement(s) →`)
+                : (locale==='pt-BR'?'Aprovar e ir para publicação →':locale==='es'?'Aprobar y continuar →':'Approve and continue →')}
+            </button>
             <button className="button secondary" disabled={!editable} onClick={() => document.getElementById('ai-edit')?.focus()}>{t('edit')}</button>
           </div>
           {!editable&&<p className="muted" role="status">{locale==='pt-BR'?'Você está em modo leitura. É necessária permissão de edição para aprovar.':locale==='es'?'Sin permiso para aprobar':'Read-only mode: editing permission required.'}</p>}
