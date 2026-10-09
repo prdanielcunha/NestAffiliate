@@ -54,6 +54,7 @@ import { ProblemIntentExplorer } from './features/ProblemIntentExplorer';
 import { WorkspaceLibrary } from './features/WorkspaceLibrary';
 import { CreativeWorkflowGuide } from './features/CreativeWorkflowGuide';
 import { publicationCalendarIcs } from './lib/publicationCalendar';
+import { FinalPinPublicationGuide } from './features/FinalPinPublicationGuide';
 import { generatePublishingZip, publicationBundleText } from './lib/publicationBundle';
 import { planCreativeEdit, type CreativeEditPlan } from './lib/creativeEdit';
 
@@ -2406,23 +2407,14 @@ function Publish({
       </section>
       <div className="publish-grid">
         <PinPreview campaign={campaign} />
-        <section className="package-card">
-          <div className="publish-package-actions">
-            <button className="button primary download-button" disabled={Boolean(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)} onClick={() => void downloadPackage()}>{locale==='pt-BR'?'Baixar pacote completo (.zip)':locale==='es'?'Descargar paquete completo (.zip)':'Download full Pin package (.zip)'}</button>
-            <button className="button secondary" disabled={Boolean(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)} onClick={() => void downloadImage()}>{t('downloadPng')}</button>
-            <button className="button secondary" onClick={() => void copy(publicationBundleText(pkg))}>{locale==='pt-BR'?'Copiar todos os dados':locale==='es'?'Copiar todos los datos':'Copy entire posting pack'}</button>
-            <small>{locale==='pt-BR'?'Inclui PNG + descrição, disclosure, link, pasta e texto alternativo. Não publica automaticamente.':locale==='es'?'Incluye PNG, descripción, enlace y texto alternativo. No publica automáticamente.':'Includes PNG and posting metadata. Never auto-publishes.'}</small>
-          </div>
-          <Field label={t('file')} value={pkg.filename} onCopy={() => copy(pkg.filename)} />
-          <Field label={t('title')} value={pkg.title} onCopy={() => copy(pkg.title)} />
-          <Field label={t('description')} value={pkg.description} onCopy={() => copy(`${pkg.description}\n\n${pkg.disclosure}`)} />
-          <Field label="Link" value={pkg.destinationUrl} onCopy={() => copy(pkg.destinationUrl)} />
-          <Field label={t('saveTo')} value={pkg.boardName} onCopy={() => copy(pkg.boardName)} />
-          <Field label={t('altText')} value={pkg.altText} onCopy={() => copy(pkg.altText)} />
-          {pkg.keywords?.length ? <Field label={t('keywords')} value={pkg.keywords.join(', ')} onCopy={() => copy(pkg.keywords!.join(', '))} /> : null}
-          {selectedConcept ? <Field label={t('recommendedAngle')} value={selectedConcept.title} onCopy={() => copy(selectedConcept.title)} /> : null}
-          {activeCampaign.rankingContext?.trackingCode && <Field label={t('trackingCode')} value={activeCampaign.rankingContext.trackingCode} onCopy={() => copy(activeCampaign.rankingContext!.trackingCode!)} />}
-        </section>
+        <FinalPinPublicationGuide
+          key={activeCampaign.id+':'+v.version}
+          pack={pkg}
+          blocked={Boolean(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)}
+          onDownloadZip={()=>void downloadPackage()}
+          onDownloadPng={()=>void downloadImage()}
+          onCopy={copy}
+        />
       </div>
       {activeCampaign.marketplace==='SHOPEE' && <section className="shopee-tagging-pack">
         <div>
