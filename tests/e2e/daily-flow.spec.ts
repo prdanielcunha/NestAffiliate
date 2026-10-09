@@ -185,7 +185,7 @@ test('Approved campaign list leads to publishing rather than a confusing review 
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
  await page.getByRole('button',{name:'Aprovar e ir para publicação →'}).click();
  await page.goto('/campaigns');
- await page.getByRole('button',{name:'Aprovados'}).click();
+ await page.getByRole('button',{name:'Aprovadas'}).click();
  const ready=page.locator('.campaign-card').first();
  await expect(ready).toHaveAttribute('href',/\/publish\//);
  await expect(ready).toContainText('Ir para publicação');
