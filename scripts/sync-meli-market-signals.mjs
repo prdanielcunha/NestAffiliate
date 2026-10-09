@@ -1,9 +1,9 @@
 import { isReadyCampaignOffer, classifyExistingCampaignRefresh } from './revenue-offer-gates.mjs';
 import { createMeliRateGate } from './meli-rate-gate.mjs';
-import { MELI_BACKGROUND_RESEARCH_LIMITS as LIMITS,catalogResolutionSelection } from './meli-search-budget.mjs';
+import { MELI_BACKGROUND_RESEARCH_LIMITS as LIMITS,catalogResolutionSelection,isSellerPrivateHighlight } from './meli-search-budget.mjs';
 
 const meliGate=createMeliRateGate({spacingMs:LIMITS.minimumSpacingMs});
-const providerHealth={rateLimited:0,accessDenied:0,serverErrors:0};
+const providerHealth={rateLimited:0,accessDenied:0,serverErrors:0,sellerPrivateSkipped:0,deniedRoutes:{}};
 const PROJECT_ID=process.env.FIREBASE_PROJECT_ID || 'millionsnest';
 const ORG_ID=process.env.NESTAFFILIATE_SIGNAL_ORG_ID || '';
 const GCP_TOKEN=process.env.GOOGLE_OAUTH_ACCESS_TOKEN || '';
@@ -267,7 +267,15 @@ async function meliMaybeGet(path,accessToken){
     const response=await meliGate.run(()=>fetch('https://api.mercadolibre.com'+path,{headers:{Authorization:'Bearer '+accessToken,Accept:'application/json'}}));
     if(response.ok) return response.json();
     if(response.status===429)providerHealth.rateLimited+=1;
-    else if(response.status===401||response.status===403)providerHealth.accessDenied+=1;
+    else if(response.status===401||response.status===403){
+      providerHealth.accessDenied+=1;
+      const family=path.startsWith('/user-products/')?'seller-product':
+        path.startsWith('/users/')?'seller-items':
+        path.startsWith('/products/search?')?'catalog-search':
+        path.startsWith('/products/')?'product-detail':
+        path.startsWith('/items/bulk?')?'bulk-items':'other';
+      providerHealth.deniedRoutes[family]=(providerHealth.deniedRoutes[family]||0)+1;
+    }
     else if(response.status>=500)providerHealth.serverErrors+=1;
 
     const retryable=response.status===429 || response.status>=500;
@@ -588,16 +596,11 @@ async function resolveHighlightSignalProducts(signal,accessToken){
     return itemId ? dailyBulkItems([itemId],accessToken) : [];
   }
 
-  if(type==='USER_PRODUCT' || /^MLBU\d+$/.test(id)){
-    const up=await meliMaybeGet('/user-products/'+encodeURIComponent(id),accessToken);
-    const sellerId=String(up?.user_id || '').trim();
-    if(!sellerId) return [];
-    const search=await meliMaybeGet(
-      '/users/'+encodeURIComponent(sellerId)+'/items/search?user_product_id='+encodeURIComponent(id)+'&limit=8',
-      accessToken,
-    );
-    const itemIds=Array.isArray(search?.results) ? search.results.map(String).filter(Boolean).slice(0,8) : [];
-    return dailyBulkItems(itemIds,accessToken);
+  if(isSellerPrivateHighlight(type,id)){
+    // This seller-owned resource cannot be queried with another account's token.
+    // Keep the highlight signal as editorial research, without fake listing proof.
+    providerHealth.sellerPrivateSkipped+=1;
+    return [];
   }
 
   return [];
