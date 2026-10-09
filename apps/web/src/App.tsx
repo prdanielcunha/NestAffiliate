@@ -1737,7 +1737,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     destinationUrl:v.product.affiliateUrl?.value ?? v.product.url.value,
     headline:v.narrative.headline,description:v.narrative.description,
     creativeAsset:v.creativeAsset,
-    requireAffiliateAttestation:Boolean(campaign.rankingContext?.v4ResearchDraft),
+    requireAffiliateAttestation:Boolean(campaign.rankingContext?.v4ResearchDraft) || campaign.organizationId!=='demo-org',
     duplicateSimilarity:campaignDuplicateSimilarity(campaign,campaigns),
   });
   const missingSteps=reviewBlockers(activeCampaign,approvalGuard);
@@ -2223,7 +2223,7 @@ function Publish({
     product: v.product, disclosure: v.narrative.disclosure, destinationUrl: destination,
     headline: v.narrative.headline, description: v.narrative.description,
     creativeAsset:v.creativeAsset,
-    requireAffiliateAttestation:Boolean(activeCampaign.rankingContext?.v4ResearchDraft),
+    requireAffiliateAttestation:Boolean(activeCampaign.rankingContext?.v4ResearchDraft) || activeCampaign.organizationId!=='demo-org',
     duplicateSimilarity:campaignDuplicateSimilarity(activeCampaign,campaigns),
     frequencyPolicy:hasFrequencyPolicy ? {
       maxPublications24h:preferences.maxPublications24h ?? undefined,
