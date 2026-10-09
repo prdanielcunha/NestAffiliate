@@ -811,6 +811,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
   const [errorCode,setErrorCode]=useState('');
   const [hasSearched,setHasSearched]=useState(false);
+  const [activeIntentQuery,setActiveIntentQuery]=useState<string|null>(null);
   const [analysisNotice,setAnalysisNotice]=useState('');
   const [shopeeApiConfigured,setShopeeApiConfigured]=useState<boolean|null>(null);
   const [shopeeProviderFallback,setShopeeProviderFallback]=useState(false);
@@ -1291,12 +1292,28 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               setSearchMeta(null);
               setHasSearched(false);
               setAnalysisNotice('');
+              setActiveIntentQuery(null);
               setShopeeProviderFallback(false);
             }}
           >{value==='ALL' ? t('marketplaceAll') : value==='MELI' ? t('marketplaceMeli') : t('marketplaceShopee')}</button>)}
         </div>
       </div>
-      <ProblemIntentExplorer busy={state==='loading'} onSearch={q=>void search(q)} />
+
+      <ProblemIntentExplorer
+        busy={state==='loading'}
+        onSearch={q=>{setActiveIntentQuery(q);void search(q);}}
+        feedback={activeIntentQuery&&query===activeIntentQuery&&hasSearched&&state==='error'
+          ? {query:activeIntentQuery,phase:'error',detail:locale==='pt-BR'?'A fonte pode estar indisponível, limitada ou sem permissão para pesquisar.':'Provider unavailable, restricted or lacking search permission.'}
+          : activeIntentQuery&&query===activeIntentQuery&&state==='loading'
+            ? {query:activeIntentQuery,phase:'searching'}
+            : activeIntentQuery&&query===activeIntentQuery&&hasSearched&&state==='idle'
+              ? {query:activeIntentQuery,
+                phase:searchMeta?.visible
+                  ? (Object.values(sourceStatus).some(value=>value&&value!=='OK')?'partial':'success')
+                  : 'empty',
+                count:searchMeta?.visible??0}
+              : null}
+      />
       <div className="search-box">
         <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void search()} placeholder={t('radarSearchPlaceholder')} />
         <button className="button primary" disabled={state==='loading'} onClick={() => void search()}>
@@ -1411,6 +1428,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             errorCode.includes('SHOPEE_CREDENTIALS_STALE') || errorCode.includes('SHOPEE_CREDENTIALS_REJECTED') ? t('radarShopeeErrorStale') :
             errorCode.includes('SHOPEE_') ? t('radarShopeeErrorGeneric') :
             errorCode.includes('MELI_RATE_LIMITED') || errorCode.includes('429') ? (locale==='pt-BR'?'Limite temporário da fonte: suas oportunidades não foram rejeitadas. Aguarde o horário permitido pelo provedor e tente novamente.':locale==='es'?'Límite temporal de la fuente. Reintente cuando el proveedor lo permita.':'Provider rate limit. Retry after the provider cooldown; offers were not rejected.') :
+            errorCode.includes('MELI_PROVIDER_SEARCH_RESTRICTED_403')
+              ? (locale==='pt-BR'?'O Mercado Livre bloqueou a pesquisa oficial (403). Não é uma falha de produto nem de sua conta. Use a pesquisa no site e traga o link do anúncio; integrar a busca automática depende de permissão do provedor.':locale==='es'?'Mercado Libre bloqueó la búsqueda oficial (403). Busque en la web e importe el enlace del anuncio.':'Mercado Livre denied the official search (403). Search on its website and import the listing link.') :
+            errorCode.includes('MELI_PROVIDER_TOKEN_DENIED_401')
+              ? (locale==='pt-BR'?'O Mercado Livre recusou o token da API. Verifique a conexão e renove as permissões no painel de integrações.':locale==='es'?'Mercado Libre rechazó el token; compruebe la conexión.':'Mercado Livre rejected the API token; review the connection.') :
             errorCode.includes('MELI_NOT_CONNECTED') ? t('radarErrorReconnect') :
             errorCode.includes('MELI_TOKEN_STALE') ? t('radarErrorRefreshing') :
             errorCode.includes('FORBIDDEN') || errorCode.includes('NESTAFFILIATE_NOT_ENABLED') ? t('radarErrorAccess') :
@@ -1423,6 +1444,18 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           ? <NavLink className="button secondary" to="/connections">{t('connections')}</NavLink>
           : <button className="button secondary" type="button" onClick={()=>void search()}>{t('radarRetry')}</button>}
       </div>}
+      {(marketplaceScope==='MELI' || marketplaceScope==='ALL') && hasSearched &&
+        ((state==='error' && !errorCode.startsWith('SHOPEE_')) || (state==='idle' && sourceStatus.MELI && sourceStatus.MELI!=='OK')) &&
+        <section className="surface meli-manual-research" role="region" aria-label={locale==='pt-BR'?'Pesquisa alternativa Mercado Livre':'Mercado Livre fallback research'}>
+          <p className="eyebrow">MERCADO LIVRE · PESQUISA ASSISTIDA</p>
+          <h3>{locale==='pt-BR'?'Continue pesquisando, mesmo sem a API':locale==='es'?'Siga investigando aunque falle la API':'Keep researching when the API is unavailable'}</h3>
+          <p>{locale==='pt-BR'?'Abra a pesquisa no Mercado Livre, escolha um anúncio verdadeiro e cole o endereço no formulário abaixo. O NestAffiliate não inventa preço, fotos ou comissões.':locale==='es'?'Abre la búsqueda oficial, elige un anuncio auténtico e importa su enlace.':'Open the marketplace search, choose a real listing and import its link.'}</p>
+          <a className="button primary" target="_blank" rel="noopener noreferrer"
+            href={'https://lista.mercadolivre.com.br/'+encodeURIComponent(query.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').slice(0,100))}>
+            {locale==='pt-BR'?'Pesquisar no site do Mercado Livre ↗':locale==='es'?'Buscar en Mercado Libre ↗':'Search Mercado Livre website ↗'}
+          </a>
+          {editable&&<ManualProductImport organizationId={organizationId} defaultMarketplace="MELI" seedKeyword={query} onImported={(product,keyword,signals)=>create(product,keyword,signals)}/>}
+        </section>}
       {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && hasSearched && state==='idle' && Object.values(sourceStatus).some(s=>s&&s!=='OK') && <section className="notice radar-source-limited" role="status">
         <strong>{locale==='pt-BR'?'Fonte temporariamente limitada':locale==='es'?'Fuente temporalmente limitada':'Temporarily limited source'}</strong>
         <p>{locale==='pt-BR'?'Os dados que faltaram não foram tratados como sinal negativo do produto. Investigue as ofertas existentes ou tente novamente quando a fonte estiver disponível.':locale==='es'?'Los datos faltantes no significan mala calidad. Examine las ofertas existentes o reintente cuando vuelva la fuente.':'Missing provider data is not evidence of a poor product. Review existing offers or retry once the provider recovers.'}</p>
