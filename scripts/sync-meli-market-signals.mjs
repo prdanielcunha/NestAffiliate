@@ -1,7 +1,9 @@
 import { isReadyCampaignOffer, classifyExistingCampaignRefresh } from './revenue-offer-gates.mjs';
 import { createMeliRateGate } from './meli-rate-gate.mjs';
+import { MELI_BACKGROUND_RESEARCH_LIMITS as LIMITS,catalogResolutionSelection } from './meli-search-budget.mjs';
 
-const meliGate=createMeliRateGate({spacingMs:450});
+const meliGate=createMeliRateGate({spacingMs:LIMITS.minimumSpacingMs});
+const providerHealth={rateLimited:0,accessDenied:0,serverErrors:0};
 const PROJECT_ID=process.env.FIREBASE_PROJECT_ID || 'millionsnest';
 const ORG_ID=process.env.NESTAFFILIATE_SIGNAL_ORG_ID || '';
 const GCP_TOKEN=process.env.GOOGLE_OAUTH_ACCESS_TOKEN || '';
@@ -261,12 +263,15 @@ async function readDoc(url){
 }
 
 async function meliMaybeGet(path,accessToken){
-  for(let attempt=0;attempt<4;attempt+=1){
+  for(let attempt=0;attempt<LIMITS.retryAttempts;attempt+=1){
     const response=await meliGate.run(()=>fetch('https://api.mercadolibre.com'+path,{headers:{Authorization:'Bearer '+accessToken,Accept:'application/json'}}));
     if(response.ok) return response.json();
+    if(response.status===429)providerHealth.rateLimited+=1;
+    else if(response.status===401||response.status===403)providerHealth.accessDenied+=1;
+    else if(response.status>=500)providerHealth.serverErrors+=1;
 
     const retryable=response.status===429 || response.status>=500;
-    if(!retryable || attempt===3) return null;
+    if(!retryable || attempt===LIMITS.retryAttempts-1) return null;
 
     const retryAfter=Number(response.headers.get('retry-after') || 0);
     const backoff=Math.max(retryAfter*1000,Math.min(8000,1000*(2**attempt)));
@@ -417,7 +422,7 @@ async function dailyBulkItems(ids,accessToken){
   return payload.filter((row)=>row?.status_code===200 && row?.body).map((row)=>mapDailyItem(row.body)).filter(Boolean);
 }
 
-async function resolvePurchasableCatalogProduct(candidate,detail,accessToken){
+async function resolvePurchasableCatalogProduct(candidate,detail,accessToken,allowParentSearch=true){
   const base={...candidate,...(detail || {})};
   if(base?.buy_box_winner?.item_id) return base;
 
@@ -428,7 +433,7 @@ async function resolvePurchasableCatalogProduct(candidate,detail,accessToken){
   }
 
   const parentId=String(base?.id || candidate?.id || '').trim();
-  if(!parentId) return null;
+  if(!parentId || !allowParentSearch)return null;
   const childSearch=await meliMaybeGet(
     '/products/search?status=active&site_id=MLB&parent_product_id='+encodeURIComponent(parentId)+'&limit=4',
     accessToken,
@@ -470,7 +475,7 @@ function mapCatalogResearchProduct(product,candidate,query){
 }
 
 async function dailySearch(query,accessToken,limit=20){
-  const safeLimit=Math.max(1,Math.min(Number(limit || 20),20));
+  const safeLimit=Math.max(1,Math.min(Number(limit || 20),LIMITS.catalogCandidates));
   const catalog=await meliMaybeGet('/products/search?status=active&site_id=MLB&q='+encodeURIComponent(query)+'&limit='+safeLimit,accessToken);
   const candidates=(Array.isArray(catalog?.results) ? catalog.results : []).map((item)=>({
     id:String(item.id || ''),
@@ -482,11 +487,14 @@ async function dailySearch(query,accessToken,limit=20){
     buy_box_winner:item.buy_box_winner || null,
   })).filter((item)=>item.id).slice(0,safeLimit);
 
-  const details=await Promise.all(candidates.map((candidate)=>
+  // Deep resolve only the first five. Keep all twenty official catalog candidates
+  // as research; requests must not starve the interactive Radar.
+  const planned=catalogResolutionSelection(candidates);
+  const details=await Promise.all(planned.map(({candidate})=>
     meliMaybeGet('/products/'+encodeURIComponent(candidate.id),accessToken)
   ));
-  const resolved=await Promise.all(candidates.map((candidate,index)=>
-    resolvePurchasableCatalogProduct(candidate,details[index],accessToken)
+  const resolved=await Promise.all(planned.map(({candidate,allowParentSearch},index)=>
+    resolvePurchasableCatalogProduct(candidate,details[index],accessToken,allowParentSearch)
   ));
 
   const winnerIds=[...new Set(resolved.map((product)=>
@@ -849,7 +857,7 @@ async function runDailyAgent(accessToken,signals,observedAt){
   const highlightCandidates=signals
     .filter((signal)=>signal?.source==='MELI_BEST_SELLER' && signal?.entityId)
     .filter((signal,index,all)=>all.findIndex((item)=>item.entityType===signal.entityType && item.entityId===signal.entityId)===index)
-    .slice(0,36);
+    .slice(0,LIMITS.highlightsPerSync);
 
   const typeCounts=highlightCandidates.reduce((acc,signal)=>{
     const key=String(signal.entityType || 'UNKNOWN');
@@ -1028,7 +1036,7 @@ async function runDailyAgent(accessToken,signals,observedAt){
   if(discoveryGap){
     report.messages.push('Os sinais chegaram, mas nenhum produto verificável virou oportunidade; o ciclo foi marcado para atenção.');
   }
-  report.status=report.errors>0 || discoveryGap ? 'PARTIAL' : 'SUCCESS';
+  report.status=report.errors>0 || discoveryGap || providerHealth.rateLimited>0 || providerHealth.accessDenied>0 ? 'PARTIAL' : 'SUCCESS';
   report.messages.unshift(
     'Ciclo concluído: '+report.checked+' produtos verificados, '+report.opportunitiesAnalyzed+
     ' oportunidades analisadas, '+report.campaignsCreated+' campanhas preparadas e '+
@@ -1089,6 +1097,7 @@ async function main(){
   const trends=await meliGet('/trends/MLB',token.access_token);
   if(!Array.isArray(trends)) throw new Error('MELI_TRENDS_INVALID_RESPONSE');
 
+  // Background sync does not certify an authenticated interactive search.
   const searchProbeCount=0;
 
   const trendSignals=trends
@@ -1161,6 +1170,7 @@ async function main(){
     categories,
     searchProbeCount,
     accessTokenExpiresAt,
+    providerHealth,
     observedAt:now,
     dailyAgent,
   }));
