@@ -121,8 +121,13 @@ export async function searchMercadoLivreBrokerDetailed(input:{
     }
     let reason=`MELI_BROKER_${response.status}`;
     try{
-      const payload=await response.json() as {error?:string};
+      const payload=await response.json() as {error?:string;providerStatus?:number;fallbackAttempted?:boolean};
       if(payload?.error) reason=payload.error;
+      // Distinguish marketplace policy denial from invalid NestAffiliate auth.
+      if(payload?.providerStatus===403 && payload.fallbackAttempted===true)
+        reason='MELI_PROVIDER_SEARCH_RESTRICTED_403';
+      else if(payload?.providerStatus===401 && payload.fallbackAttempted===true)
+        reason='MELI_PROVIDER_TOKEN_DENIED_401';
     }catch{
       // Preserve status-derived reason when the broker does not return JSON.
     }
