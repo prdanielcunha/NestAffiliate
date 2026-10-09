@@ -55,7 +55,7 @@ import { WorkspaceLibrary } from './features/WorkspaceLibrary';
 import { CreativeWorkflowGuide } from './features/CreativeWorkflowGuide';
 import { publicationCalendarIcs } from './lib/publicationCalendar';
 import { FinalPinPublicationGuide } from './features/FinalPinPublicationGuide';
-import { generatePublishingZip, publicationBundleText } from './lib/publicationBundle';
+import { generatePublishingZip } from './lib/publicationBundle';
 import { planCreativeEdit, type CreativeEditPlan } from './lib/creativeEdit';
 
 const STORAGE_PREFIX = 'nestaffiliate_campaigns_v1';
