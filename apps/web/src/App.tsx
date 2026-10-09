@@ -845,6 +845,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     rejectedLowSales:number;
     rejectedUnverified:number;
     observedAt:string;
+    staleObservation?:boolean;
   }|null>(null);
 
   useEffect(()=>{
@@ -983,6 +984,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           rejectedUnavailable:number;
           rejectedLowSales:number;
           rejectedUnverified:number;
+          staleObservation?:boolean;
         };
       };
       const providerResults:ProviderResult[]=[];
@@ -1161,11 +1163,18 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         ...aggregate,
         visible:visible.length,
         minSoldQuantity:meliResult?.meta.minSoldQuantity ?? 0,
+        staleObservation:meliResult?.meta.staleObservation===true,
         observedAt,
       });
       setHasSearched(true);
       setAnalysisNotice(
-        visible.length
+        meliResult?.meta.staleObservation===true
+          ? (locale==='pt-BR'
+            ? `A API do Mercado Livre está limitada. Mostrando ${visible.length} produtos observados anteriormente, somente para pesquisa. Confirme preço, estoque, foto e link afiliado no anúncio antes de publicar.`
+            : locale==='es'
+              ? `API limitada. ${visible.length} productos de observaciones anteriores, solo investigación. Comprueba precios y enlaces.`
+              : `Marketplace temporarily restricted. Showing ${visible.length} prior official research products. Verify price, stock, image and affiliate URL before publishing.`)
+        : visible.length
           ? FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED
             ? locale==='pt-BR'
               ? `${visible.length} candidatos oficiais em pesquisa. Vendas desconhecidas continuam como desconhecidas; publicação depende de revisão.`
@@ -1457,7 +1466,12 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           {editable&&<ManualProductImport organizationId={organizationId} defaultMarketplace="MELI" seedKeyword={query} onImported={(product,keyword,signals)=>create(product,keyword,signals)}/>}
         </section>}
       {hasSearched && state==='idle' && Object.values(sourceStatus).some(s=>s&&s!=='OK') && <section className="notice radar-source-limited" role="status">
-        <strong>{locale==='pt-BR'?'Fonte temporariamente limitada':locale==='es'?'Fuente temporalmente limitada':'Temporarily limited source'}</strong>
+        <strong>{searchMeta?.staleObservation===true ? (locale==='pt-BR'?'Dados anteriores — confirme a oferta':locale==='es'?'Datos anteriores — verificar oferta':'Prior research data — verify listing') : locale==='pt-BR'?'Fonte temporariamente limitada':locale==='es'?'Fuente temporalmente limitada':'Temporarily limited source'}</strong>
+        {searchMeta?.staleObservation===true&&<p>{locale==='pt-BR'
+          ? 'Estes produtos vêm de observações oficiais anteriores, não de uma pesquisa ao vivo. Preços, vendas, estoque e comissão foram removidos até nova confirmação.'
+          : locale==='es'
+            ? 'Son observaciones oficiales anteriores, no datos en vivo. Precio, ventas, stock y comisiones requieren verificación.'
+            : 'These are prior official observations, not live listings. Price, sales, stock and commission are withheld until verified.'}</p>}
         <p>{locale==='pt-BR'?'Os dados que faltaram não foram tratados como sinal negativo do produto. Investigue as ofertas existentes ou tente novamente quando a fonte estiver disponível.':locale==='es'?'Los datos faltantes no significan mala calidad. Examine las ofertas existentes o reintente cuando vuelva la fuente.':'Missing provider data is not evidence of a poor product. Review existing offers or retry once the provider recovers.'}</p>
         <small>{Object.entries(sourceStatus).filter(([,s])=>s&&s!=='OK').map(([name,status])=>name+': '+status).join(' · ')}</small>
       </section>}
