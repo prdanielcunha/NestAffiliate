@@ -16,7 +16,7 @@ test('Today → Review → edit → approve → guided publish', async ({ page }
   await page.getByRole('button',{name:'Aplicar alteração'}).click();
   await expect(page.locator('.save-state')).toContainText('v2');
 
-  await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
+  await page.getByRole('button', { name: 'Aprovar e ir para publicação →' }).click();
   await expect(page.getByRole('heading', { name: 'Seu Pin está pronto.' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Baixar imagem PNG' })).toBeVisible();
   await expect(page.getByText('MODO GUIADO')).toBeVisible();
@@ -84,7 +84,7 @@ test('review is usable without horizontal overflow on mobile', async ({ page }, 
 test('scheduled publication returns to Today as an upcoming action', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: /Revisar 3 campanhas/i }).click();
-  await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
+  await page.getByRole('button', { name: 'Aprovar e ir para publicação →' }).click();
   await expect(page.getByRole('heading', { name: 'Seu Pin está pronto.' })).toBeVisible();
 
   await page.locator('input[type="datetime-local"]').fill('2030-01-01T10:00');
@@ -110,8 +110,9 @@ test('Review can prepare a full Pinterest Creative Pack and blocks approval unti
   await expect(page.getByRole('button', { name: 'Copiar e abrir ChatGPT' })).toBeVisible();
   await expect(page.getByText('1000 × 1500', { exact: true })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
-  await expect(page.getByText(/Importe e revise a imagem gerada antes de aprovar/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Aprovar e ir para publicação →' }).click();
+  await expect(page.getByRole('heading',{name:/Ainda faltam algumas coisas antes de aprovar/})).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('A aprovação ainda não foi realizada');
   await expect(page).toHaveURL(/\/review\//);
 });
 
@@ -130,7 +131,7 @@ test('unsupported creative command is explicit and cannot alter the campaign', a
 test('final Pinterest screen explains every field and offers independent copy buttons',async({page})=>{
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
- await page.getByRole('button',{name:'Aprovar',exact:true}).click();
+ await page.getByRole('button',{name:'Aprovar e ir para publicação →'}).click();
  const guide=page.getByRole('region',{name:'Dados para criar seu Pin'});
  await expect(guide).toBeVisible();
  await expect(guide.getByRole('button',{name:'Baixar tudo (.zip)'})).toBeVisible();
@@ -152,4 +153,40 @@ test('custom ChatGPT image prompt preserves mandatory source rules in visible fi
  await expect(prompt).toContainText('Luz natural suave');
  await expect(page.getByText('Como gerar com seu ChatGPT (sem API)')).toBeVisible();
  await expect(page.getByText(/assinatura ChatGPT Pro e API são produtos separados/i)).toBeVisible();
+});
+
+test('Approval with incomplete creative shows actionable blockers and preserves campaign',async({page})=>{
+ await page.goto('/');
+ await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await expect(page.getByRole('region',{name:'Etapas para publicar seu Pin'})).toBeVisible();
+ await expect(page.getByText('DO RADAR AO PIN · PASSO A PASSO')).toBeVisible();
+ await page.getByRole('button',{name:'Preparar Pin',exact:true}).click();
+ await page.getByRole('button',{name:'Aprovar e ir para publicação →'}).click();
+ const errors=page.locator('#review-blockers');
+ await expect(errors).toContainText('ainda não foi realizada');
+ await expect(errors.getByRole('link',{name:/Resolver esta etapa/}).first()).toHaveAttribute('href','#review-creative');
+ await expect(page).toHaveURL(/\/review\//);
+ await expect(page.locator('.save-state')).toContainText('v2');
+ await page.goto('/campaigns');
+ await expect(page.getByRole('link',{name:/Organizador Giratório Multiuso/i})).toBeVisible();
+});
+test('Review explains affiliate link source and image workflow without claiming automatic commission',async({page})=>{
+ await page.goto('/');
+ await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ const guide=page.getByRole('region',{name:'Etapas para publicar seu Pin'});
+ await expect(guide.getByText('Conferir link')).toBeVisible();
+ await expect(guide.getByText('Imagem com ChatGPT')).toBeVisible();
+ await expect(page.getByText(/Seu link de comissão não vem automaticamente do Radar/)).toBeVisible();
+ await expect(page.getByRole('link',{name:/Abrir instruções oficiais do Mercado Livre/})).toHaveAttribute('href',/mercadolivre.com.br\/l\/afiliados-portal-do-afiliado/);
+ await expect(page.getByText(/a prévia com apenas texto ainda NÃO é a imagem final/i)).toBeVisible();
+});
+test('Approved campaign list leads to publishing rather than a confusing review loop',async({page})=>{
+ await page.goto('/');
+ await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'Aprovar e ir para publicação →'}).click();
+ await page.goto('/campaigns');
+ await page.getByRole('button',{name:'Aprovados'}).click();
+ const ready=page.locator('.campaign-card').first();
+ await expect(ready).toHaveAttribute('href',/\/publish\//);
+ await expect(ready).toContainText('Ir para publicação');
 });
