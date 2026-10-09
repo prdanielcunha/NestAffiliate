@@ -11,7 +11,7 @@ export function getCampaignJourney(campaign:Campaign,locale:string):Stage[]{
  const linkKnown=product.marketplace==='MELI'
   ? Boolean(isMarketplaceAffiliateDestination(product.affiliateUrl?.value,product.marketplace)
     && inspectAffiliateAttestation(product)==='SELF_CONFIRMED')
-  :Boolean(product.affiliateUrl?.value); // Shopee: still requires human Pinterest tag confirmation
+  :campaign.status==='PUBLISHED'; // Shopee tracking requires actual final publication/tag proof
  const pack=Boolean(v.creativePack);
  const image=Boolean(v.creativeAsset?.productFidelityConfirmed
    && v.creativeAsset.embeddedTextConfirmedAbsent
@@ -19,7 +19,7 @@ export function getCampaignJourney(campaign:Campaign,locale:string):Stage[]{
  const approved=['PUBLICATION_READY','PUBLISHED'].includes(campaign.status);
  return [
   {id:'product',name:l('Escolher produto','Choose product','Elegir producto'),details:l('Produto vindo do Radar','Chosen in Radar','Elegido del Radar'),done:true,target:'/radar'},
-  {id:'affiliate',name:l('Conferir link','Verify affiliate link','Verificar enlace'),details:l('Gerar na sua conta, não no Radar','Generate in your account, not the Radar','Generar en tu cuenta, no en Radar'),done:linkKnown,target:'#review-product'},
+  {id:'affiliate',name:product.marketplace==='SHOPEE'?l('Marcação Shopee','Shopee tag','Etiqueta Shopee'):l('Conferir link','Verify affiliate link','Verificar enlace'),details:product.marketplace==='SHOPEE'?l('Confirmada na etapa de publicação','Confirmed at posting step','Confirmada al publicar'):l('Gerar na sua conta, não no Radar','Generate in your account, not the Radar','Generar en tu cuenta, no en Radar'),done:linkKnown,target:'#review-product'},
   {id:'creative',name:l('Títulos e descrição','Titles and description','Título y descripción'),details:l('Preparar o Creative Pack','Prepare Creative Pack','Preparar Creative Pack'),done:pack,target:'#review-creative'},
   {id:'image',name:l('Imagem com ChatGPT','Image with ChatGPT','Imagen con ChatGPT'),details:l('Copiar prompt, gerar, importar e comparar','Copy prompt, generate, import and compare','Copiar prompt, generar, importar y comparar'),done:image,target:'#review-creative'},
   {id:'approval',name:l('Aprovar o Pin','Approve the Pin','Aprobar el Pin'),details:l('Conferir imagem e dados finais','Check final image and information','Revisar imagen y datos'),done:approved,target:'#review-final'},
@@ -29,7 +29,7 @@ export function getCampaignJourney(campaign:Campaign,locale:string):Stage[]{
 export function CampaignJourney({campaign,mode='review'}:{campaign:Campaign;mode?:'review'|'publish'}){
  const {locale}=useI18n();const stages=getCampaignJourney(campaign,locale);
  const l=(pt:string,en:string,es:string)=>t3(locale,pt,en,es);
- const current=mode==='publish'?'publication':(stages.find(s=>!s.done)??stages[4]!).id;
+ const current=mode==='publish'?'publication':(stages.find(s=>!s.done && !(campaign.marketplace==='SHOPEE'&&s.id==='affiliate'))??stages[4]!).id;
  const next=stages.find(s=>s.id===current)??stages[4]!;
  return <section className="campaign-journey" aria-label={l('Etapas para publicar seu Pin','Steps to publish your Pin','Pasos para publicar tu Pin')}>
   <div className="campaign-journey-intro">
