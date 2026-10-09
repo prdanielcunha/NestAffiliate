@@ -755,3 +755,18 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 @media(max-width:600px){.concept-grid-v5{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.concept-grid-v5 .concept-card{padding:7px;min-width:0}.concept-grid-v5 .concept-info{gap:4px}.concept-grid-v5 .concept-info p,.concept-grid-v5 .concept-info small{font-size:10px;overflow-wrap:anywhere}.concept-grid-v5 .concept-info strong{font-size:11px;line-height:1.25;overflow-wrap:anywhere}}
 
 .publish-package-actions{display:grid;gap:10px;margin-bottom:14px}.publish-package-actions>.button{width:100%;min-height:44px}.publish-package-actions>small{font-size:11px;color:var(--muted);line-height:1.5}
+
+
+/* Results at 360px: intrinsic file-input and grid min-content must never widen the viewport. */
+.performance-stack,.revenue-truth-panel,.pinterest-csv-import{min-width:0;max-width:100%}
+.pinterest-csv-import,.revenue-truth-panel{grid-template-columns:minmax(0,1fr)}
+.pinterest-csv-import>*,
+.revenue-truth-panel>*,
+.performance-stack>*,
+.performance-stack .form-grid label{min-width:0;max-width:100%}
+.pinterest-csv-import input[type=file],
+.pinterest-csv-import textarea,
+.revenue-import-form input,
+.revenue-import-form textarea{box-sizing:border-box;display:block;width:100%;min-width:0;max-width:100%}
+.pinterest-csv-import code,
+.revenue-import-form code{overflow-wrap:anywhere;word-break:break-word;white-space:normal}
