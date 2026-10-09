@@ -1456,7 +1456,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           </a>
           {editable&&<ManualProductImport organizationId={organizationId} defaultMarketplace="MELI" seedKeyword={query} onImported={(product,keyword,signals)=>create(product,keyword,signals)}/>}
         </section>}
-      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && hasSearched && state==='idle' && Object.values(sourceStatus).some(s=>s&&s!=='OK') && <section className="notice radar-source-limited" role="status">
+      {hasSearched && state==='idle' && Object.values(sourceStatus).some(s=>s&&s!=='OK') && <section className="notice radar-source-limited" role="status">
         <strong>{locale==='pt-BR'?'Fonte temporariamente limitada':locale==='es'?'Fuente temporalmente limitada':'Temporarily limited source'}</strong>
         <p>{locale==='pt-BR'?'Os dados que faltaram não foram tratados como sinal negativo do produto. Investigue as ofertas existentes ou tente novamente quando a fonte estiver disponível.':locale==='es'?'Los datos faltantes no significan mala calidad. Examine las ofertas existentes o reintente cuando vuelva la fuente.':'Missing provider data is not evidence of a poor product. Review existing offers or retry once the provider recovers.'}</p>
         <small>{Object.entries(sourceStatus).filter(([,s])=>s&&s!=='OK').map(([name,status])=>name+': '+status).join(' · ')}</small>
@@ -1519,7 +1519,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           {suggestedQueries.slice(0,4).map((suggestion)=><button key={`empty-${suggestion}`} type="button" onClick={()=>void search(suggestion)}>{suggestion}</button>)}
         </div>
       </section>}
-      {marketplaceScope==='SHOPEE' && (shopeeApiConfigured===false || shopeeProviderFallback) ? null : editable ? (
+      {(marketplaceScope==='SHOPEE' && (shopeeApiConfigured===false || shopeeProviderFallback)) || ((marketplaceScope==='MELI' || marketplaceScope==='ALL') && hasSearched && ((state==='error' && !errorCode.startsWith('SHOPEE_')) || (state==='idle' && sourceStatus.MELI && sourceStatus.MELI!=='OK'))) ? null : editable ? (
         <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
       ) : (
         <div className="notice">{t('readOnlyRadar')}</div>
