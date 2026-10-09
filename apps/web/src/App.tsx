@@ -768,7 +768,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
   const { t } = useI18n();
   const v = campaign.currentVersion;
   return (
-    <NavLink className="campaign-card" to={`/review/${campaign.id}`}>
+    <NavLink className="campaign-card" to={campaign.status==='PUBLICATION_READY'?`/publish/${campaign.id}`:`/review/${campaign.id}`}>
       <div className="mini-pin">
         <span>{v.keyword}</span><strong>{v.narrative.headline}</strong><em>Achados do Nest</em>
       </div>
@@ -777,6 +777,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
         <h3>{v.product.title.value}</h3>
         <p>{campaign.score.reasons[0]}</p>
         <span className="market-chip">{campaign.marketplace === 'MELI' ? 'Mercado Livre' : 'Shopee'}</span>
+        <p className="campaign-card-handoff">{campaign.status==='PUBLICATION_READY'?'Ir para publicação →':campaign.status==='PUBLISHED'?'Revisar Pin publicado →':'Preparar imagem, textos e link →'}</p>
       </div>
     </NavLink>
   );
@@ -1288,6 +1289,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   return (
     <div className="page">
       <PageTitle eyebrow="RADAR" title={t('opportunities')} subtitle={t('opportunitiesSub')} />
+      <section className="radar-start-guide" aria-label={locale==='pt-BR'?'Como escolher um produto e criar um Pin':'How to select a product'}>
+        <strong>{locale==='pt-BR'?'Como começar: 1. Pesquise → 2. Escolha um produto → 3. Prepare o Pin → 4. Publique':locale==='es'?'Cómo empezar: buscar → elegir producto → preparar Pin → publicar':'Start: search → choose product → prepare Pin → publish'}</strong>
+        <p>{locale==='pt-BR'?'Quando gostar de um produto, clique em “Escolher produto e preparar Pin”. Você será levado à revisão guiada, com título, descrição, prompt do ChatGPT, imagem e link afiliado.':locale==='es'?'Elige un producto para abrir la revisión guiada.':'Choose a product to open its guided creative review, image prompt and affiliate link confirmation.'}</p>
+      </section>
       <div className="marketplace-scope" role="group" aria-label={t('marketplaceFilter')}>
         <span>{t('marketplaceFilter')}</span>
         <div>
@@ -1657,7 +1662,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                 <button className="button secondary" onClick={()=>prepareAffiliate(opportunity)}>{t('affiliatePrep')}</button>
                 <button className="button primary" disabled={!editable || (!FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED && Boolean(assessment && assessment.track!=='VALIDATED'))} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED && v4ById[opportunity.id]?.status!=='READY_NOW'
  ? (locale==='pt-BR'?'Criar rascunho de pesquisa':'Create research draft')
- : assessment && assessment.track!=='VALIDATED' ? t('r3ReviewFirst') : t('createCampaign')}</button>
+ : assessment && assessment.track!=='VALIDATED' ? t('r3ReviewFirst') : (locale==='pt-BR'?'Escolher produto e preparar Pin →':locale==='es'?'Elegir producto y preparar Pin →':'Choose product and prepare Pin →')}</button>
               </div>
             </div>
           </article>
@@ -1869,7 +1874,14 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   return (
     <div className="review-page">
       <CampaignJourney campaign={activeCampaign} />
-      <div id="review-creative"><PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} /></div>
+      <div id="review-creative" className="review-creative-stage">
+        <div className="review-stage-heading">
+          <p className="eyebrow">{locale==='pt-BR'?'ETAPAS 3 E 4 · CRIATIVO':locale==='es'?'PASOS 3 Y 4 · CREATIVO':'STEPS 3 AND 4 · CREATIVE'}</p>
+          <h2>{locale==='pt-BR'?'Primeiro escolha os textos. Depois gere a imagem com ChatGPT.':locale==='es'?'Elige textos, luego genera la imagen en ChatGPT.':'Choose copy first; then generate the image in ChatGPT.'}</h2>
+          <p>{locale==='pt-BR'?'O NestAffiliate prepara títulos, descrições e um prompt em inglês. Clique em “Copiar e abrir ChatGPT”, anexe uma foto autorizada do produto, gere a imagem e volte aqui para importar e revisar. A prévia com apenas texto ainda NÃO é a imagem final.':locale==='es'?'El Pin textual es solo una vista previa. Genera la imagen en ChatGPT, impórtala y revísala antes de aprobar.':'The text-only preview is not the final Pin image. Generate with ChatGPT, import it and review before approval.'}</p>
+        </div>
+        <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
+      </div>
       {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <ReelKitPanel campaign={activeCampaign} />}
       {editError && <div className="notice edit-feedback" role="alert">{editError}</div>}
       {pendingEdit?.ok && <section className="edit-preview" aria-label="Prévia da alteração">
