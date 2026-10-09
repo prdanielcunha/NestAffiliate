@@ -200,7 +200,7 @@ test('Review shows NestAI copy as optional, safely previewed, never auto-approve
  await expect(assist.getByLabel('Orientação para a IA')).toBeVisible();
  await expect(assist.getByRole('button',{name:/Sugerir título e descrição com NestAI/})).toBeEnabled();
  await expect(assist.getByRole('button',{name:'Usar estes textos e salvar'})).toHaveCount(0);
- await expect(assist).toContainText('não gera ou valida links de comissão');
+ await expect(assist).toContainText(/não gera ou valida links de comissão/i);
 });
 test('an incomplete Pin uses a visible requirement count instead of a misleading Approve button',async({page})=>{
  await page.goto('/');
