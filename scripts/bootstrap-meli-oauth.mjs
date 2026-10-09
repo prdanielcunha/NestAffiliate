@@ -115,6 +115,10 @@ async function main(){
   await gcpWrite(secretDoc,{
     organizationId:ORG_ID,
     provider:'MELI',
+    // Server-only Firestore record (canonical rules explicitly forbid every browser user).
+    // Allows Hub to renew access on demand when GitHub cron is delayed.
+    clientId:CLIENT_ID,
+    clientSecret:CLIENT_SECRET,
     refreshToken:String(token.refresh_token),
     accessToken:String(token.access_token),
     accessTokenExpiresAt,
