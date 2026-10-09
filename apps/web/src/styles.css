@@ -811,3 +811,33 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .performance-stack .form-grid input,.performance-stack .form-grid select,.performance-stack .form-grid textarea{box-sizing:border-box;max-width:100%;min-width:0}
 .performance-stack code,.performance-stack pre{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:520px){.performance-stack>.metric-grid{grid-template-columns:minmax(0,1fr)}.performance-stack>.surface{padding:16px}}
+
+
+/* Radar provider image truth: a failed hotlink never leaves Safari's broken icon or invents a product. */
+.radar-product-media{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden}
+.radar-product-media>img{width:100%;height:100%;object-fit:contain;background:#f5f3ed}
+.radar-image-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:22px;text-align:center;box-sizing:border-box;color:#3f4b41;font-size:12px;line-height:1.5}
+.radar-image-unavailable{background:linear-gradient(145deg,#f2f2eb,#e7ecdf)}
+.radar-image-unavailable small{max-width:260px;font-size:10px;line-height:1.4;color:#647063}
+.radar-image-unavailable a{z-index:3;padding:7px 12px;border-radius:10px;background:#dae8c9;color:#1d3824;font-size:12px;font-weight:750;text-decoration:none}
+.radar-image-icon{font-size:31px;opacity:.65;line-height:1}
+.radar-image-loading{background:linear-gradient(110deg,#f1f2ec 20%,#dde5d6 42%,#f1f2ec 60%);background-size:220% 100%;animation:radarImageLoading 1.2s ease-in-out infinite}
+@keyframes radarImageLoading{to{background-position:-220% 0}}
+@media(prefers-reduced-motion:reduce){.radar-image-loading{animation:none}}
+.intent-detail{flex-wrap:wrap}
+.intent-search-status{width:100%;box-sizing:border-box;display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--border-strong);background:var(--surface2);color:var(--text);font-size:12px}
+.intent-search-status strong{font-size:12px;line-height:1.5;font-weight:650}
+.intent-search-status small{font-size:11px;color:var(--muted)}
+.intent-search-success{border-color:color-mix(in srgb,var(--accent) 45%,var(--border))}
+.intent-search-error{border-color:var(--danger);color:var(--danger)}
+.intent-search-partial,.intent-search-empty{border-color:var(--border-strong)}
+.intent-search-spinner{display:inline-block;flex:0 0 17px;width:17px;height:17px;vertical-align:middle;border:2px solid currentColor;border-left-color:transparent;border-radius:50%;animation:intentSearchSpin .8s linear infinite}
+@keyframes intentSearchSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.intent-search-spinner{animation:none}}
+.intent-detail .button{display:flex;align-items:center;justify-content:center;gap:10px;min-height:48px}
+.meli-manual-research{margin:20px 0;display:grid;gap:12px;min-width:0}
+.meli-manual-research h3{font-size:clamp(20px,2.2vw,26px);margin:0}
+.meli-manual-research p{font-size:12px;color:var(--muted);line-height:1.6;margin:0}
+.meli-manual-research>a{max-width:100%;white-space:normal;justify-self:start}
+.meli-manual-research .manual-import{margin:8px 0 0;min-width:0}
+@media(max-width:620px){.intent-detail>.button,.meli-manual-research>a{width:100%;max-width:100%}.radar-image-placeholder{padding:16px}}
