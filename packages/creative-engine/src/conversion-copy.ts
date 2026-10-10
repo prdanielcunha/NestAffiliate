@@ -88,6 +88,21 @@ export function buildConversionPinCopy(input: {
       primaryKeyword=subject;
       boardHint='Jogos de Panelas e Ideias para Cozinha';
       longTailKeywords=[subject+' para cozinha',f.pair?'panelas '+f.pair:'conjunto de panelas', 'ideias de jogo de panelas'];
+    }else if(scene.category==='kitchen-utensils'){
+      const subject=f.subject;
+      titles=[
+        'Um detalhe para sua cozinha: conheça '+subject,
+        'Procurando utensílios para a cozinha? Veja '+subject,
+        subject+': mais ideias para o dia a dia na cozinha',
+      ];
+      descriptions=[
+        'Pesquisando utensílios para cozinha? Conheça '+subject+' e veja como o produto aparece em um contexto realista. Confira fotos, composição, medidas e avaliações no anúncio antes de escolher. '+affiliateShort,
+        'Buscando itens para sua cozinha? Veja os detalhes de '+subject+' e compare material, acabamento e condições atualizadas diretamente no anúncio. '+affiliateShort,
+      ];
+      headline='Ideias para complementar sua cozinha';
+      subheadline='Confira os detalhes reais do produto.';
+      primaryKeyword=subject;boardHint='Utensílios e Ideias para Cozinha';
+      longTailKeywords=[subject+' cozinha','utensílios de cozinha','ideias para bancada'];
     }else if(f.organizer||scene.category==='kitchen-organization'){
       const subject=f.subject;
       titles=[
@@ -150,6 +165,34 @@ export function buildConversionPinCopy(input: {
       headline='Um detalhe para sua decoração';subheadline='Inspiração com o produto real em destaque.';
       primaryKeyword=subject;boardHint='Decoração e Inspiração para Casa';
       longTailKeywords=[subject+' decoração','ideias para decorar a casa','inspiração para decoração'];
+    }else if(scene.category==='laundry'){
+      const subject=f.subject;
+      titles=[
+        'Lavanderia mais organizada? Conheça '+subject,
+        subject+': confira esta ideia para sua lavanderia',
+        'Detalhes para a rotina da casa: veja '+subject,
+      ];
+      descriptions=[
+        'Organizando a lavanderia? Conheça '+subject+' e confira no anúncio como é o produto, suas medidas e as possibilidades de uso indicadas pelo fabricante. '+affiliateShort,
+        'Veja '+subject+' como opção para pesquisar ao planejar a lavanderia. Compare fotos e especificações reais antes de decidir. '+affiliateShort,
+      ];
+      headline='Ideias para sua lavanderia';subheadline='Veja as características no anúncio.';
+      primaryKeyword=subject;boardHint='Lavanderia e Organização';
+      longTailKeywords=[subject+' lavanderia','ideias para lavanderia','organização da lavanderia'];
+    }else if(scene.category==='kids-room'){
+      const subject=f.subject;
+      titles=[
+        'Montando o quarto infantil? Veja '+subject,
+        subject+': uma ideia para o cantinho das crianças',
+        'Inspiração para quarto infantil: conheça '+subject,
+      ];
+      descriptions=[
+        'Planejando o quarto infantil? Conheça '+subject+' e veja fotos, medidas e recomendações de idade ou uso diretamente no anúncio. Não presuma características de segurança sem documentação. '+affiliateShort,
+        'Buscando referências para um quarto infantil? Confira '+subject+' e compare as especificações do produto com o espaço e a faixa etária indicada. '+affiliateShort,
+      ];
+      headline='Ideias para o quarto infantil';subheadline='Confira as indicações do fabricante.';
+      primaryKeyword=subject;boardHint='Quarto Infantil: Ideias';
+      longTailKeywords=[subject+' quarto infantil','ideias para quarto infantil','itens de quarto infantil'];
     }else if(f.pets||scene.category==='pet'){
       const subject=f.subject;
       titles=['Organizando o cantinho do pet? Conheça '+subject,

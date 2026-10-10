@@ -26,7 +26,7 @@ describe('Conversion Copy 2.0 — real buyer intent, factual and editorial',()=>
    expect(titles[0]).toMatch(/panelas 10 peças preto e bege/i);
    expect(titles[0]).toMatch(/cozinha/i);
    expect(titles).toHaveLength(3);
-   expect(new Set(titles)).toHaveLength(3);
+   expect(new Set(titles).size).toBe(3);
    expect(titles.every(t=>t.length>=33&&t.length<=100&&!BANNED.test(t))).toBe(true);
    expect(descriptions).toHaveLength(2);
    expect(descriptions.every(d=>d.length>=140&&d.length<=500&&/link de afiliado/i.test(d))).toBe(true);
@@ -64,6 +64,9 @@ describe('Conversion Copy 2.0 — real buyer intent, factual and editorial',()=>
    ['Organizador giratório para cozinha','cozinha'],
    ['Tapete para sala bege','decorar'],
    ['Comedouro para gato','pet'],
+   ['Cesto de roupa para lavanderia','lavanderia'],
+   ['Organizador para quarto infantil','infantil'],
+   ['Caneca de cerâmica para cozinha','cozinha'],
  ])('creates category-appropriate hooks for %s', (title,keyword)=>{
    const p=packFor(title);
    expect(p.copy.titles.join(' ').toLowerCase()).toContain(keyword);
