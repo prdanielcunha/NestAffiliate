@@ -1,4 +1,5 @@
 import type {CampaignVersion,PinterestCreativePack} from '@nestaffiliate/core';
+import { compactPinText } from '@nestaffiliate/creative-engine';
 
 /** Same narrative for saved concept and in-canvas compare. No invented product claims. */
 export function narrativeForConcept(
@@ -10,7 +11,7 @@ export function narrativeForConcept(
  const description=copy.descriptions[index%Math.max(1,copy.descriptions.length)]??version.narrative.description;
  return {
   ...version.narrative,
-  headline:title.slice(0,100),
+  headline:compactPinText(title,57),
   pinterestTitle:title,
   description,
  };

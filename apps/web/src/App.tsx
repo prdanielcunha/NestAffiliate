@@ -6,7 +6,7 @@ import { maxDuplicateSimilarity, runPublishingGuard, inspectAffiliateAttestation
 import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
-import { campaignFilename, CREATIVE_TEMPLATES, renderPin,versionPinterestCreativePack,buildPinterestCreativePack } from '@nestaffiliate/creative-engine';
+import { campaignFilename, CREATIVE_TEMPLATES, renderPin,versionPinterestCreativePack,buildPinterestCreativePack,compactPinText } from '@nestaffiliate/creative-engine';
 import { FEATURE_FLAGS, KILL_SWITCHES, canAttemptPinterestPublish } from '@nestaffiliate/config';
 import { buildShopeePinterestSearchTerm, parseShopeeProductReference } from '@nestaffiliate/integrations';
 import { type Locale } from './lib/i18n';
@@ -1357,7 +1357,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       const pack=buildPinterestCreativePack({
         organizationId,campaignId:id,campaignVersion:1,product,
         keyword:campaignKeyword,boardName:campaign.currentVersion.boardName,
-        locale,existingNarrative:campaign.currentVersion.narrative,
+        locale,
         editorialContext:'Achados do Nest · Smart Import',
       });
       campaign.currentVersion.creativePack=pack;
@@ -2047,8 +2047,8 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
                 keyword:title.slice(0,120),
                 narrative:{
                   ...v.narrative,
-                  headline:`Uma ideia prática para ${title.toLocaleLowerCase('pt-BR')}`,
-                  pinterestTitle:`${title}: uma solução prática para o dia a dia`,
+                  headline:compactPinText(title,57),
+                  pinterestTitle:compactPinText(title,100),
                   altText:`Ideia editorial relacionada a ${title}.`,
                 },
               },'correct pasted manual product details');

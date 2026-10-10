@@ -932,3 +932,9 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .smart-auto-pending small{color:var(--muted)}.smart-auto-pending-actions{display:flex;gap:10px;flex-wrap:wrap}
 .smart-auto-pending-actions .button{white-space:normal;text-align:center}
 @media(max-width:540px){.smart-auto-pending-actions{display:grid}.smart-auto-pending-actions .button{width:100%}}
+
+/* Explicit, non-destructive refresh for legacy boilerplate. */
+.copy-refresh-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:20px;padding:14px 18px;border-radius:14px;background:rgba(178,230,123,.06);border:1px solid rgba(178,230,123,.18)}
+.copy-refresh-bar p{margin:0;max-width:660px;color:var(--muted);font-size:.87rem;line-height:1.5}
+.copy-refresh-bar button{flex-shrink:0;min-height:44px}
+@media(max-width:720px){.copy-refresh-bar{align-items:stretch;flex-direction:column}.copy-refresh-bar button{width:100%}}

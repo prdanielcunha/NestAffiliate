@@ -9,7 +9,15 @@ export function buildSceneProfile(input: SceneEngineInput): SceneProfile {
     hits: rule.patterns.filter((pattern) => pattern.test(text)).length,
   })).filter((candidate) => candidate.hits > 0);
 
-  const best = candidates.sort((a, b) => b.hits - a.hits)[0] ?? { rule: SCENE_RULES[SCENE_RULES.length - 1]!, hits: 1 };
+  // A generic "cozinha" board or keyword must not classify a cookware set
+  // as a storage organizer. Specific product nouns beat surrounding context.
+  const cookware=/\b(panela\w*|frigideira\w*|cac[aç]rola\w*|assadeira\w*)\b/.test(
+    input.product.title.value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),
+  );
+  const best = (cookware
+    ? candidates.find(candidate=>candidate.rule.category==='kitchen-utensils')
+    : undefined) ?? candidates.sort((a, b) => b.hits - a.hits)[0]
+    ?? { rule: SCENE_RULES[SCENE_RULES.length - 1]!, hits: 1 };
   const isFallback = best.rule.id === 'generic-home';
   const confidence = isFallback ? 0.62 : Math.min(0.96, 0.74 + best.hits * 0.08);
   const explanation = isFallback
