@@ -103,7 +103,7 @@ export function buildConversionPinCopy(input: {
       subheadline='Confira os detalhes reais do produto.';
       primaryKeyword=subject;boardHint='Utensílios e Ideias para Cozinha';
       longTailKeywords=[subject+' cozinha','utensílios de cozinha','ideias para bancada'];
-    }else if(f.organizer||scene.category==='kitchen-organization'){
+    }else if(scene.category==='kitchen-organization'){
       const subject=f.subject;
       titles=[
         'Sua cozinha pede mais organização? Conheça '+subject,
