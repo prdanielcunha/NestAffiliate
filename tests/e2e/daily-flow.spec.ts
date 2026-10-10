@@ -159,7 +159,8 @@ test('Approval with incomplete creative shows actionable blockers and preserves 
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
  await expect(page.getByRole('region',{name:'Etapas para publicar seu Pin'})).toBeVisible();
- await expect(page.getByText('DO RADAR AO PIN · PASSO A PASSO')).toBeVisible();
+ await expect(page.getByRole('region',{name:'Próxima ação e textos do Pin'})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Etapas para publicar seu Pin'}).locator('summary')).toContainText('Ver todas as etapas');
  await page.getByRole('button',{name:'Preparar Pin',exact:true}).click();
  await page.getByRole('button',{name:/Ver \d+ pendência\(s\) para aprovar/}).click();
  const errors=page.locator('#review-blockers');
@@ -174,11 +175,12 @@ test('Review explains affiliate link source and image workflow without claiming 
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
  const guide=page.getByRole('region',{name:'Etapas para publicar seu Pin'});
+ await guide.locator('summary').click();
  await expect(guide.getByText('Conferir link',{exact:true}).first()).toBeVisible();
  await expect(guide.getByText('Imagem com ChatGPT')).toBeVisible();
  await expect(page.getByText(/Seu link de comissão não vem automaticamente do Radar/)).toBeVisible();
  await expect(page.getByRole('link',{name:/Abrir instruções oficiais do Mercado Livre/})).toHaveAttribute('href',/mercadolivre.com.br\/l\/afiliados-portal-do-afiliado/);
- await expect(page.getByText(/a prévia com apenas texto ainda NÃO é a imagem final/i)).toBeVisible();
+ await expect(page.locator('.pin-preview-provisional')).toContainText(/não é o Pin final/i);
 });
 test('Approved campaign list leads to publishing rather than a confusing review loop',async({page})=>{
  await page.goto('/');

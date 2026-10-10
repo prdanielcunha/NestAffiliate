@@ -947,3 +947,95 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .nestai-strategy-choice{display:flex;align-items:flex-start;gap:9px;line-height:1.5;font-size:.87rem}
 .nestai-strategy-choice input{margin-top:4px;accent-color:#b8ed81;flex-shrink:0}
 @media(max-width:700px){.nestai-strategy-choices{grid-template-columns:1fr}}
+
+/* 2026-10-10 Guided UX: actions first, advanced material on demand.
+   All interactive targets remain accessible on desktop and narrow Safari. */
+html {scroll-behavior:smooth}
+#review-product,#review-ai,#review-images,#review-copy-editor,#review-blockers,
+#review-final,#review-creative{scroll-margin-top:100px}
+.guided-review-actions{display:grid;gap:16px;padding:24px;border:1px solid rgba(185,232,117,.3);
+ background:linear-gradient(145deg,#1a261b,#111915 85%);border-radius:22px;margin:0 0 20px}
+.guided-review-top{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.guided-review-top h2{font-size:clamp(22px,2.6vw,31px);line-height:1.15;margin:5px 0 9px;letter-spacing:-.03em}
+.guided-review-top p{color:var(--muted);margin:0;max-width:560px;line-height:1.5}
+.guided-next-cta{min-height:48px;flex-shrink:0;text-align:center}
+.guided-review-shortcuts{display:flex;gap:8px;flex-wrap:wrap}
+.guided-review-shortcuts a{padding:10px 14px;border:1px solid var(--border);
+ border-radius:999px;color:var(--text);text-decoration:none;font-weight:600;font-size:13px}
+.guided-review-shortcuts a:focus-visible,.guided-review-shortcuts a:hover{border-color:var(--accent)}
+.guided-copy-preview{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.guided-copy-field{padding:16px;border-radius:15px;background:rgba(5,12,8,.42);border:1px solid var(--border);min-width:0}
+.guided-copy-field>div{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.guided-copy-field span{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.guided-copy-field button{border:1px solid var(--border);background:var(--surface2);color:var(--text);
+ font-weight:700;padding:10px 12px;border-radius:11px;white-space:nowrap;cursor:pointer;min-height:42px}
+.guided-copy-field button:disabled{opacity:.4}
+.guided-copy-field p{font-size:14px;line-height:1.55;overflow-wrap:anywhere;margin:12px 0 0;white-space:pre-wrap}
+.guided-more-copy{color:var(--accent);font-size:13px;font-weight:650;text-decoration:none;justify-self:start}
+.campaign-journey{padding:18px!important;margin-bottom:18px!important}
+.campaign-journey-intro{gap:12px!important}
+.campaign-journey-intro h2{font-size:clamp(19px,2.4vw,24px)!important;margin:3px 0 7px!important}
+.campaign-journey-intro p{font-size:13px!important}
+.campaign-journey-details{margin-top:12px}
+.campaign-journey-details summary,.pack-advanced-details summary,
+.radar-advanced-research>summary{padding:10px 0;cursor:pointer;color:var(--muted);font-size:13px;font-weight:600}
+.campaign-journey-details .campaign-journey-stages{margin-top:12px}
+.campaign-journey-note{font-size:11px!important;margin-top:9px!important}
+.pack-advanced-details{margin:0 20px;border-bottom:1px solid var(--border)}
+.pack-advanced-details .pack-summary-grid{padding:12px 0}
+.nestai-nonblocking-status{padding:15px;border-radius:14px;border:1px solid rgba(185,232,117,.25);margin:12px 0}
+.nestai-nonblocking-status strong{display:block;font-size:15px}
+.nestai-nonblocking-status p{margin:7px 0 8px;color:var(--muted);line-height:1.5;font-size:13px}
+.radar-advanced-research{margin-bottom:12px}
+.radar-simple-help{margin:12px 0 22px;font-size:13px;color:var(--muted);line-height:1.5}
+.login-three-steps{display:flex;flex-wrap:wrap;gap:8px;margin-top:25px}
+.login-three-steps span{border:1px solid var(--border);border-radius:999px;padding:10px 14px;color:var(--text);font-size:13px}
+.login-reassurance{color:var(--muted);font-size:14px;line-height:1.6;margin:0}
+@media(max-width:720px){
+ .content{padding-left:15px!important;padding-right:15px!important}
+ .review-page{padding-bottom:20px!important}
+ .review-creative-stage{margin-bottom:12px}
+ .guided-review-actions{padding:17px 14px;gap:13px;border-radius:18px;margin-bottom:12px}
+ .guided-review-top{display:grid;gap:13px}
+ .guided-review-top h2{font-size:22px}
+ .guided-review-top p{font-size:12px}
+ .guided-next-cta{width:100%;min-height:48px}
+ .guided-review-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .guided-review-shortcuts a{text-align:center;padding:11px 7px;font-size:12px}
+ .guided-copy-preview{grid-template-columns:1fr}
+ .guided-copy-field{padding:12px}
+ .guided-copy-field p{font-size:13px;line-height:1.5}
+ .campaign-journey{padding:14px!important}
+ .campaign-journey-intro{display:grid!important}
+ .campaign-journey-intro .journey-next-link{width:100%!important}
+ .campaign-journey-note{line-height:1.45}
+ .review-stage-heading{padding:16px!important}
+ .review-stage-heading h2{font-size:22px!important;line-height:1.2}
+ .review-stage-heading p{font-size:13px!important}
+ .ai-intelligence-summary{padding:13px!important}
+ .ai-intelligence-summary strong{line-height:1.4}
+ .pinterest-creative-pack,.review-creative-stage,.decision-panel{min-width:0}
+ .creative-pack-header,.pack-section{padding:16px!important}
+ .pack-section .copy-option-grid{display:grid;grid-template-columns:1fr;gap:10px}
+ .pack-section .copy-option{width:100%;text-align:left;min-height:48px;overflow-wrap:anywhere}
+ .pack-advanced-details{margin:0 14px}
+ .ai-bar{position:static!important;left:auto!important;right:auto!important;bottom:auto!important;
+  width:100%!important;transform:none!important;margin:22px 0 110px!important;
+  box-sizing:border-box;min-height:58px}
+ .ai-bar input{min-width:0!important;font-size:16px}
+ .ai-bar button{min-height:43px}
+ .topbar .top-actions>.icon-button:first-child{display:none}
+ .topbar .automation-pill{font-size:12px}
+ .login-shell{padding:20px 16px!important;gap:18px!important}
+ .login-brand h1{font-size:clamp(37px,9vw,49px)!important;margin:12px 0!important}
+ .login-brand>p:not(.eyebrow){font-size:14px!important;line-height:1.5}
+ .login-three-steps{margin-top:15px}
+ .login-card{padding:20px!important}
+ .login-card h2{font-size:23px}
+ .smart-auto-import{margin-top:12px}
+ .smart-auto-head h2{font-size:24px}
+ .next-action-panel{padding:18px!important}
+ .next-action-panel h2{font-size:23px!important}
+ .bottom-nav{padding-bottom:env(safe-area-inset-bottom,0px)}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}

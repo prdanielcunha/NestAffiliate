@@ -197,6 +197,7 @@ export function PinterestCreativePackPanel({
       </div>
     </header>
 
+    <details className="pack-advanced-details"><summary>{locale==='pt-BR'?'Ver dados, qualidade e SEO':locale==='es'?'Ver datos, calidad y SEO':'View data, quality and SEO'}</summary>
     <div className="pack-summary-grid">
       <div><span>{t('product')}</span><strong>{campaign.currentVersion.product.title.value}</strong></div>
       <div><span>{t('recommendedAngle')}</span><strong>{selected?.title}</strong></div>
@@ -205,41 +206,9 @@ export function PinterestCreativePackPanel({
       <div><span>{t('image')}</span><strong>{hasImage?t('readyStatus'):t('waitingImport')}</strong></div>
       <div><span>SEO</span><strong>{pack.copy.primaryKeyword}</strong></div>
     </div>
+    </details>
 
-    <div className="pack-section">
-      <div className="section-heading">
-        <div><p className="eyebrow">{t('visualConcepts')}</p><h3>{t('chooseCreativeDirection')}</h3></div>
-        <button className="text-button" disabled={!editable} onClick={()=>{
-          const next=directionOffset+1;
-          setDirectionOffset(next);
-          createPack(next);
-        }}>{t('generateAnotherDirection')}</button>
-      </div>
-      <CreativeConceptPicker pack={pack} version={campaign.currentVersion} disabled={!editable} onSelect={selectConcept} />
-    </div>
-
-    <div className="pack-section">
-      <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true} />
-    </div>
-
-    <div className="pack-section">
-      <LocalPinComposer campaign={campaign} pack={pack} reference={reference}
-        disabled={!editable} onImported={importAsset}/>
-    </div>
-    <div className="pack-section">
-      <AIImageImport
-        organizationId={campaign.organizationId}
-        campaignId={campaign.id}
-        pack={pack}
-        product={campaign.currentVersion.product}
-        reference={reference}
-        referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true}
-        disabled={!editable}
-        onImported={importAsset}
-      />
-    </div>
-
-    <div className="pack-section">
+    <div className="pack-section" id="review-copy-editor">
       <p className="eyebrow">{t('copy')}</p>
       <div className="copy-option-grid">
         <div>
@@ -263,6 +232,39 @@ export function PinterestCreativePackPanel({
           >{description}</button>)}
         </div>
       </div>
+    </div>
+
+    <div className="pack-section">
+      <div className="section-heading">
+        <div><p className="eyebrow">{t('visualConcepts')}</p><h3>{t('chooseCreativeDirection')}</h3></div>
+        <button className="text-button" disabled={!editable} onClick={()=>{
+          const next=directionOffset+1;
+          setDirectionOffset(next);
+          createPack(next);
+        }}>{t('generateAnotherDirection')}</button>
+      </div>
+      <CreativeConceptPicker pack={pack} version={campaign.currentVersion} disabled={!editable} onSelect={selectConcept} />
+    </div>
+
+    <div className="pack-section" id="review-images">
+      <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true} />
+    </div>
+
+    <div className="pack-section">
+      <LocalPinComposer campaign={campaign} pack={pack} reference={reference}
+        disabled={!editable} onImported={importAsset}/>
+    </div>
+    <div className="pack-section">
+      <AIImageImport
+        organizationId={campaign.organizationId}
+        campaignId={campaign.id}
+        pack={pack}
+        product={campaign.currentVersion.product}
+        reference={reference}
+        referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true}
+        disabled={!editable}
+        onImported={importAsset}
+      />
     </div>
 
     <div className="pack-section pack-analysis">
