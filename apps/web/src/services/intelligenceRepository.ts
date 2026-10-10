@@ -1,5 +1,6 @@
 import { doc, serverTimestamp, writeBatch, type Firestore } from 'firebase/firestore';
 import type { Campaign } from '@nestaffiliate/core';
+import { stripUndefinedFields } from './firestorePayload';
 
 export async function persistCampaignIntelligence(db:Firestore,organizationId:string,campaign:Campaign){
   if(campaign.organizationId!==organizationId) throw new Error('TENANT_MISMATCH');
@@ -10,11 +11,11 @@ export async function persistCampaignIntelligence(db:Firestore,organizationId:st
   const opportunityId=`${campaign.id}-opportunity`;
   const batch=writeBatch(db);
 
-  batch.set(doc(db,...root,'products',product.productId),{
+  batch.set(doc(db,...root,'products',product.productId),stripUndefinedFields({
     ...product,
     organizationId,
     updatedAt:serverTimestamp(),
-  },{merge:true});
+  }),{merge:true});
 
   batch.set(doc(db,...root,'productSnapshots',snapshotId),{
     organizationId,

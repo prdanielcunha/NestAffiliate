@@ -170,6 +170,8 @@ export function createManualProductTruth(input: ManualProductInput): ProductTrut
     affiliateUrl = { value: parsed.toString(), source: 'user-provided', observedAt: new Date().toISOString() };
   }
   const now = new Date().toISOString();
+  const imageUrl = input.imageUrl?.trim() ? new URL(input.imageUrl.trim()) : null;
+  if (imageUrl && imageUrl.protocol !== 'https:') throw new Error('IMAGE_URL_MUST_BE_HTTPS');
   return {
     productId: `${input.marketplace.toLowerCase()}:manual:${input.externalId ?? crypto.randomUUID()}`,
     organizationId: input.organizationId,
@@ -183,8 +185,8 @@ export function createManualProductTruth(input: ManualProductInput): ProductTrut
       : undefined,
     currency: { value: input.currency?.trim() || 'BRL', source: 'user-provided', observedAt: now },
     availability: { value: 'unknown', source: 'user-provided', observedAt: now },
-    imageUrl: input.imageUrl?.trim()
-      ? { value: input.imageUrl.trim(), source: 'user-provided', observedAt: now }
+    imageUrl: imageUrl
+      ? { value: imageUrl.toString(), source: 'user-provided', observedAt: now }
       : undefined,
     assetRights: input.assetRights ?? 'UNKNOWN',
   };
@@ -371,10 +373,21 @@ export interface SharedProductFacts {
 }
 
 function sharedMarketplace(value:string){
-  const normalized=value.toLowerCase();
-  if(normalized.includes('mercadolivre.') || normalized.includes('mercadolibre.com')) return 'MELI' as const;
-  if(normalized.includes('shopee.')) return 'SHOPEE' as const;
-  return null;
+  const trimmed=value.trim();
+  try{
+    const host=new URL(trimmed).hostname.toLowerCase().replace(/^www\./,'');
+    if(host==='meli.la' || /^mercadolivre\.[a-z.]+$/.test(host) ||
+       host.includes('.mercadolivre.') || /^mercadolibre\.[a-z.]+$/.test(host) ||
+       host.includes('.mercadolibre.')) return 'MELI' as const;
+    if(/^shopee\.[a-z.]+$/.test(host) || host.includes('.shopee.')) return 'SHOPEE' as const;
+    return null;
+  }catch{
+    const normalized=trimmed.toLowerCase();
+    if(normalized.includes('mercadolivre.') || normalized.includes('mercadolibre.') ||
+       normalized.includes('meli.la')) return 'MELI' as const;
+    if(normalized.includes('shopee.')) return 'SHOPEE' as const;
+    return null;
+  }
 }
 
 export function inferShopeeTitleFromUrl(value:string){
@@ -397,8 +410,9 @@ export function inferShopeeTitleFromUrl(value:string){
 }
 
 export function parseSharedProductText(value:string):SharedProductFacts{
-  const urls=value.match(/https:\/\/[^\s<>"']+/gi) ?? [];
-  const productUrl=urls.find((url)=>/mercadolivre\.|mercadolibre\.com|shopee\./i.test(url)) ?? urls[0] ?? '';
+  const urls=(value.match(/https:\/\/[^\s<>"']+/gi) ?? [])
+    .map((url)=>url.replace(/[)\].,;!?]+$/g,''));
+  const productUrl=urls.find((url)=>sharedMarketplace(url)) ?? urls[0] ?? '';
   const marketplace=sharedMarketplace(productUrl || value);
   const priceMatch=value.match(/R\$\s*([\d.]+(?:,\d{2})?)/i);
   const titleFromText=value
