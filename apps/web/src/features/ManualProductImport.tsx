@@ -2,10 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import type { ProductTruth } from '@nestaffiliate/core';
 import {
   createManualProductTruth,
+  cleanSharedListingUrl,
+  cleanSharedProductTitle,
   parseSharedProductText,
   parseShopeeProductReference,
 } from '@nestaffiliate/integrations';
 import { useI18n } from '../lib/i18n-context';
+import { useAuth } from '../lib/auth';
+import { searchMercadoLivreBroker } from '../services/mercadoLivreBroker';
+import { isSafeOfferUrl } from '@nestaffiliate/radar';
 import { buildShopeeManualSignals, type OpportunitySignals, type ShopeeManualSignalType } from '@nestaffiliate/radar';
 
 export function ManualProductImport({
@@ -22,6 +27,7 @@ export function ManualProductImport({
   seedKeyword?:string;
 }){
   const { t,locale } = useI18n();
+  const {user} = useAuth();
   const fileRef=useRef<HTMLInputElement>(null);
   const [marketplace,setMarketplace]=useState<'SHOPEE'|'MELI'>(defaultMarketplace);
   const [quickInput,setQuickInput]=useState('');
@@ -38,6 +44,10 @@ export function ManualProductImport({
   const [error,setError]=useState('');
   const [evidenceUrl,setEvidenceUrl]=useState('');
   const [evidenceName,setEvidenceName]=useState('');
+  const [officialMatches,setOfficialMatches]=useState<ProductTruth[]>([]);
+  const [finding,setFinding]=useState(false);
+  const [officialSelection,setOfficialSelection]=useState<ProductTruth|null>(null);
+  const [researchInfo,setResearchInfo]=useState('');
 
   useEffect(()=>()=>{if(evidenceUrl.startsWith('blob:')) URL.revokeObjectURL(evidenceUrl);},[evidenceUrl]);
   useEffect(()=>{
@@ -53,7 +63,42 @@ export function ManualProductImport({
     if(facts.priceText) setPrice(facts.priceText);
     if(facts.title) setTitle((current)=>current.trim() ? current : facts.title);
     if(facts.title) setKeyword((current)=>current.trim() ? current : facts.title);
+    setOfficialSelection(null);
+    setOfficialMatches([]);
+    setResearchInfo('');
     setError('');
+  }
+
+  async function findOfficialListings(){
+    setOfficialMatches([]);
+    setOfficialSelection(null);
+    const query=cleanSharedProductTitle(title).slice(0,120).trim();
+    if(marketplace!=='MELI' || !user || query.length<8){
+      setResearchInfo(locale==='pt-BR'?'Informe o título ou cole o link completo do anúncio para pesquisar.':locale==='es'?'Escribe el título para buscar anuncios.':'Enter the title to search official listings.');
+      return;
+    }
+    setFinding(true);
+    setResearchInfo('');
+    try{
+      const found=await searchMercadoLivreBroker({user,organizationId,query,limit:8});
+      const safe=found.filter(item=>item.marketplace==='MELI' && isSafeOfferUrl(item.url.value,'MELI') && item.title.value.length>6);
+      setOfficialMatches(safe);
+      if(!safe.length)setResearchInfo(locale==='pt-BR'?'Nenhum anúncio verificável retornado. Você pode continuar com um rascunho de pesquisa.':locale==='es'?'No se encontraron anuncios verificados.':'No verified listings were returned; you can continue with a research draft.');
+    }catch{
+      setResearchInfo(locale==='pt-BR'?'A consulta oficial está indisponível ou limitada. Nenhum dado será inventado; você pode continuar como rascunho.':locale==='es'?'La búsqueda oficial está limitada; no inventaremos datos.':'The official search is unavailable; we will not invent product data.');
+    }finally{setFinding(false);}
+  }
+
+  function chooseOfficialListing(product:ProductTruth){
+    setOfficialSelection(product);
+    setProductUrl(product.url.value);
+    setTitle(product.title.value);
+    setKeyword(product.title.value);
+    setPrice(typeof product.price?.value==='number' ? String(product.price.value).replace('.',',') : '');
+    setImageUrl(product.imageUrl?.value ?? '');
+    setRights('UNKNOWN');
+    setOfficialMatches([]);
+    setResearchInfo(locale==='pt-BR'?'Anúncio selecionado. Compare os detalhes com o produto desejado antes de continuar.':locale==='es'?'Anuncio elegido; revisa los detalles antes de continuar.':'Listing selected. Verify that it matches your intended product.');
   }
 
   function setEvidenceFile(file:File|null){
@@ -66,23 +111,35 @@ export function ManualProductImport({
 
   function submit(){
     try{
-      if(!productUrl.trim()) throw new Error(t('quickImportNeedsLink'));
-      if(!title.trim()) throw new Error(t('quickImportNeedsTitle'));
+      const normalizedUrl=cleanSharedListingUrl(productUrl);
+      const normalizedTitle=cleanSharedProductTitle(title);
+      if(!normalizedUrl) throw new Error(t('quickImportNeedsLink'));
+      if(!normalizedTitle) throw new Error(t('quickImportNeedsTitle'));
+      if(normalizedUrl!==productUrl.trim() || normalizedTitle!==title.trim()){
+        setProductUrl(normalizedUrl);
+        setTitle(normalizedTitle);
+        setKeyword(normalizedTitle);
+        setOfficialSelection(null);
+        setError(locale==='pt-BR'?'Corrigimos texto ou links repetidos. Confira os campos e clique novamente para criar.':locale==='es'?'Corregimos texto o enlaces duplicados. Confirma los datos.':'Repeated text or links were cleaned. Review and submit again.');
+        return;
+      }
       const parsedPrice=price.trim() ? Number(price.replace(/\./g,'').replace(',','.')) : undefined;
       if(parsedPrice !== undefined && !Number.isFinite(parsedPrice)) throw new Error(t('invalidPrice'));
       const shopeeReference=marketplace==='SHOPEE' ? parseShopeeProductReference(productUrl) : {};
-      const product=createManualProductTruth({
+      const product=officialSelection?.url.value===normalizedUrl && officialSelection.title.value===normalizedTitle
+        ? officialSelection
+        : createManualProductTruth({
         organizationId,
         marketplace,
         externalId:shopeeReference.itemId,
-        title,
-        productUrl,
+        title:normalizedTitle,
+        productUrl:normalizedUrl,
         affiliateUrl:affiliateUrl || undefined,
         price:parsedPrice,
         imageUrl:imageUrl.trim() || undefined,
         assetRights:rights,
       });
-      const effectiveKeyword=keyword.trim() || seedKeyword.trim() || title.trim();
+      const effectiveKeyword=(keyword.trim() || seedKeyword.trim() || normalizedTitle).slice(0,120);
       let signals:OpportunitySignals|undefined;
       if(marketplace==='SHOPEE'){
         const parsedCommission=commissionRate.trim() ? Number(commissionRate.replace(',','.'))/100 : undefined;
@@ -121,8 +178,8 @@ export function ManualProductImport({
         setEvidenceFile(image);
         return;
       }
-      const text=event.clipboardData.getData('text/plain');
-      if(text) applyQuickInput(text);
+      // Do not intercept text pasted into title, URL or affiliate inputs.
+      // The quick textarea processes its own native onChange.
     }}
   >
     {featured && <div className="quick-mode-steps" aria-label={t('shopeeQuickStepsLabel')}>
@@ -181,24 +238,53 @@ export function ManualProductImport({
       </label>}
       <label className={featured ? 'span-2' : ''}>
         <span>{t('title')}{featured && !title.trim() ? ` · ${t('required')}` : ''}</span>
-        <input value={title} onChange={(e)=>setTitle(e.target.value)} placeholder={featured ? t('productTitleAutoHint') : t('productName')} />
+        <input value={title} onChange={(e)=>{setTitle(e.target.value);setOfficialSelection(null);}} placeholder={featured ? t('productTitleAutoHint') : t('productName')} />
       </label>
       <label className="span-2">
         <span>{t('officialProductUrl')}</span>
         <input value={productUrl} onChange={(e)=>{
-          setProductUrl(e.target.value);
           const facts=parseSharedProductText(e.target.value);
+          setProductUrl(facts.productUrl || e.target.value);
+          setOfficialSelection(null);
           if(facts.marketplace)setMarketplace(facts.marketplace);
           if(facts.title && !title.trim())setTitle(facts.title);
         }} placeholder="https://shopee.com.br/..." inputMode="url" />
       </label>
     </div>
 
+    {marketplace==='MELI' && <div className="span-2 import-official-research">
+      <p className="field-hint">{locale==='pt-BR'
+        ? 'Link curto reconhecido não significa anúncio identificado. Pesquise pelo título e escolha o anúncio exato para importar os dados oficiais disponíveis.'
+        : locale==='es'
+          ? 'Un enlace corto no identifica el anuncio exacto. Busca por título y confirma el resultado.'
+          : 'A short link does not identify an exact listing. Search by title and confirm the result.'}</p>
+      <button className="button secondary" type="button" disabled={finding || !user || title.trim().length<8} onClick={()=>void findOfficialListings()}>
+        {finding?(locale==='pt-BR'?'Consultando Mercado Livre…':locale==='es'?'Buscando…':'Searching…')
+          :(locale==='pt-BR'?'Buscar dados oficiais pelo título':locale==='es'?'Buscar anuncios oficiales':'Find official listings')}
+      </button>
+      {researchInfo && <p className="field-hint" role="status">{researchInfo}</p>}
+      {officialSelection && <p className="field-hint" role="status">
+        {locale==='pt-BR'?'Anúncio oficial selecionado (confirme que é exatamente a mesma oferta).':locale==='es'?'Anuncio oficial seleccionado.':'Official listing selected.'}
+      </p>}
+      {officialMatches.length>0 && <div className="import-official-matches" aria-label={locale==='pt-BR'?'Possíveis anúncios do Mercado Livre':'Official listing candidates'}>
+        {officialMatches.map(candidate=><div className="import-official-match" key={candidate.productId}>
+          {candidate.imageUrl?.value && <img src={candidate.imageUrl.value} alt="" loading="lazy" width={72} height={72} />}
+          <div><strong>{candidate.title.value}</strong>
+            <small>{candidate.price ? candidate.price.value.toLocaleString(locale,{style:'currency',currency:'BRL'}) : (locale==='pt-BR'?'Preço não informado':'Price unavailable')}</small>
+            <small>{candidate.externalId} · {locale==='pt-BR'?'Origem: pesquisa do marketplace':'Marketplace research'}</small>
+            <button className="button secondary" type="button" onClick={()=>chooseOfficialListing(candidate)}>
+              {locale==='pt-BR'?'É o anúncio exato — usar dados':locale==='es'?'Es el anuncio exacto':'Use this exact listing'}
+            </button>
+          </div>
+        </div>)}
+      </div>}
+    </div>}
+
     <details className="advanced-fields">
       <summary>{featured ? t('improveAnalysisOptional') : t('optionalDetails')}</summary>
       <div className="form-grid">
         <label className="span-2">{t('affiliateLink')}<input value={affiliateUrl} onChange={(e)=>setAffiliateUrl(e.target.value)} placeholder="https://..." inputMode="url" /></label>
-        <label>{t('optionalPrice')}<input value={price} onChange={(e)=>setPrice(e.target.value)} placeholder="69,90" inputMode="decimal" /></label>
+        <label>{t('optionalPrice')}<input value={price} onChange={(e)=>{setPrice(e.target.value);setOfficialSelection(null);}} placeholder="69,90" inputMode="decimal" /></label>
         <label className="span-2">{locale==='pt-BR'?'URL da imagem do produto (opcional, uso sujeito a autorização)':locale==='es'?'URL de imagen del producto (opcional, requiere permiso)':'Product image URL (optional, requires permission)'}<input value={imageUrl} onChange={(e)=>setImageUrl(e.target.value)} placeholder="https://..." inputMode="url" /></label>
         <label>{t('assetRights')}<select value={rights} onChange={(e)=>setRights(e.target.value as ProductTruth['assetRights'])}><option value="UNKNOWN">{t('unconfirmed')}</option><option value="AUTHORIZED">{t('authorized')}</option><option value="USER_PROVIDED">{t('providedByMe')}</option><option value="GENERATED">{t('generated')}</option></select></label>
         {marketplace==='SHOPEE' && <>

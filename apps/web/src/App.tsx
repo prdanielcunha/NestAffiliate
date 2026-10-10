@@ -49,6 +49,7 @@ import { analyzeAffiliateProduct, type AffiliateProductAnalysis } from './servic
 import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
 import './features/revenue3.css';
 import { ProductSourceActions } from './features/ProductSourceActions';
+import { ProductTruthRepair } from './features/ProductTruthRepair';
 import { loadLatestRadarV4Coverage, listRadarV4Research, listRadarV4Assessments, primaryRadarBlocker, saveRadarV4Coverage, type SourceCoverageRunV4, type StoredRadarAssessmentV4 } from './services/radarV4Repository';
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel, opportunityReasonLabel } from './features/OpportunityV4Panel';
@@ -2003,10 +2004,31 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         <section className="decision-panel">
           <div className="review-header">
             <div><p className="eyebrow">{t('review')}</p><h1>{v.keyword}</h1></div>
-            <div className="score-badge"><strong>{campaign.score.score}</strong><span>NestScore<br/>{t('confidence')} {t(campaign.score.confidence as 'high'|'medium'|'low')}</span></div>
+            <div className="score-badge">{['user-provided','user-corrected'].includes(v.product.title.source) && !v.product.listingVerified ? <><strong>—</strong><span>{locale==='pt-BR'?'NestScore pendente · oferta sem verificação':locale==='es'?'NestScore pendiente':'NestScore pending'}</span></> : <><strong>{campaign.score.score}</strong><span>NestScore<br/>{t('confidence')} {t(campaign.score.confidence as 'high'|'medium'|'low')}</span></>}</div>
           </div>
           <div id="review-product"><Disclosure title={t('product')} defaultOpen>
             <h3>{v.product.title.value}</h3>
+            <ProductTruthRepair product={v.product} editable={editable} onRepair={(title,url)=>{
+              const observedAt=new Date().toISOString();
+              const product:ProductTruth={
+                ...v.product,
+                listingVerified:false,
+                title:{value:title,source:'user-corrected',observedAt},
+                url:{value:url,source:'user-corrected',observedAt},
+              };
+              const next=nextCampaignVersion(campaign,{
+                product,
+                keyword:title.slice(0,120),
+                narrative:{
+                  ...v.narrative,
+                  headline:`Uma ideia prática para ${title.toLocaleLowerCase('pt-BR')}`,
+                  pinterestTitle:`${title}: uma solução prática para o dia a dia`,
+                  altText:`Ideia editorial relacionada a ${title}.`,
+                },
+              },'correct pasted manual product details');
+              update(next);
+              recordDecision('EDITED',next,'corrected manual product details');
+            }} />
             <ProductSourceActions product={v.product} />
             <p className="muted">{campaign.marketplace} · {v.product.sellerName?.value ?? t('sellerUnknown')}</p>
             <small>{t('source')}: {v.product.title.source} · {new Date(v.product.title.observedAt).toLocaleString(locale)}</small>

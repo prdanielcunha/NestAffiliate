@@ -8,6 +8,7 @@ export function ProductSourceActions({product,compact=false}:{product:ProductTru
   const {locale}=useI18n();
   const [feedback,setFeedback]=useState('');
   const original=isSafeOfferUrl(product.url.value,product.marketplace)?product.url.value:null;
+  const suppliedShortLink=(()=>{try{const u=new URL(product.url.value);return product.marketplace==='MELI' && u.protocol==='https:' && u.hostname.toLowerCase()==='meli.la' && !u.username && !u.password && !u.port ? u.toString() : null;}catch{return null;}})();
   const affiliate=isSafeAffiliateUrl(product.affiliateUrl?.value,product.marketplace)?product.affiliateUrl!.value:null;
   const es=locale==='es',pt=locale==='pt-BR';
   const labels={
@@ -20,8 +21,8 @@ export function ProductSourceActions({product,compact=false}:{product:ProductTru
   async function copy(value:string){try{await navigator.clipboard.writeText(value);setFeedback(pt?'Copiado':es?'Copiado':'Copied');}catch{setFeedback(pt?'Não foi possível copiar':es?'No se pudo copiar':'Copy failed');}}
   return <section className={'product-source-actions'+(compact?' compact':'')} aria-label={pt?'Origem do produto':'Product source'}>
     <div className="source-actions-line">
-      {original?<a className="button secondary" href={original} target="_blank" rel="noopener noreferrer">{labels.open}</a>:<small role="status">{labels.missing}</small>}
-      {original&&<button type="button" className="text-button" onClick={()=>void copy(original)}>{labels.copy}</button>}
+      {original?<a className="button secondary" href={original} target="_blank" rel="noopener noreferrer">{labels.open}</a>:suppliedShortLink?<><a className="button secondary" href={suppliedShortLink} target="_blank" rel="noopener noreferrer">{pt?'Abrir link informado para conferir':es?'Abrir enlace para comprobar':'Open submitted link to verify'}</a><small role="status">{pt?'URL curta não confirma anúncio nem comissão.':es?'Enlace corto sin verificar.':'Short link is not a verified listing or affiliate link.'}</small></>:<small role="status">{labels.missing}</small>}
+      {(original||suppliedShortLink)&&<button type="button" className="text-button" onClick={()=>void copy((original||suppliedShortLink)!)}>{labels.copy}</button>}
       {affiliate&&<><a className="text-button" href={affiliate} target="_blank" rel="noopener noreferrer">{labels.affiliate}</a><button type="button" className="text-button" onClick={()=>void copy(affiliate)}>{pt?'Copiar link afiliado':es?'Copiar enlace afiliado':'Copy affiliate link'}</button></>}
     </div>
     {!compact&&<><p className="source-url">{original??product.url.value}</p>

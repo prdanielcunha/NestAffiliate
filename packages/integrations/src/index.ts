@@ -365,6 +365,42 @@ export function parseShopeeProductReference(value: string): ShopeeProductReferen
   return {};
 }
 
+/**
+ * Human-pasted marketplace text is untrusted and can repeat URLs/titles.
+ * This is syntactic cleanup only; it does not verify a listing or prove a commission.
+ */
+export function cleanSharedListingUrl(raw: string): string {
+  const match = raw.match(/https:\/\/[^\s<>"']+/i);
+  if (!match) return '';
+  let candidate = match[0].replace(/[)\].,;!?]+$/g, '');
+  // Some browser share sheets duplicate a full URL without a space.
+  const nextProtocol = candidate.toLowerCase().indexOf('https://', 8);
+  if (nextProtocol > 0) candidate = candidate.slice(0, nextProtocol);
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== 'https:' || url.username || url.password || url.port) return '';
+    if (!url.hostname || url.hostname.endsWith('.') || url.hostname.includes('..')) return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+export function cleanSharedProductTitle(raw: string): string {
+  const firstLine = raw.replace(/https:\/\/[^\s]+/gi, ' ')
+    .split(/\r?\n/).map(line => line.trim()).filter(Boolean)[0] ?? '';
+  const normalized = firstLine.replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+  // Trim a title pasted several times, but never synthesize missing facts.
+  for (let length = 20; length <= Math.min(180, Math.floor(normalized.length / 2)); length++) {
+    const prefix = normalized.slice(0, length).trimEnd();
+    if (prefix.length < 20) continue;
+    if (normalized.slice(length).trimStart().toLocaleLowerCase('pt-BR').startsWith(prefix.toLocaleLowerCase('pt-BR'))) {
+      return prefix;
+    }
+  }
+  return normalized;
+}
+
 export interface SharedProductFacts {
   productUrl: string;
   marketplace: 'SHOPEE' | 'MELI' | null;
@@ -410,29 +446,18 @@ export function inferShopeeTitleFromUrl(value:string){
 }
 
 export function parseSharedProductText(value:string):SharedProductFacts{
-  const urls=(value.match(/https:\/\/[^\s<>"']+/gi) ?? [])
-    .map((url)=>url.replace(/[)\].,;!?]+$/g,''));
-  const productUrl=urls.find((url)=>sharedMarketplace(url)) ?? urls[0] ?? '';
+  const urlCandidates=value.match(/https:\/\/[^\s<>"']+/gi) ?? [];
+  const normalizedUrls=urlCandidates.map(cleanSharedListingUrl).filter(Boolean);
+  const productUrl=normalizedUrls.find((url)=>sharedMarketplace(url)) ?? normalizedUrls[0] ?? '';
   const marketplace=sharedMarketplace(productUrl || value);
   const priceMatch=value.match(/R\$\s*([\d.]+(?:,\d{2})?)/i);
-  const titleFromText=value
-    .split(/\r?\n/)
-    .map((line)=>line.trim())
-    .find((line)=>
-      line.length>=6 &&
-      !/^https?:\/\//i.test(line) &&
-      !/^R\$/i.test(line) &&
-      !/^compartilh/i.test(line) &&
-      !/^copiar\s+link/i.test(line) &&
-      !/^link/i.test(line)
-    ) ?? '';
-  const title=titleFromText || (marketplace==='SHOPEE' ? inferShopeeTitleFromUrl(productUrl) : '');
-  return {
-    productUrl,
-    marketplace,
-    title,
-    priceText:priceMatch?.[1] ?? '',
-  };
+  const titleFromText=value.split(/\r?\n/).map(line=>line.trim()).find(line=>
+    line.length>=6 && !/^https?:\/\//i.test(line) && !/^R\$/i.test(line) &&
+    !/^compartilh/i.test(line) && !/^copiar\s+link/i.test(line) && !/^link/i.test(line)
+  ) ?? '';
+  const title=cleanSharedProductTitle(titleFromText) ||
+    (marketplace==='SHOPEE' ? inferShopeeTitleFromUrl(productUrl) : '');
+  return {productUrl,marketplace,title,priceText:priceMatch?.[1] ?? ''};
 }
 
 export function buildShopeePinterestSearchTerm(product: Pick<ProductTruth, 'title' | 'externalId'>) {
