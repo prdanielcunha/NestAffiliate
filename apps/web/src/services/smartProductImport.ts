@@ -38,7 +38,16 @@ export async function resolveOfficialProductLink(input:{
   return data;
 }
 export function attachDeclaredAffiliateUrl(product:ProductTruth,sourceUrl:string,declared:boolean):ProductTruth{
-  if(!declared)return {...product,affiliateUrl:undefined,affiliateAttestation:undefined};
+  if(!declared){
+    // A verified Shopee Affiliate Open API offerLink belongs to the connected
+    // organization's affiliate account. Do not erase it when the incoming
+    // user-pasted listing URL was correctly marked as a regular URL.
+    if(product.marketplace==='SHOPEE'
+      &&product.affiliateUrl?.source==='shopee-affiliate-open-api'
+      &&isSafeAffiliateUrl(product.affiliateUrl.value,'SHOPEE'))
+      return {...product,affiliateAttestation:undefined};
+    return {...product,affiliateUrl:undefined,affiliateAttestation:undefined};
+  }
   const url=cleanSharedListingUrl(sourceUrl);
   if(!url)throw new Error('INVALID_AFFILIATE_LINK');
   const u=new URL(url);

@@ -15,6 +15,8 @@ export interface ProductTruth {
   organizationId: string;
   marketplace: Marketplace;
   externalId: string;
+  /** Official Shopee Affiliate Open API shop identifier when actually returned. */
+  shopId?: TruthValue<string>;
   catalogProductId?: string;
   listingVerified?: boolean;
   soldQuantity?: TruthValue<number>;
@@ -275,6 +277,7 @@ export interface CampaignVersion {
     positioning?:string;
     unknowns:string[];
     aiAttempted:boolean;
+    failureCode?:'AUTH'|'APP_CHECK'|'OUTPUT'|'PROVIDER'|'RATE_LIMIT'|'TIMEOUT'|'NETWORK'|'UNKNOWN';
   };
   creativeAsset?: CreativeAsset;
 }
