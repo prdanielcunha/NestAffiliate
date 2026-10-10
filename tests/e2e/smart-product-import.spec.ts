@@ -51,3 +51,53 @@ test('Smart Import preserves an unresolved meli.la affiliate link without claimi
  await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://meli.la/2GDhhKL');
  await expect(page.getByText(/produto ainda não identificado|identificação pendente/i).first()).toBeVisible();
 });
+
+test('Smart Import authenticates through Hub, invokes NestAI and actually USES generated product copy',async({page})=>{
+ let hubExchanges=0,aiCalls=0;
+ const cors={
+  'access-control-allow-origin':'*',
+  'access-control-allow-headers':'authorization,content-type,x-firebase-appcheck,x-millionsnest-app',
+  'access-control-allow-methods':'POST,OPTIONS',
+ };
+ await page.route('**/api/v1/ai/token',async route=>{
+  hubExchanges++;
+  if(route.request().method()==='OPTIONS')return route.fulfill({status:204,headers:cors});
+  await route.fulfill({status:200,headers:{...cors,'content-type':'application/json'},body:JSON.stringify({token:'mock-jwt-for-e2e',expiresIn:300})});
+ });
+ await page.route('**/v1/run',async route=>{
+  if(route.request().method()==='OPTIONS')return route.fulfill({status:204,headers:cors});
+  const req=route.request().postDataJSON() as {task:string;input:{product?:{title?:string}}};
+  expect(req.task).toBe('affiliate.pin.strategy');
+  expect(req.input.product?.title).toMatch(/panelas antiaderente 10 peças/i);
+  aiCalls++;
+  await route.fulfill({status:200,headers:{...cors,'content-type':'application/json'},body:JSON.stringify({
+   requestId:'e2e-ai',task:req.task,version:1,meta:{providerClass:'free',fallbackUsed:false,retries:0},result:{
+    productType:'Conjunto de panelas',buyerIntent:'Comparar conjuntos para cozinhar em casa',
+    audience:'Pessoas que cozinham no dia a dia',positioning:'Mostrar composição do jogo e estilo na cozinha',
+    factsUsed:['10 peças','antiaderente'],unknowns:['Composição exata do kit não confirmada'],
+    angles:['Visual de cozinha','Comparar as peças','Trocar as panelas da casa'],
+    titles:['Jogo de panelas 10 peças: conheça o conjunto','Sua cozinha merece atenção: veja este jogo de panelas','Quer trocar as panelas? Confira este conjunto de 10 peças'],
+    descriptions:[
+      'Conheça este jogo de panelas antiaderente de 10 peças e veja os itens mostrados nas fotos do anúncio. Confira avaliações e preço atualizado antes de decidir. Conteúdo com link de afiliado.',
+      'Quer pesquisar panelas para a sua cozinha? Compare as fotos, os detalhes e a composição deste conjunto de 10 peças no anúncio. Conteúdo com link de afiliado.',
+    ],
+    keywords:['jogo de panelas','panelas 10 peças','conjunto antiaderente','cozinha','panelas para casa'],
+    recommendedBoard:'Jogos de Panelas para Cozinha',headline:'Panelas 10 peças para sua cozinha',cta:'Ver detalhes',
+   },
+  })});
+ });
+ await page.route('**/api/v1/nestaffiliate/mercadolivre/resolve',async route=>{
+  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'SOURCE_LIMITED',reason:'OFFICIAL_SOURCE_UNAVAILABLE'})});
+ });
+ await page.goto('/radar');
+ const smart=page.getByRole('region',{name:'Importação inteligente'});
+ await smart.getByPlaceholder('https://meli.la/...').fill('https://meli.la/2GDhhKL');
+ await smart.getByText('Caso a fonte não identifique o produto').click();
+ await smart.getByPlaceholder('Nome do produto').fill('Conjunto de panelas antiaderente 10 peças');
+ await smart.getByRole('button',{name:/Entender produto com NestAI e criar Pin/}).click();
+ await expect(page).toHaveURL(/\/review\/campaign-/);
+ await expect(page.getByText('NestAI personalizou esta campanha')).toBeVisible();
+ await expect(page.getByText('Jogo de panelas 10 peças: conheça o conjunto').first()).toBeVisible();
+ expect(hubExchanges).toBeGreaterThan(0);
+ expect(aiCalls).toBeGreaterThan(0);
+});
