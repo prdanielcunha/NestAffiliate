@@ -415,13 +415,13 @@ function sharedMarketplace(value:string){
     if(host==='meli.la' || /^mercadolivre\.[a-z.]+$/.test(host) ||
        host.includes('.mercadolivre.') || /^mercadolibre\.[a-z.]+$/.test(host) ||
        host.includes('.mercadolibre.')) return 'MELI' as const;
-    if(/^shopee\.[a-z.]+$/.test(host) || host.includes('.shopee.')) return 'SHOPEE' as const;
+    if(host==='shope.ee' || /^shopee\.[a-z.]+$/.test(host) || host.includes('.shopee.')) return 'SHOPEE' as const;
     return null;
   }catch{
     const normalized=trimmed.toLowerCase();
     if(normalized.includes('mercadolivre.') || normalized.includes('mercadolibre.') ||
        normalized.includes('meli.la')) return 'MELI' as const;
-    if(normalized.includes('shopee.')) return 'SHOPEE' as const;
+    if(normalized.includes('shopee.') || normalized.includes('shope.ee')) return 'SHOPEE' as const;
     return null;
   }
 }
