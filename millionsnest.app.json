@@ -6,6 +6,7 @@
     "enabled": true,
     "tasks": [
       "affiliate.product.analyze",
+      "affiliate.pin.strategy",
       "affiliate.pin.copy",
       "affiliate.creative.generate"
     ],
