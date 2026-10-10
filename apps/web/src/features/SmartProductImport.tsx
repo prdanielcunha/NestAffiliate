@@ -4,9 +4,9 @@ import { createManualProductTruth, cleanSharedListingUrl, parseSharedProductText
 import { detectImageMime } from '@nestaffiliate/creative-engine';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n-context';
-import { extractAffiliateScreenshot,generateAffiliatePinStrategy } from '../services/nestAiClient';
+import { extractAffiliateScreenshot } from '../services/nestAiClient';
 import type { ProductAiStrategy } from '../lib/aiProductStrategy';
-import {classifyNestAiFailure,type NestAiFailureCode} from '../lib/nestAiFailure';
+import type {NestAiFailureCode} from '../lib/nestAiFailure';
 import { attachDeclaredAffiliateUrl, resolveOfficialProductLink } from '../services/smartProductImport';
 import { resolveShopeeProductLink } from '../services/shopeeProductResolver';
 
@@ -159,21 +159,11 @@ export function SmartProductImport({
         };
       }
       product=attachDeclaredAffiliateUrl(product,link,affiliate && Boolean(source));
-      setStatus(message(locale,'O NestAI está entendendo o produto e criando títulos específicos…','NestAI is understanding this product and writing bespoke copy…','NestAI está analizando el producto y escribiendo textos específicos…'));
-      let strategy:ProductAiStrategy|undefined;
-      let aiFailureCode:NestAiFailureCode|undefined;
-      try{
-        strategy=await Promise.race([
-          generateAffiliatePinStrategy({
-            user,organizationId,locale,product,observedFacts:extracted?.visibleFacts??[],
-          }),
-          new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_STRATEGY_TIMEOUT')),65_000)),
-        ]);
-      }catch(reason){
-        aiFailureCode=classifyNestAiFailure(reason);
-      }
+      // Make the campaign immediately available. NestAI drafts are prepared
+      // asynchronously in Review, with a visible option to continue without IA.
+      // Never hold this screen for a 65s inference timeout.
       setStatus('');
-      onImported(product,product.title.value,strategy,true,aiFailureCode);
+      onImported(product,product.title.value,undefined,false);
     }catch(e){
       setStatus('');
       setError(e instanceof Error?e.message:'IMPORT_FAILED');
@@ -273,8 +263,8 @@ export function SmartProductImport({
     {status&&<p role="status" className="field-hint">{status}</p>}
     <button className="button primary smart-auto-button" type="button" disabled={busy||!user||(!link.trim()&&!screenshot)}
       onClick={()=>void analyze()}>
-      {busy?message(locale,'Analisando produto…','Analyzing…','Analizando…'):
-        message(locale,'Entender produto com NestAI e criar Pin →','Understand product with NestAI and create Pin →','Analizar producto con NestAI y crear Pin →')}
+      {busy?status || message(locale,'Identificando anúncio…','Identifying listing…','Identificando anuncio…'):
+        message(locale,'Salvar produto e preparar Pin →','Save product and prepare Pin →','Guardar producto y preparar Pin →')}
     </button>
   </section>;
 }

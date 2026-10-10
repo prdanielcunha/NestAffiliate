@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useState,useRef,useEffect} from 'react';
 import type {Campaign} from '@nestaffiliate/core';
 import {useAuth} from '../lib/auth';
 import {useI18n} from '../lib/i18n-context';
@@ -16,8 +16,8 @@ export function sanitizePinCopyDraft(raw:AffiliatePinCopy):PinCopyDraft{
  if(title.length<8||description.length<15)throw new Error('NESTAI_EMPTY_OR_INVALID_DRAFT');
  return {title,description,tags};
 }
-export function NestAiDraftReview({campaign,editable,onApply}:{
- campaign:Campaign;editable:boolean;onApply:(draft:PinCopyDraft)=>void;
+export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
+ campaign:Campaign;editable:boolean;onApply:(draft:PinCopyDraft)=>void;autoStart?:boolean;
 }){
  const {locale}=useI18n();const {user,organizationId}=useAuth();
  const pt=locale==='pt-BR',es=locale==='es';
@@ -25,8 +25,33 @@ export function NestAiDraftReview({campaign,editable,onApply}:{
  const [busy,setBusy]=useState(false),[draft,setDraft]=useState<ProductAiStrategy|null>(null);
  const [titleIndex,setTitleIndex]=useState(0),[descriptionIndex,setDescriptionIndex]=useState(0);
  const [error,setError]=useState(''),[saved,setSaved]=useState(false);
+ const [dismissed,setDismissed]=useState(false);
+ const started=useRef<string|null>(null);
+ const dismissedRef=useRef(false);
+ const currentCampaignId=campaign.id;
+ useEffect(()=>{
+  // Background prepare is opt-in through Smart Import, never on arbitrary
+  // legacy campaigns; no persisted changes until the user reviews the copy.
+  if(!autoStart||!editable||!user||!organizationId||
+     product.title.source==='link-only-pending'||started.current===currentCampaignId)return;
+  started.current=currentCampaignId;
+  let active=true;
+  setBusy(true);setError('');setSaved(false);
+  void generateAffiliatePinStrategy({user,organizationId,locale,product})
+    .then(data=>{if(active&&!dismissedRef.current){setDraft(data);setTitleIndex(0);setDescriptionIndex(0);}})
+    .catch(reason=>{if(active&&!dismissedRef.current){
+      const code=classifyNestAiFailure(reason);
+      setError(nestAiFailureLabel(code,locale)+' ['+code+']');
+    }})
+    .finally(()=>{if(active)setBusy(false);});
+  return ()=>{active=false;};
+  // Track by saved campaign ID; later version edits must not restart inference.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[currentCampaignId,autoStart,editable,user?.uid,organizationId]);
+
  async function generate(){
   if(!editable||!user||!organizationId||busy)return;
+  dismissedRef.current=false;setDismissed(false);
   setBusy(true);setDraft(null);setError('');setSaved(false);
   try{
    const data=await Promise.race([
@@ -47,8 +72,16 @@ export function NestAiDraftReview({campaign,editable,onApply}:{
      :es?'Analiza el comprador probable y tres enfoques específicos. Solo se guarda con tu aprobación.'
      :'Analyze likely buyer intent and three distinct angles. You approve before saving.'}</p>
   </div></div>
+  {busy&&<div className="nestai-nonblocking-status" role="status">
+    <strong>{pt?'NestAI está preparando opções':es?'NestAI está preparando opciones':'NestAI is preparing options'}</strong>
+    <p>{pt?'O produto já está salvo. Você pode conferir o link ou a imagem enquanto a IA trabalha. Não precisa esperar nesta tela.':es?'El producto ya está guardado. Puedes revisar el enlace y la imagen mientras trabaja la IA.':'Product saved. You can review link and image while AI works.'}</p>
+    <button className="text-button" type="button" onClick={()=>{dismissedRef.current=true;setDismissed(true);}}>
+      {pt?'Continuar sem esperar':'Continue without waiting'}
+    </button>
+   </div>}
+  {dismissed&&<p className="field-hint">{pt?'A campanha permanece salva. Você pode solicitar novos textos a qualquer momento.':'Campaign saved. You can request new copy later.'}</p>}
   <button type="button" className="button secondary" disabled={!editable||!user||!organizationId||busy||product.title.source==='link-only-pending'}
-   aria-busy={busy} onClick={()=>void generate()}>{busy?(pt?'Entendendo produto…':es?'Analizando producto…':'Understanding product…')
+   aria-busy={busy} onClick={()=>void generate()}>{busy?(pt?'Preparando sugestões…':es?'Preparando opciones…':'Preparing suggestions…')
    :(pt?'Personalizar com NestAI':es?'Personalizar con NestAI':'Personalize with NestAI')}</button>
   {error&&<p className="notice danger" role="alert">{error}</p>}
   {draft&&<div className="nestai-draft-preview">

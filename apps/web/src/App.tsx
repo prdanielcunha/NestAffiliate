@@ -60,6 +60,7 @@ import { ProblemIntentExplorer } from './features/ProblemIntentExplorer';
 import { RadarProductImage } from './features/RadarProductImage';
 import { WorkspaceLibrary } from './features/WorkspaceLibrary';
 import { CampaignJourney } from './features/CampaignJourney';
+import { GuidedReviewActions } from './features/GuidedReviewActions';
 import { reviewBlockers } from './lib/reviewReadiness';
 import { publicationCalendarIcs } from './lib/publicationCalendar';
 import { FinalPinPublicationGuide } from './features/FinalPinPublicationGuide';
@@ -500,7 +501,7 @@ function SyncErrorBanner({
 }
 
 function Login() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { state, signIn, switchAccount, user, authError, authPending, clearAuthError } = useAuth();
   if (state === 'ready') return <Navigate to="/" replace />;
 
@@ -520,11 +521,12 @@ function Login() {
         <p className="eyebrow">AFFILIATE INTELLIGENCE BY MILLIONSNEST</p>
         <h1>{t('loginTitle')}</h1>
         <p>{t('loginDescription')}</p>
-        <div className="signal-line"><span /> Intelligence → Creation → Approval → Learning</div>
+        <div className="login-three-steps" aria-label="Como funciona"><span>1. {t('radar')}</span><span>2. {t('review')}</span><span>3. Pinterest</span></div>
       </section>
       <section className="login-card">
         <div className="status-orb" />
         <h2>{state === 'loading' ? t('loadingAccount') : t('enterContinue')}</h2>
+        <p className="login-reassurance">{locale==='pt-BR'?'Entre para encontrar produtos, criar conteúdo e acompanhar seus Pins.':locale==='es'?'Entra para descubrir productos y preparar tus Pins.':'Sign in to discover products and prepare your Pins.'}</p>
         <p className="muted">{t('loginPrivacy')}</p>
         {authErrorMessage && <div className="notice danger" role="alert">{authErrorMessage}</div>}
         {state === 'denied' ? (
@@ -608,7 +610,7 @@ function Shell({ children, locale, setLocale }: { children: React.ReactNode; loc
       </aside>
       <div className="shell-main">
         <header className="topbar">
-          <div className="automation-pill"><span className="status-orb" /> {t('automationActive')}</div>
+          <div className="automation-pill"><span className="status-orb" /> {locale==='pt-BR'?'Seu espaço de criação':locale==='es'?'Tu espacio creativo':'Your creative workspace'}</div>
           <div className="top-actions">
             <button className="icon-button" onClick={() => setCommandOpen(true)} aria-label="Command bar">⌘K</button>
             <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Theme">{theme === 'dark' ? '☼' : '◐'}</button>
@@ -1420,12 +1422,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   return (
     <div className="page">
       <PageTitle eyebrow="RADAR" title={t('opportunities')} subtitle={t('opportunitiesSub')} />
-      <RadarResearchHistory organizationId={organizationId} />
+      <details className="radar-advanced-research"><summary>{locale==='pt-BR'?'Ver histórico de pesquisas anteriores':locale==='es'?'Ver historial de búsquedas':'View research history'}</summary>
+        <RadarResearchHistory organizationId={organizationId} />
+      </details>
       {editable&&<SmartProductImport organizationId={organizationId} onImported={(product,keyword,strategy,attempted,failure)=>create(product,keyword,undefined,undefined,true,strategy,attempted,failure)}/>}
-      <section className="radar-start-guide" aria-label={locale==='pt-BR'?'Como escolher um produto e criar um Pin':'How to select a product'}>
-        <strong>{locale==='pt-BR'?'Como começar: 1. Pesquise → 2. Escolha um produto → 3. Prepare o Pin → 4. Publique':locale==='es'?'Cómo empezar: buscar → elegir producto → preparar Pin → publicar':'Start: search → choose product → prepare Pin → publish'}</strong>
-        <p>{locale==='pt-BR'?'Quando gostar de um produto, clique em “Escolher produto e preparar Pin”. Você será levado à revisão guiada, com título, descrição, prompt do ChatGPT, imagem e link afiliado.':locale==='es'?'Elige un producto para abrir la revisión guiada.':'Choose a product to open its guided creative review, image prompt and affiliate link confirmation.'}</p>
-      </section>
+      <p className="radar-simple-help">{locale==='pt-BR'?'Cole um link do Mercado Livre ou da Shopee, ou envie um print. O próximo passo aparece automaticamente.':locale==='es'?'Pega un enlace de Mercado Livre o Shopee o sube una captura.':'Paste a Mercado Livre or Shopee link, or upload a screenshot.'}</p>
       <div className="marketplace-scope" role="group" aria-label={t('marketplaceFilter')}>
         <span>{t('marketplaceFilter')}</span>
         <div>
@@ -2034,21 +2035,26 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
 
   return (
     <div className="review-page">
+      <GuidedReviewActions campaign={activeCampaign} />
       <CampaignJourney campaign={activeCampaign} />
       <div id="review-creative" className="review-creative-stage">
         <div className="review-stage-heading">
           <p className="eyebrow">{locale==='pt-BR'?'ETAPAS 3 E 4 · CRIATIVO':locale==='es'?'PASOS 3 Y 4 · CREATIVO':'STEPS 3 AND 4 · CREATIVE'}</p>
-          <h2>{locale==='pt-BR'?'Primeiro escolha os textos. Depois gere a imagem com ChatGPT.':locale==='es'?'Elige textos, luego genera la imagen en ChatGPT.':'Choose copy first; then generate the image in ChatGPT.'}</h2>
-          <p>{locale==='pt-BR'?'O NestAffiliate prepara títulos, descrições e um prompt em inglês. Clique em “Copiar e abrir ChatGPT”, anexe uma foto autorizada do produto, gere a imagem e volte aqui para importar e revisar. A prévia com apenas texto ainda NÃO é a imagem final.':locale==='es'?'El Pin textual es solo una vista previa. Genera la imagen en ChatGPT, impórtala y revísala antes de aprobar.':'The text-only preview is not the final Pin image. Generate with ChatGPT, import it and review before approval.'}</p>
+          <h2>{locale==='pt-BR'?'Escolha os textos e prepare a imagem':locale==='es'?'Elige los textos y prepara la imagen':'Choose copy and prepare an image'}</h2>
+          <p>{locale==='pt-BR'?'A IA propõe textos. Depois, gere ou importe uma imagem fiel ao produto. Tudo pode ser retomado sem perder a campanha.':locale==='es'?'La IA sugiere textos; luego prepara una imagen fiel al producto.':'AI suggests copy; then prepare a faithful product image. Your campaign remains saved.'}</p>
         </div>
         {v.creativeIntelligence&&<div className="ai-intelligence-summary" role="status">
-          <strong>{v.creativeIntelligence.origin==='nestai'?(locale==='pt-BR'?'NestAI personalizou esta campanha':locale==='es'?'NestAI personalizó la campaña':'NestAI personalized this campaign'):(locale==='pt-BR'?'Textos locais — NestAI não respondeu':locale==='es'?'Textos locales — IA no disponible':'Local copy — NestAI unavailable')}</strong>
-          {v.creativeIntelligence.origin!=='nestai'&&<p>{nestAiFailureLabel(v.creativeIntelligence.failureCode??'UNKNOWN',locale)} <code>{v.creativeIntelligence.failureCode??'UNKNOWN'}</code></p>}
+          <strong>{v.creativeIntelligence.origin==='nestai'?(locale==='pt-BR'?'NestAI personalizou esta campanha':locale==='es'?'NestAI personalizó la campaña':'NestAI personalized this campaign'):!v.creativeIntelligence.aiAttempted?(locale==='pt-BR'?'Produto salvo · IA preparando sugestões':locale==='es'?'Producto guardado · IA preparando opciones':'Product saved · AI preparing options'):(locale==='pt-BR'?'Textos locais — NestAI não respondeu':locale==='es'?'Textos locales — IA no disponible':'Local copy — NestAI unavailable')}</strong>
+          {v.creativeIntelligence.origin!=='nestai'&&v.creativeIntelligence.aiAttempted&&<p>{nestAiFailureLabel(v.creativeIntelligence.failureCode??'UNKNOWN',locale)} <code>{v.creativeIntelligence.failureCode??'UNKNOWN'}</code></p>}
           {v.creativeIntelligence.origin==='nestai'&&<p>{locale==='pt-BR'?'Intenção provável de compra: ':locale==='es'?'Intención probable: ':'Likely buyer intent: '}{v.creativeIntelligence.buyerIntent} · {locale==='pt-BR'?'Público provável: ':locale==='es'?'Público probable: ':'Likely audience: '}{v.creativeIntelligence.audience}</p>}
           <small>{locale==='pt-BR'?'Sugestão editorial, não comprovação comercial. Revise textos e produto antes de aprovar.':locale==='es'?'Propuesta editorial. Revisa antes de aprobar.':'Editorial proposal. Review before approving.'}</small>
         </div>}
+        <div id="review-ai">
+          <NestAiDraftReview campaign={activeCampaign} editable={editable}
+            autoStart={Boolean(v.creativeIntelligence?.origin==='deterministic'&&v.creativeIntelligence.aiAttempted===false)}
+            onApply={applyNestAiCopy} />
+        </div>
         <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
-        <NestAiDraftReview campaign={activeCampaign} editable={editable} onApply={applyNestAiCopy} />
       </div>
       {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <ReelKitPanel campaign={activeCampaign} />}
       {editError && <div className="notice edit-feedback" role="alert">{editError}</div>}
