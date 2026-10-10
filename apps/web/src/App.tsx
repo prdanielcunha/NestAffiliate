@@ -1352,10 +1352,12 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         template: 'Editorial Premium',
         ...(autoPrepare ? {creativeIntelligence:{
           origin:aiStrategy?'nestai':'deterministic',
-          productType:aiStrategy?.productType,
-          buyerIntent:aiStrategy?.buyerIntent,
-          audience:aiStrategy?.audience,
-          positioning:aiStrategy?.positioning,
+          ...(aiStrategy ? {
+            productType:aiStrategy.productType,
+            buyerIntent:aiStrategy.buyerIntent,
+            audience:aiStrategy.audience,
+            positioning:aiStrategy.positioning,
+          } : {}),
           unknowns:aiStrategy?.unknowns ?? [],
           aiAttempted,
         }} : {}),
@@ -1983,11 +1985,21 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     // Respect existing affiliate disclosure and product truth. AI cannot
     // overwrite commission URL, rights, pricing or actual publication status.
     const narrative={...v.narrative,pinterestTitle:draft.title,
-      headline:draft.title.slice(0,90),description:draft.description};
+      headline:compactPinText(draft.title,57),description:draft.description};
+    const nextPack=v.creativePack?versionPinterestCreativePack(v.creativePack,nextVersion):undefined;
     const next=nextCampaignVersion(campaign,{
       narrative,
-      ...(v.creativePack?{creativePack:versionPinterestCreativePack(v.creativePack,nextVersion)}:{}),
-    },'NestAI copy suggestion explicitly reviewed and applied');
+      ...(nextPack?{creativePack:draft.strategy?overlayAiStrategy(nextPack,draft.strategy):nextPack}:{}),
+      ...(draft.strategy?{creativeIntelligence:{
+        origin:'nestai',
+        productType:draft.strategy.productType,
+        buyerIntent:draft.strategy.buyerIntent,
+        audience:draft.strategy.audience,
+        positioning:draft.strategy.positioning,
+        unknowns:draft.strategy.unknowns,
+        aiAttempted:true,
+      } as const}:{}),
+    },'NestAI strategy explicitly reviewed and applied');
     update(next);
     recordDecision('EDITED',next,'NestAI copy suggestion reviewed');
     setSaved(true);

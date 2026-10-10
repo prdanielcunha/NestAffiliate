@@ -73,7 +73,8 @@ export function validateProductAiStrategy(raw:unknown,product:ProductTruth,obser
   const subject=keys(product.title.value);
   const first=keys(titles[0]!);
   if(subject.size && ![...subject].some(w=>first.has(w)))throw new Error('AI_STRATEGY_OFF_TOPIC');
-  if(descriptions.some(d=>d.length<100))throw new Error('AI_STRATEGY_SHORT_DESCRIPTION');
+  if(descriptions.some(d=>d.length<110))throw new Error('AI_STRATEGY_SHORT_DESCRIPTION');
+  if(descriptions.some(d=>!/(?:afiliad|affiliate)/i.test(d)))throw new Error('AI_STRATEGY_NO_DISCLOSURE');
   // No inferred "facts" are used to change the source-of-truth product fields.
   return {productType,buyerIntent,audience,positioning,factsUsed,unknowns,
     angles:angles as [string,string,string],titles:titles as [string,string,string],
