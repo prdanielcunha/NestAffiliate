@@ -266,6 +266,16 @@ export interface CampaignVersion {
   keyword: string;
   template: string;
   creativePack?: PinterestCreativePack;
+  /** Origin and interpretation of AI-powered, non-authoritative editorial copy. */
+  creativeIntelligence?: {
+    origin:'nestai'|'deterministic';
+    productType?:string;
+    buyerIntent?:string;
+    audience?:string;
+    positioning?:string;
+    unknowns:string[];
+    aiAttempted:boolean;
+  };
   creativeAsset?: CreativeAsset;
 }
 

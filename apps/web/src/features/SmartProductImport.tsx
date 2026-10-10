@@ -4,7 +4,8 @@ import { createManualProductTruth, cleanSharedListingUrl, parseSharedProductText
 import { detectImageMime } from '@nestaffiliate/creative-engine';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n-context';
-import { extractAffiliateScreenshot } from '../services/nestAiClient';
+import { extractAffiliateScreenshot,generateAffiliatePinStrategy } from '../services/nestAiClient';
+import type { ProductAiStrategy } from '../lib/aiProductStrategy';
 import { attachDeclaredAffiliateUrl, resolveOfficialProductLink } from '../services/smartProductImport';
 
 type Extraction={marketplace:'MELI'|'SHOPEE'|'UNKNOWN';title:string|null;productUrl:string|null;
@@ -43,7 +44,7 @@ export function SmartProductImport({
   organizationId,onImported,
 }:{
   organizationId:string;
-  onImported:(product:ProductTruth,keyword:string)=>void;
+  onImported:(product:ProductTruth,keyword:string,strategy?:ProductAiStrategy,aiAttempted?:boolean)=>void;
 }){
   const {user}=useAuth();
   const {locale}=useI18n();
@@ -137,8 +138,21 @@ export function SmartProductImport({
         };
       }
       product=attachDeclaredAffiliateUrl(product,link,affiliate && Boolean(source));
+      setStatus(message(locale,'O NestAI está entendendo o produto e criando títulos específicos…','NestAI is understanding this product and writing bespoke copy…','NestAI está analizando el producto y escribiendo textos específicos…'));
+      let strategy:ProductAiStrategy|undefined;
+      try{
+        strategy=await Promise.race([
+          generateAffiliatePinStrategy({
+            user,organizationId,locale,product,observedFacts:extracted?.visibleFacts??[],
+          }),
+          new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_STRATEGY_TIMEOUT')),22_000)),
+        ]);
+      }catch{
+        // Zero-cost deterministic path is explicitly labeled in review;
+        // source of truth, affiliate URL and user records remain untouched.
+      }
       setStatus('');
-      onImported(product,product.title.value);
+      onImported(product,product.title.value,strategy,true);
     }catch(e){
       setStatus('');
       setError(e instanceof Error?e.message:'IMPORT_FAILED');
@@ -235,7 +249,7 @@ export function SmartProductImport({
     <button className="button primary smart-auto-button" type="button" disabled={busy||!user||(!link.trim()&&!screenshot)}
       onClick={()=>void analyze()}>
       {busy?message(locale,'Analisando produto…','Analyzing…','Analizando…'):
-        message(locale,'Identificar, analisar e preparar Pin →','Identify, analyze and prepare Pin →','Identificar, analizar y preparar Pin →')}
+        message(locale,'Entender produto com NestAI e criar Pin →','Understand product with NestAI and create Pin →','Analizar producto con NestAI y crear Pin →')}
     </button>
   </section>;
 }

@@ -51,6 +51,7 @@ import './features/revenue3.css';
 import { ProductSourceActions } from './features/ProductSourceActions';
 import { ProductTruthRepair } from './features/ProductTruthRepair';
 import { SmartProductImport } from './features/SmartProductImport';
+import { overlayAiStrategy,type ProductAiStrategy } from './lib/aiProductStrategy';
 import { loadLatestRadarV4Coverage, listRadarV4Research, listRadarV4Assessments, primaryRadarBlocker, saveRadarV4Coverage, type SourceCoverageRunV4, type StoredRadarAssessmentV4 } from './services/radarV4Repository';
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel, opportunityReasonLabel } from './features/OpportunityV4Panel';
@@ -1314,6 +1315,8 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     signalInput?:OpportunitySignals,
     rank?:number,
     autoPrepare=false,
+    aiStrategy?:ProductAiStrategy,
+    aiAttempted=false,
   ) {
     if (!editable) return;
     const campaignKeyword = keywordOverride?.trim() || query;
@@ -1347,6 +1350,15 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         boardName: campaignKeyword.includes('cozinha') ? initialBoards[0]! : initialBoards[7]!,
         keyword: campaignKeyword,
         template: 'Editorial Premium',
+        ...(autoPrepare ? {creativeIntelligence:{
+          origin:aiStrategy?'nestai':'deterministic',
+          productType:aiStrategy?.productType,
+          buyerIntent:aiStrategy?.buyerIntent,
+          audience:aiStrategy?.audience,
+          positioning:aiStrategy?.positioning,
+          unknowns:aiStrategy?.unknowns ?? [],
+          aiAttempted,
+        }} : {}),
       },
       history: [],
     };
@@ -1354,12 +1366,13 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       // Deterministic zero-cost Pinterest package (titles, descriptions, boards,
       // three angles and prompts). A truthful finished image still requires an
       // authorized product reference / user confirmation in the review stage.
-      const pack=buildPinterestCreativePack({
+      const generatedPack=buildPinterestCreativePack({
         organizationId,campaignId:id,campaignVersion:1,product,
         keyword:campaignKeyword,boardName:campaign.currentVersion.boardName,
         locale,
         editorialContext:'Achados do Nest · Smart Import',
       });
+      const pack=aiStrategy?overlayAiStrategy(generatedPack,aiStrategy):generatedPack;
       campaign.currentVersion.creativePack=pack;
       campaign.currentVersion.boardName=pack.copy.recommendedBoardName;
       campaign.currentVersion.narrative={
@@ -1403,7 +1416,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     <div className="page">
       <PageTitle eyebrow="RADAR" title={t('opportunities')} subtitle={t('opportunitiesSub')} />
       <RadarResearchHistory organizationId={organizationId} />
-      {editable&&<SmartProductImport organizationId={organizationId} onImported={(product,keyword)=>create(product,keyword,undefined,undefined,true)}/>}
+      {editable&&<SmartProductImport organizationId={organizationId} onImported={(product,keyword,strategy,attempted)=>create(product,keyword,undefined,undefined,true,strategy,attempted)}/>}
       <section className="radar-start-guide" aria-label={locale==='pt-BR'?'Como escolher um produto e criar um Pin':'How to select a product'}>
         <strong>{locale==='pt-BR'?'Como começar: 1. Pesquise → 2. Escolha um produto → 3. Prepare o Pin → 4. Publique':locale==='es'?'Cómo empezar: buscar → elegir producto → preparar Pin → publicar':'Start: search → choose product → prepare Pin → publish'}</strong>
         <p>{locale==='pt-BR'?'Quando gostar de um produto, clique em “Escolher produto e preparar Pin”. Você será levado à revisão guiada, com título, descrição, prompt do ChatGPT, imagem e link afiliado.':locale==='es'?'Elige un producto para abrir la revisión guiada.':'Choose a product to open its guided creative review, image prompt and affiliate link confirmation.'}</p>
@@ -2013,6 +2026,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           <h2>{locale==='pt-BR'?'Primeiro escolha os textos. Depois gere a imagem com ChatGPT.':locale==='es'?'Elige textos, luego genera la imagen en ChatGPT.':'Choose copy first; then generate the image in ChatGPT.'}</h2>
           <p>{locale==='pt-BR'?'O NestAffiliate prepara títulos, descrições e um prompt em inglês. Clique em “Copiar e abrir ChatGPT”, anexe uma foto autorizada do produto, gere a imagem e volte aqui para importar e revisar. A prévia com apenas texto ainda NÃO é a imagem final.':locale==='es'?'El Pin textual es solo una vista previa. Genera la imagen en ChatGPT, impórtala y revísala antes de aprobar.':'The text-only preview is not the final Pin image. Generate with ChatGPT, import it and review before approval.'}</p>
         </div>
+        {v.creativeIntelligence&&<div className="ai-intelligence-summary" role="status">
+          <strong>{v.creativeIntelligence.origin==='nestai'?(locale==='pt-BR'?'NestAI personalizou esta campanha':locale==='es'?'NestAI personalizó la campaña':'NestAI personalized this campaign'):(locale==='pt-BR'?'Textos locais — NestAI não respondeu':locale==='es'?'Textos locales — IA no disponible':'Local copy — NestAI unavailable')}</strong>
+          {v.creativeIntelligence.origin==='nestai'&&<p>{locale==='pt-BR'?'Intenção provável de compra: ':locale==='es'?'Intención probable: ':'Likely buyer intent: '}{v.creativeIntelligence.buyerIntent} · {locale==='pt-BR'?'Público provável: ':locale==='es'?'Público probable: ':'Likely audience: '}{v.creativeIntelligence.audience}</p>}
+          <small>{locale==='pt-BR'?'Sugestão editorial, não comprovação comercial. Revise textos e produto antes de aprovar.':locale==='es'?'Propuesta editorial. Revisa antes de aprobar.':'Editorial proposal. Review before approving.'}</small>
+        </div>}
         <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
         <NestAiDraftReview campaign={activeCampaign} editable={editable} onApply={applyNestAiCopy} />
       </div>

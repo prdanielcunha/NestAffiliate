@@ -132,3 +132,44 @@ export async function extractAffiliateScreenshot(input:{
   if(!result || !['MELI','SHOPEE','UNKNOWN'].includes(result.marketplace))throw new Error('OCR_INVALID_RESPONSE');
   return result;
 }
+// AI-first creative personalization stays separate from official marketplace Product Truth.
+export async function generateAffiliatePinStrategy(input:{
+ user:import('firebase/auth').User;
+ organizationId:string;
+ locale:'pt-BR'|'en'|'es';
+ product:import('@nestaffiliate/core').ProductTruth;
+ observedFacts?:string[];
+}):Promise<import('../lib/aiProductStrategy').ProductAiStrategy>{
+ const observations=(input.observedFacts??[]).slice(0,8).map(x=>x.slice(0,200));
+ const response=await clientFor(input).run<unknown>({
+  task:'affiliate.pin.strategy',
+  input:{
+   product:{
+    title:input.product.title.value,
+    marketplace:input.product.marketplace,
+    listingVerified:Boolean(input.product.listingVerified),
+    sources:{
+     title:input.product.title.source,
+     url:input.product.url.source,
+     price:input.product.price?.source ?? null,
+    },
+    observableAttributes:observations,
+    sourceUrl:input.product.url.value,
+    availableFacts:{
+      ...(input.product.price?{price:input.product.price.value}:{}),
+      ...(input.product.rating?{rating:input.product.rating.value}:{}),
+      ...(input.product.reviewCount?{reviewCount:input.product.reviewCount.value}:{}),
+    },
+    uncertainties:['No independent claim of product performance or sales','Screenshot facts are unverified','Affiliate commission not independently verified'],
+   },
+   objective:{
+    platform:'Pinterest',language:input.locale,
+    authenticBuyerIntent:true,distinctAngles:3,
+    avoidGenericTemplates:true,
+    preserveProductTruth:true,allowedFactsOnly:true,
+    humanApprovalRequired:true,
+   },
+  },
+ });
+ return (await import('../lib/aiProductStrategy')).validateProductAiStrategy(response.result,input.product,observations);
+}
