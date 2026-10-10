@@ -1,5 +1,6 @@
 import type { CampaignVersion, PinterestCreativePack, ProductTruth, SceneProfile } from '@nestaffiliate/core';
 import { buildCreativeConcepts } from './creative-director';
+import { buildConversionPinCopy } from './conversion-copy';
 import { buildSceneProfile } from './scene-engine/scene-rules';
 import { runVisualTruthGuard, truthConstraints } from './visual-truth';
 
@@ -95,76 +96,6 @@ function localizeConcept(locale:'pt-BR'|'en'|'es',angle:string){
   };
 }
 
-function localizedCopy(
-  locale: 'pt-BR' | 'en' | 'es',
-  keyword: string,
-  productTitle: string,
-  scene: SceneProfile,
-  existing?: CampaignVersion['narrative'],
-) {
-  const context = scene.category === 'kitchen-organization'
-    ? 'cozinha mais organizada'
-    : scene.category === 'bathroom-accessories'
-      ? 'banheiro mais funcional'
-      : scene.category === 'laundry'
-        ? 'lavanderia mais funcional'
-        : 'casa mais prática';
-
-  if (locale === 'en') {
-    return {
-      titles: [
-        existing?.pinterestTitle ?? keyword + ': a practical idea for everyday life',
-        'A useful idea for ' + keyword,
-        'How to bring more intention to ' + keyword,
-      ],
-      descriptions: [
-        'An editorial idea for ' + keyword + ' with a realistic use context and a product selected for everyday utility. Affiliate content.',
-        'Inspiration for a more practical home, showing ' + productTitle + ' in a believable context. Affiliate content.',
-      ],
-      headline: existing?.headline ?? 'A smarter idea for ' + keyword,
-      subheadline: existing?.subheadline ?? 'Useful context, less visual clutter.',
-      cta: existing?.cta ?? 'See the idea',
-      disclosure: existing?.disclosure ?? 'This content may contain affiliate links. I may earn a commission on qualifying purchases at no extra cost to you.',
-      altText: existing?.altText ?? 'Editorial Pinterest image about ' + keyword + ' featuring ' + productTitle + ' in ' + scene.environment + '.',
-    };
-  }
-
-  if (locale === 'es') {
-    return {
-      titles: [
-        existing?.pinterestTitle ?? keyword + ': una idea práctica para el día a día',
-        'Una idea útil para ' + keyword,
-        'Cómo dar más intención a ' + keyword,
-      ],
-      descriptions: [
-        'Una idea editorial sobre ' + keyword + ' con contexto de uso realista y un producto elegido por utilidad. Contenido con enlace de afiliado.',
-        'Inspiración para una casa más práctica, mostrando ' + productTitle + ' en un contexto coherente. Contenido con enlace de afiliado.',
-      ],
-      headline: existing?.headline ?? 'Una idea más inteligente para ' + keyword,
-      subheadline: existing?.subheadline ?? 'Contexto útil, menos ruido visual.',
-      cta: existing?.cta ?? 'Ver la idea',
-      disclosure: existing?.disclosure ?? 'Este contenido puede contener enlaces de afiliado. Puedo recibir una comisión por compras calificadas, sin costo adicional para ti.',
-      altText: existing?.altText ?? 'Imagen editorial de Pinterest sobre ' + keyword + ' con ' + productTitle + ' en ' + scene.environment + '.',
-    };
-  }
-
-  return {
-    titles: [
-      existing?.pinterestTitle ?? keyword + ': uma ideia prática para o dia a dia',
-      'Uma ideia útil para ' + keyword,
-      'Como deixar ' + keyword + ' mais simples e visual',
-    ],
-    descriptions: [
-      'Uma ideia editorial para ' + keyword + ', com contexto de uso realista e um produto selecionado pela utilidade. Conteúdo com link de afiliado.',
-      'Inspiração para uma ' + context + ', mostrando ' + productTitle + ' em um ambiente coerente. Conteúdo com link de afiliado.',
-    ],
-    headline: existing?.headline ?? 'Uma ideia mais inteligente para ' + keyword,
-    subheadline: existing?.subheadline ?? 'Contexto útil, menos ruído visual.',
-    cta: existing?.cta ?? 'Ver a ideia',
-    disclosure: existing?.disclosure ?? 'Este conteúdo pode conter links de afiliado. Posso receber comissão por compras qualificadas, sem custo adicional para você.',
-    altText: existing?.altText ?? 'Imagem editorial para Pinterest sobre ' + keyword + ' com ' + productTitle + ' em ' + scene.environment + '.',
-  };
-}
 
 export function buildPinterestCreativePack(input: BuildPinterestCreativePackInput): PinterestCreativePack {
   const createdAt = input.createdAt ?? new Date().toISOString();
@@ -200,9 +131,9 @@ export function buildPinterestCreativePack(input: BuildPinterestCreativePackInpu
     };
   });
   const recommended = concepts[0]!;
-  const copy = localizedCopy(locale, keyword, input.product.title.value, scene, input.existingNarrative);
-  const keywords = secondaryKeywords(keyword, scene);
-  const recommendedBoardName = boardFor(scene, input.boardName);
+  const copy = buildConversionPinCopy({ locale, product:input.product, keyword, scene, existing:input.existingNarrative });
+  const keywords = [...new Set([...copy.relatedKeywords, ...secondaryKeywords(copy.primaryKeyword, scene)])].slice(0,12);
+  const recommendedBoardName = scene.category==='kitchen-utensils' ? copy.suggestedBoard : boardFor(scene, input.boardName);
   const constraints = truthConstraints(input.product);
   const guard = runVisualTruthGuard({
     product: input.product,
@@ -229,13 +160,9 @@ export function buildPinterestCreativePack(input: BuildPinterestCreativePackInpu
       disclosure: copy.disclosure,
       altText: copy.altText,
       keywords,
-      primaryKeyword: keyword,
+      primaryKeyword: copy.primaryKeyword,
       secondaryKeywords: keywords.slice(1, 7),
-      longTailKeywords: [
-        keyword + ' para casa',
-        'ideias de ' + keyword,
-        keyword + ' no dia a dia',
-      ],
+      longTailKeywords: copy.longTailKeywords,
       recommendedBoardName,
       friendlyFilename: slugifyPackFilename(keyword + '-' + input.product.title.value) + '.png',
     },
@@ -266,6 +193,7 @@ export function buildPinterestCreativePack(input: BuildPinterestCreativePackInpu
     promptTemplateVersion: recommended.imagePrompt.templateVersion,
     qualityScore,
     qualityExplanation: [
+      'Copy contextual com três ganchos, duas descrições úteis, SEO específico e CTA sem claims inventados.',
       'Cena classificada sem API paga.',
       'Três conceitos distintos ranqueados por coerência, clareza e força visual.',
       'Prompt protege Product Truth e reserva área para texto do app.',

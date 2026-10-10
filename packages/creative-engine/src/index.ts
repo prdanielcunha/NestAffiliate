@@ -317,6 +317,7 @@ export {
   truthConstraints,
 } from './visual-truth';
 export { buildPinterestCreativePack, versionPinterestCreativePack } from './pinterest-pack';
+export { buildConversionPinCopy, compactPinText, isGenericLegacyPinCopy } from './conversion-copy';
 export {
   validateImageMetadata,
   detectImageMime,

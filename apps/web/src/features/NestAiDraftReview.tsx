@@ -18,7 +18,7 @@ export function NestAiDraftReview({campaign,editable,onApply}:{
 }){
  const {locale}=useI18n();const {user,organizationId}=useAuth();
  const pt=locale==='pt-BR',es=locale==='es';
- const [instruction,setInstruction]=useState(pt?'Crie um título atraente e uma descrição útil, sem prometer benefícios não verificados.':'Create useful Pinterest editorial copy without unverified commercial claims.');
+ const [instruction,setInstruction]=useState(pt?'Escreva um Pin que faça a pessoa parar e clicar: título com produto + gancho específico (até 100 caracteres), descrição de 2 a 4 frases com uso real, detalhes presentes no anúncio e convite para conferir fotos, medidas e condições. Evite textos genéricos, urgência artificial e benefícios não comprovados.':'Write compelling Pinterest copy: product-specific hook (under 100 characters), 2–4 useful sentences, verifiable attributes, natural CTA to review listing details; no generic filler or invented claims.');
  const [busy,setBusy]=useState(false);
  const [draft,setDraft]=useState<PinCopyDraft|null>(null);
  const [error,setError]=useState('');

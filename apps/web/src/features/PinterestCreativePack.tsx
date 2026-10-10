@@ -4,6 +4,7 @@ import { nextCampaignVersion } from '@nestaffiliate/core';
 import {
   buildPinterestCreativePack,
   versionPinterestCreativePack,
+  compactPinText,
 } from '@nestaffiliate/creative-engine';
 import { db } from '../lib/firebase';
 import { useI18n } from '../lib/i18n-context';
@@ -69,7 +70,7 @@ export function PinterestCreativePackPanel({
     await savePinterestCreativePack(db,campaign.organizationId,nextPack);
   }
 
-  function createPack(offset=directionOffset){
+  function createPack(offset=directionOffset, refreshCopy=false){
     if(!editable) return;
     const nextVersion=campaign.currentVersion.version+1;
     const nextPack=buildPinterestCreativePack({
@@ -80,7 +81,7 @@ export function PinterestCreativePackPanel({
       keyword:campaign.currentVersion.keyword,
       boardName:campaign.currentVersion.boardName,
       locale,
-      existingNarrative:campaign.currentVersion.narrative,
+      existingNarrative:refreshCopy ? undefined : campaign.currentVersion.narrative,
       editorialContext:'Achados do Nest · Pinterest Creative Pack',
       directionOffset:offset,
     });
@@ -90,7 +91,7 @@ export function PinterestCreativePackPanel({
       narrative:packNarrative(nextPack,campaign.currentVersion.narrative),
       boardName:nextPack.copy.recommendedBoardName,
       template:templateForConcept(nextPack.imageConcepts.findIndex(item=>item.id===nextPack.recommendedConceptId)),
-    },offset===0?'Pinterest Creative Pack generated':'Pinterest Creative Pack alternate direction');
+    },refreshCopy?'Pinterest copy refreshed with contextual hooks':offset===0?'Pinterest Creative Pack generated':'Pinterest Creative Pack alternate direction');
     onUpdate(next);
     setSaving(true);
     void persist(nextPack).finally(()=>setSaving(false));
@@ -111,7 +112,7 @@ export function PinterestCreativePackPanel({
     if(!pack || !editable || title===campaign.currentVersion.narrative.pinterestTitle) return;
     const nextVersion=campaign.currentVersion.version+1;
     const nextPack=versionPinterestCreativePack(pack,nextVersion);
-    const narrative={...campaign.currentVersion.narrative,pinterestTitle:title};
+    const narrative={...campaign.currentVersion.narrative,pinterestTitle:title,headline:compactPinText(title,57)};
     const next=nextCampaignVersion(campaign,{creativePack:nextPack,narrative},'Pinterest title selected');
     onUpdate(next);
     setSaving(true);
@@ -173,6 +174,17 @@ export function PinterestCreativePackPanel({
   const hasImage=Boolean(campaign.currentVersion.creativeAsset);
 
   return <section className="pinterest-creative-pack">
+    <div className="copy-refresh-bar">
+      <p>{locale==='pt-BR'
+        ? 'Textos antigos e genéricos? Gere novamente 3 títulos e 2 descrições específicos para o produto, sem API paga. A versão anterior permanece no histórico.'
+        : locale==='es'
+          ? '¿Textos genéricos? Renueva títulos y descripciones sin perder el historial.'
+          : 'Generic copy? Refresh titles and descriptions without losing version history.'}</p>
+      <button type="button" className="button secondary" disabled={!editable || saving}
+        onClick={()=>createPack(directionOffset,true)}>
+        {locale==='pt-BR'?'Melhorar títulos e descrições':locale==='es'?'Mejorar títulos y descripciones':'Improve titles and descriptions'}
+      </button>
+    </div>
     <header className="creative-pack-header">
       <div>
         <p className="eyebrow">{t('pinterestCreativePack')}</p>
