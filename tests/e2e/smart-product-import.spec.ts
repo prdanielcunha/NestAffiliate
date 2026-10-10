@@ -51,3 +51,27 @@ test('Smart Import preserves an unresolved meli.la affiliate link without claimi
  await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://meli.la/2GDhhKL');
  await expect(page.getByText(/produto ainda não identificado|identificação pendente/i).first()).toBeVisible();
 });
+
+test('Shopee canonical link resolves an exact official item and preserves official affiliate offer',async({page})=>{
+ await page.goto('/radar');
+ const smart=page.getByRole('region',{name:'Importação inteligente'});
+ await smart.getByPlaceholder(/https:\/\/meli\.la/).fill('https://shopee.com.br/Organizador-Giratorio-Multiuso-Shopee-i.12345.98765001');
+ await expect(smart.getByLabel('Não, é um link comum')).toBeChecked();
+ await smart.getByRole('button',{name:/Entender produto com NestAI e criar Pin/}).click();
+ await expect(page).toHaveURL(/\/review\/campaign-/);
+ await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://s.shopee.com.br/98765001');
+ await expect(page.getByText('Organizador Giratório Multiuso Shopee').first()).toBeVisible();
+});
+
+test('Opaque Shopee affiliate shortlink stays as a pending draft, never masquerades as a verified product',async({page})=>{
+ await page.goto('/radar');
+ const smart=page.getByRole('region',{name:'Importação inteligente'});
+ await smart.getByPlaceholder(/https:\/\/meli\.la/).fill('https://s.shopee.com.br/abc123');
+ await smart.getByLabel('Sim, já é meu link afiliado').check();
+ await smart.getByRole('button',{name:/Entender produto com NestAI e criar Pin/}).click();
+ await expect(smart.getByRole('region',{name:'Link preservado para revisão'})).toBeVisible();
+ await smart.getByRole('button',{name:/Salvar link como rascunho/}).click();
+ await expect(page).toHaveURL(/\/review\/campaign-/);
+ await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://s.shopee.com.br/abc123');
+ await expect(page.getByText(/identificação pendente/i).first()).toBeVisible();
+});
