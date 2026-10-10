@@ -904,3 +904,22 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .nestai-draft-actions>.button{min-height:44px}
 .review-approval-gate .primary-actions .button{min-height:48px}
 @media(max-width:620px){.nestai-review-draft>.button,.nestai-draft-actions>.button{width:100%}}
+
+/* Smart Import: premium mobile-first, visually subordinate to the Radar title. */
+.smart-auto-import{margin:22px 0 25px;padding:24px;border:1px solid rgba(182,225,145,.22);border-radius:24px;background:linear-gradient(128deg,#17201b,#101714 66%,#111d17);box-shadow:0 16px 44px rgba(0,0,0,.15)}
+.smart-auto-head h2{font-size:clamp(1.3rem,2.5vw,1.9rem);line-height:1.15;margin:6px 0 12px;max-width:740px}
+.smart-auto-head p{color:#b2c0b8;margin:0 0 18px;max-width:740px}
+.smart-auto-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(230px,1fr);gap:14px}
+.smart-auto-main,.smart-auto-file{min-width:0}.smart-auto-main label,.smart-auto-extra label{display:flex;flex-direction:column;gap:7px;color:#d7e1d8;font-weight:600;font-size:.9rem}
+.smart-auto-main textarea,.smart-auto-extra input,.smart-auto-extra select{width:100%;border-radius:13px;background:#0d1310;border:1px solid rgba(219,243,214,.19);padding:12px;color:#f2f8ef;resize:vertical}
+.smart-auto-file{padding:17px;border:1px dashed #4c6352;border-radius:16px;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.smart-auto-file p{color:#aebbb2;font-size:.84rem;margin:0}.smart-auto-file .button{max-width:100%;overflow-wrap:anywhere}
+.smart-affiliate-fieldset{border:0;padding:12px 0 0;margin:0;display:flex;flex-wrap:wrap;column-gap:20px;row-gap:8px}
+.smart-affiliate-fieldset legend{color:#d7e1d8;font-weight:600;margin-bottom:9px}
+.smart-affiliate-fieldset label{display:inline-flex;flex-direction:row;gap:7px;align-items:center;font-weight:400;cursor:pointer}
+.smart-affiliate-fieldset input{accent-color:#b8ed81}
+.smart-affiliate-fieldset small{width:100%;color:#b4c5b4;line-height:1.4}
+.smart-auto-optional{margin:14px 0}.smart-auto-optional summary{cursor:pointer;color:#aec6b5;font-size:.87rem}
+.smart-auto-extra{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:12px}
+.smart-auto-button{width:100%;max-width:500px;min-height:48px}
+@media(max-width:720px){.smart-auto-import{padding:18px;border-radius:18px}.smart-auto-grid,.smart-auto-extra{grid-template-columns:1fr}.smart-affiliate-fieldset{display:flex;flex-direction:column;align-items:flex-start;gap:9px}.smart-auto-button{max-width:none}}

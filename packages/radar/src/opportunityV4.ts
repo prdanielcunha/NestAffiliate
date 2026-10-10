@@ -68,7 +68,8 @@ export function isSafeAffiliateUrl(raw:string|undefined,marketplace:ProductTruth
   try{
     const u=new URL(raw);
     return u.protocol==='https:' && !u.username && !u.password && !u.port &&
-      (marketplace==='SHOPEE' && ['s.shopee.com.br','shope.ee'].includes(u.hostname.toLowerCase()));
+      ((marketplace==='SHOPEE' && ['s.shopee.com.br','shope.ee'].includes(u.hostname.toLowerCase())) ||
+        (marketplace==='MELI' && u.hostname.toLowerCase()==='meli.la' && /^\/[a-zA-Z0-9_-]{3,80}\/?$/.test(u.pathname)));
   }catch{return false;}
 }
 

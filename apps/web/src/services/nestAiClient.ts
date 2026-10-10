@@ -108,3 +108,27 @@ export async function generateAffiliateCreative(input: {
   );
   return response.result;
 }
+
+/** Private image is processed via the configured NestAI free OCR gateway.
+ * OCR fields are unverified observations, never canonical marketplace facts.
+ */
+export async function extractAffiliateScreenshot(input:{
+  user:User;organizationId:string;locale:'pt-BR'|'en'|'es';
+  base64:string;mimeType:'image/png'|'image/jpeg'|'image/webp';fileName:string;
+}):Promise<{
+  marketplace:'MELI'|'SHOPEE'|'UNKNOWN';title:string|null;productUrl:string|null;
+  price:number|null;seller:string|null;rating:number|null;reviewCount:number|null;
+  visibleFacts:string[];warnings:string[];
+}>{
+  const response=await clientFor(input).vision<{
+    marketplace:'MELI'|'SHOPEE'|'UNKNOWN';title:string|null;productUrl:string|null;
+    price:number|null;seller:string|null;rating:number|null;reviewCount:number|null;
+    visibleFacts:string[];warnings:string[];
+  }>('affiliate.screenshot.extract',{
+    fileBase64:input.base64,mimeType:input.mimeType,fileName:input.fileName,
+    context:{purpose:'public-marketplace-screenshot-only',humanReviewRequired:true},
+  });
+  const result=response.result;
+  if(!result || !['MELI','SHOPEE','UNKNOWN'].includes(result.marketplace))throw new Error('OCR_INVALID_RESPONSE');
+  return result;
+}

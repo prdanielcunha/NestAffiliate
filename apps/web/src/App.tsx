@@ -6,7 +6,7 @@ import { maxDuplicateSimilarity, runPublishingGuard, inspectAffiliateAttestation
 import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
-import { campaignFilename, CREATIVE_TEMPLATES, renderPin,versionPinterestCreativePack } from '@nestaffiliate/creative-engine';
+import { campaignFilename, CREATIVE_TEMPLATES, renderPin,versionPinterestCreativePack,buildPinterestCreativePack } from '@nestaffiliate/creative-engine';
 import { FEATURE_FLAGS, KILL_SWITCHES, canAttemptPinterestPublish } from '@nestaffiliate/config';
 import { buildShopeePinterestSearchTerm, parseShopeeProductReference } from '@nestaffiliate/integrations';
 import { type Locale } from './lib/i18n';
@@ -50,6 +50,7 @@ import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment 
 import './features/revenue3.css';
 import { ProductSourceActions } from './features/ProductSourceActions';
 import { ProductTruthRepair } from './features/ProductTruthRepair';
+import { SmartProductImport } from './features/SmartProductImport';
 import { loadLatestRadarV4Coverage, listRadarV4Research, listRadarV4Assessments, primaryRadarBlocker, saveRadarV4Coverage, type SourceCoverageRunV4, type StoredRadarAssessmentV4 } from './services/radarV4Repository';
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel, opportunityReasonLabel } from './features/OpportunityV4Panel';
@@ -1312,6 +1313,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     keywordOverride?: string,
     signalInput?:OpportunitySignals,
     rank?:number,
+    autoPrepare=false,
   ) {
     if (!editable) return;
     const campaignKeyword = keywordOverride?.trim() || query;
@@ -1348,6 +1350,29 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       },
       history: [],
     };
+    if(autoPrepare){
+      // Deterministic zero-cost Pinterest package (titles, descriptions, boards,
+      // three angles and prompts). A truthful finished image still requires an
+      // authorized product reference / user confirmation in the review stage.
+      const pack=buildPinterestCreativePack({
+        organizationId,campaignId:id,campaignVersion:1,product,
+        keyword:campaignKeyword,boardName:campaign.currentVersion.boardName,
+        locale,existingNarrative:campaign.currentVersion.narrative,
+        editorialContext:'Achados do Nest · Smart Import',
+      });
+      campaign.currentVersion.creativePack=pack;
+      campaign.currentVersion.boardName=pack.copy.recommendedBoardName;
+      campaign.currentVersion.narrative={
+        ...campaign.currentVersion.narrative,
+        headline:pack.copy.headline,
+        subheadline:pack.copy.subheadline,
+        pinterestTitle:pack.copy.titles[0] ?? campaign.currentVersion.narrative.pinterestTitle,
+        description:pack.copy.descriptions[0] ?? campaign.currentVersion.narrative.description,
+        disclosure:pack.copy.disclosure,
+        altText:pack.copy.altText,
+        cta:pack.copy.cta,
+      };
+    }
     addCampaign(campaign);
     if(db && signalInput?.signals.length){
       const currentDb=db;
@@ -1378,6 +1403,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     <div className="page">
       <PageTitle eyebrow="RADAR" title={t('opportunities')} subtitle={t('opportunitiesSub')} />
       <RadarResearchHistory organizationId={organizationId} />
+      {editable&&<SmartProductImport organizationId={organizationId} onImported={(product,keyword)=>create(product,keyword,undefined,undefined,true)}/>}
       <section className="radar-start-guide" aria-label={locale==='pt-BR'?'Como escolher um produto e criar um Pin':'How to select a product'}>
         <strong>{locale==='pt-BR'?'Como começar: 1. Pesquise → 2. Escolha um produto → 3. Prepare o Pin → 4. Publique':locale==='es'?'Cómo empezar: buscar → elegir producto → preparar Pin → publicar':'Start: search → choose product → prepare Pin → publish'}</strong>
         <p>{locale==='pt-BR'?'Quando gostar de um produto, clique em “Escolher produto e preparar Pin”. Você será levado à revisão guiada, com título, descrição, prompt do ChatGPT, imagem e link afiliado.':locale==='es'?'Elige un producto para abrir la revisión guiada.':'Choose a product to open its guided creative review, image prompt and affiliate link confirmation.'}</p>
@@ -2004,7 +2030,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         <section className="decision-panel">
           <div className="review-header">
             <div><p className="eyebrow">{t('review')}</p><h1>{v.keyword}</h1></div>
-            <div className="score-badge">{['user-provided','user-corrected'].includes(v.product.title.source) && !v.product.listingVerified ? <><strong>—</strong><span>{locale==='pt-BR'?'NestScore pendente · oferta sem verificação':locale==='es'?'NestScore pendiente':'NestScore pending'}</span></> : <><strong>{campaign.score.score}</strong><span>NestScore<br/>{t('confidence')} {t(campaign.score.confidence as 'high'|'medium'|'low')}</span></>}</div>
+            <div className="score-badge">{!v.product.listingVerified ? <><strong>—</strong><span>{locale==='pt-BR'?'NestScore pendente · oferta sem verificação':locale==='es'?'NestScore pendiente':'NestScore pending'}</span></> : <><strong>{campaign.score.score}</strong><span>NestScore<br/>{t('confidence')} {t(campaign.score.confidence as 'high'|'medium'|'low')}</span></>}</div>
           </div>
           <div id="review-product"><Disclosure title={t('product')} defaultOpen>
             <h3>{v.product.title.value}</h3>
