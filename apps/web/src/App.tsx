@@ -15,6 +15,7 @@ import { demoCampaigns, initialBoards } from './lib/demo';
 import { useAuth } from './lib/auth';
 import { db } from './lib/firebase';
 import { listCampaigns, saveCampaign } from './services/campaignRepository';
+import { mergePendingCampaigns } from './services/campaignSync';
 import { listPerformance, savePerformance, savePerformanceBatch } from './services/performanceRepository';
 import { appendAudit } from './services/auditRepository';
 import { persistCampaignIntelligence } from './services/intelligenceRepository';
@@ -68,25 +69,38 @@ function useCampaignStore(organizationId: string | null, actorId: string | null,
     import.meta.env.VITE_DEMO_DATA_ENABLED === 'true' ||
     import.meta.env.VITE_E2E_MOCK_AUTH === 'true';
   const storageKey = `${STORAGE_PREFIX}:${organizationId ?? 'pending'}`;
+  const pendingKey = `nestaffiliate_unsynced_campaigns_v1:${organizationId ?? 'pending'}`;
+  const pendingRef = useRef<Map<string, Campaign>>(new Map());
   const [campaigns, setCampaigns] = useState<Campaign[]>(demoEnabled ? demoCampaigns : []);
-  const [syncError,setSyncError]=useState<'conflict'|'generic'|null>(null);
+  const [syncError,setSyncError]=useState<'conflict'|'generic'|'secondary'|null>(null);
 
   useEffect(() => {
     if (!organizationId) return;
     let active = true;
     try {
+      const drafts = JSON.parse(localStorage.getItem(pendingKey) ?? '[]') as Campaign[];
+      pendingRef.current = new Map(
+        (Array.isArray(drafts) ? drafts : [])
+          .filter((item) => item?.organizationId === organizationId && Boolean(item.id))
+          .map((item) => [item.id, item]),
+      );
+    } catch {
+      // Preserve the original raw draft in localStorage if it is malformed.
+      pendingRef.current = new Map();
+      setSyncError('generic');
+    }
+    try {
       const stored = localStorage.getItem(storageKey);
       if (stored) {
-        setCampaigns(JSON.parse(stored) as Campaign[]);
+        setCampaigns(mergePendingCampaigns(JSON.parse(stored) as Campaign[], pendingRef.current.values()));
       } else {
-        setCampaigns(
-          demoEnabled
-            ? demoCampaigns.map((campaign) => ({ ...campaign, organizationId }))
-            : [],
-        );
+        setCampaigns(mergePendingCampaigns(
+          demoEnabled ? demoCampaigns.map((campaign) => ({ ...campaign, organizationId })) : [],
+          pendingRef.current.values(),
+        ));
       }
     } catch {
-      localStorage.removeItem(storageKey);
+      setCampaigns(mergePendingCampaigns([], pendingRef.current.values()));
     }
 
     let stopCloudRefresh = () => undefined;
@@ -95,7 +109,7 @@ function useCampaignStore(organizationId: string | null, actorId: string | null,
       const refreshCloud = () => {
         void listCampaigns(currentDb, organizationId)
           .then((remote) => {
-            if (active) setCampaigns(remote);
+            if (active) setCampaigns(mergePendingCampaigns(remote, pendingRef.current.values()));
           })
           .catch(() => undefined);
       };
@@ -118,7 +132,7 @@ function useCampaignStore(organizationId: string | null, actorId: string | null,
       active = false;
       stopCloudRefresh();
     };
-  }, [organizationId, storageKey, demoEnabled]);
+  }, [organizationId, storageKey, pendingKey, demoEnabled]);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -129,25 +143,33 @@ function useCampaignStore(organizationId: string | null, actorId: string | null,
     if (db && organizationId && actorId && !demoEnabled) {
       const currentDb = db;
       setSyncError(null);
+      pendingRef.current.set(campaign.id, campaign);
+      localStorage.setItem(pendingKey, JSON.stringify([...pendingRef.current.values()]));
       void saveCampaign(currentDb, organizationId, campaign)
-        .then(() => persistCampaignIntelligence(currentDb, organizationId, campaign))
-        .then(() => appendAudit(currentDb, {
-          organizationId,
-          actorId,
-          action,
-          entityType: 'campaign',
-          entityId: campaign.id,
-          metadata: { status: campaign.status, version: campaign.currentVersion.version },
-        }))
-        .catch(async (error:unknown) => {
-          const conflict=error instanceof Error && error.message.includes('STALE_CAMPAIGN_WRITE');
-          setSyncError(conflict ? 'conflict' : 'generic');
-          try{
-            const remote=await listCampaigns(currentDb,organizationId);
-            setCampaigns(remote);
-          }catch{
-            // Keep the explicit sync error visible if even recovery fails.
+        .then(() => {
+          if (pendingRef.current.get(campaign.id)?.currentVersion.id === campaign.currentVersion.id) {
+            pendingRef.current.delete(campaign.id);
+            localStorage.setItem(pendingKey, JSON.stringify([...pendingRef.current.values()]));
           }
+          // A failed enrichment or audit must not invalidate the primary save.
+          void Promise.allSettled([
+            persistCampaignIntelligence(currentDb, organizationId, campaign),
+            appendAudit(currentDb, {
+              organizationId, actorId, action, entityType: 'campaign', entityId: campaign.id,
+              metadata: { status: campaign.status, version: campaign.currentVersion.version },
+            }),
+          ]).then((results) => {
+            if (results.some((result) => result.status === 'rejected')) {
+              console.warn('NESTAFFILIATE_CAMPAIGN_SECONDARY_SYNC_FAILED');
+              setSyncError('secondary');
+            }
+          });
+        })
+        .catch((error: unknown) => {
+          const conflict = error instanceof Error && error.message.includes('STALE_CAMPAIGN_WRITE');
+          console.error('NESTAFFILIATE_CAMPAIGN_SAVE_FAILED', error);
+          setSyncError(conflict ? 'conflict' : 'generic');
+          // Do not discard a pending local draft, including after cloud reload.
         });
     }
   };
@@ -166,7 +188,11 @@ function useCampaignStore(organizationId: string | null, actorId: string | null,
     persist(campaign, 'campaign.created');
   };
 
-  return { campaigns, update, add, syncError, clearSyncError:()=>setSyncError(null) };
+  const retryPending = () => {
+    if (!role || !canWrite(role)) return;
+    for (const draft of [...pendingRef.current.values()]) persist(draft, 'campaign.retry');
+  };
+  return { campaigns, update, add, retryPending, syncError, clearSyncError:()=>setSyncError(null) };
 }
 
 function usePerformanceStore(organizationId: string | null, actorId: string | null, role: Role | null) {
@@ -443,14 +469,17 @@ function campaignDuplicateSimilarity(candidate:Campaign,campaigns:Campaign[]){
 function SyncErrorBanner({
   kind,
   onDismiss,
+  onRetry,
 }:{
-  kind:'conflict'|'generic'|null;
+  kind:'conflict'|'generic'|'secondary'|null;
   onDismiss:()=>void;
+  onRetry:()=>void;
 }){
   const {t}=useI18n();
   if(!kind) return null;
   return <div className="global-sync-error" role="alert">
-    <span>{kind==='conflict' ? t('syncConflict') : t('syncError')}</span>
+    <span>{kind==='secondary' ? 'Campanha salva, mas dados complementares não sincronizaram.' : kind==='conflict' ? 'Existe outra versão na nuvem. Seu rascunho foi preservado neste dispositivo.' : 'Falha ao salvar na nuvem. O rascunho continua preservado neste dispositivo.'}</span>
+    {kind==='generic' && <button className="text-button" onClick={onRetry}>Tentar novamente</button>}
     <button className="text-button" onClick={onDismiss}>{t('dismiss')}</button>
   </div>;
 }
@@ -1283,7 +1312,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     const campaign: Campaign = {
       id, organizationId, status: 'READY', marketplace: product.marketplace, score,
       rankingContext:{
-        rank,
+        ...(typeof rank === 'number' ? { rank } : {}),
         trackingCode:opportunity.trackingCode,
         evidence:opportunity.rankingReasons,
         signalSources:opportunity.commercialSignals.map((signal)=>signal.source),
@@ -2756,7 +2785,7 @@ export function App() {
   return (
     <I18nProvider locale={locale}>
     <Shell locale={locale} setLocale={setLocale}>
-      <SyncErrorBanner kind={store.syncError} onDismiss={store.clearSyncError} />
+      <SyncErrorBanner kind={store.syncError} onDismiss={store.clearSyncError} onRetry={store.retryPending} />
       <Routes>
         <Route path="/" element={<Today campaigns={store.campaigns} schedules={scheduleStore.schedules} agentReport={dailyAgentReport} organizationId={org} />} />
         <Route path="/radar" element={<Radar addCampaign={store.add} organizationId={org} editable={editable} />} />

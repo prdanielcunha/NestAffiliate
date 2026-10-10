@@ -7,6 +7,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import type { Campaign } from '@nestaffiliate/core';
+import { stripUndefinedFields } from './firestorePayload';
 
 function campaignsCollection(db: Firestore, organizationId: string) {
   return collection(db, 'organizations', organizationId, 'products', 'nestaffiliate', 'campaigns');
@@ -50,23 +51,23 @@ export async function saveCampaign(db: Firestore, organizationId: string, campai
 
     transaction.set(
       campaignRef,
-      {
+      stripUndefinedFields({
         ...campaign,
         organizationId,
         updatedAt: serverTimestamp(),
-      },
+      }),
       { merge: true },
     );
 
     transaction.set(
       versionRef,
-      {
+      stripUndefinedFields({
         ...campaign.currentVersion,
         organizationId,
         marketplace: campaign.marketplace,
         status: campaign.status,
         updatedAt: serverTimestamp(),
-      },
+      }),
       { merge: true },
     );
   });
