@@ -52,6 +52,7 @@ import { ProductSourceActions } from './features/ProductSourceActions';
 import { ProductTruthRepair } from './features/ProductTruthRepair';
 import { SmartProductImport } from './features/SmartProductImport';
 import { overlayAiStrategy,type ProductAiStrategy } from './lib/aiProductStrategy';
+import {nestAiFailureLabel,type NestAiFailureCode} from './lib/nestAiFailure';
 import { loadLatestRadarV4Coverage, listRadarV4Research, listRadarV4Assessments, primaryRadarBlocker, saveRadarV4Coverage, type SourceCoverageRunV4, type StoredRadarAssessmentV4 } from './services/radarV4Repository';
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel, opportunityReasonLabel } from './features/OpportunityV4Panel';
@@ -1317,6 +1318,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     autoPrepare=false,
     aiStrategy?:ProductAiStrategy,
     aiAttempted=false,
+    aiFailureCode?:NestAiFailureCode,
   ) {
     if (!editable) return;
     const campaignKeyword = keywordOverride?.trim() || query;
@@ -1360,6 +1362,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           } : {}),
           unknowns:aiStrategy?.unknowns ?? [],
           aiAttempted,
+          ...(aiFailureCode?{failureCode:aiFailureCode}:{}),
         }} : {}),
       },
       history: [],
@@ -1418,7 +1421,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     <div className="page">
       <PageTitle eyebrow="RADAR" title={t('opportunities')} subtitle={t('opportunitiesSub')} />
       <RadarResearchHistory organizationId={organizationId} />
-      {editable&&<SmartProductImport organizationId={organizationId} onImported={(product,keyword,strategy,attempted)=>create(product,keyword,undefined,undefined,true,strategy,attempted)}/>}
+      {editable&&<SmartProductImport organizationId={organizationId} onImported={(product,keyword,strategy,attempted,failure)=>create(product,keyword,undefined,undefined,true,strategy,attempted,failure)}/>}
       <section className="radar-start-guide" aria-label={locale==='pt-BR'?'Como escolher um produto e criar um Pin':'How to select a product'}>
         <strong>{locale==='pt-BR'?'Como começar: 1. Pesquise → 2. Escolha um produto → 3. Prepare o Pin → 4. Publique':locale==='es'?'Cómo empezar: buscar → elegir producto → preparar Pin → publicar':'Start: search → choose product → prepare Pin → publish'}</strong>
         <p>{locale==='pt-BR'?'Quando gostar de um produto, clique em “Escolher produto e preparar Pin”. Você será levado à revisão guiada, com título, descrição, prompt do ChatGPT, imagem e link afiliado.':locale==='es'?'Elige un producto para abrir la revisión guiada.':'Choose a product to open its guided creative review, image prompt and affiliate link confirmation.'}</p>
@@ -2040,6 +2043,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         </div>
         {v.creativeIntelligence&&<div className="ai-intelligence-summary" role="status">
           <strong>{v.creativeIntelligence.origin==='nestai'?(locale==='pt-BR'?'NestAI personalizou esta campanha':locale==='es'?'NestAI personalizó la campaña':'NestAI personalized this campaign'):(locale==='pt-BR'?'Textos locais — NestAI não respondeu':locale==='es'?'Textos locales — IA no disponible':'Local copy — NestAI unavailable')}</strong>
+          {v.creativeIntelligence.origin!=='nestai'&&<p>{nestAiFailureLabel(v.creativeIntelligence.failureCode??'UNKNOWN',locale)} <code>{v.creativeIntelligence.failureCode??'UNKNOWN'}</code></p>}
           {v.creativeIntelligence.origin==='nestai'&&<p>{locale==='pt-BR'?'Intenção provável de compra: ':locale==='es'?'Intención probable: ':'Likely buyer intent: '}{v.creativeIntelligence.buyerIntent} · {locale==='pt-BR'?'Público provável: ':locale==='es'?'Público probable: ':'Likely audience: '}{v.creativeIntelligence.audience}</p>}
           <small>{locale==='pt-BR'?'Sugestão editorial, não comprovação comercial. Revise textos e produto antes de aprovar.':locale==='es'?'Propuesta editorial. Revisa antes de aprobar.':'Editorial proposal. Review before approving.'}</small>
         </div>}

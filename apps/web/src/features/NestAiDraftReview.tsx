@@ -4,6 +4,7 @@ import {useAuth} from '../lib/auth';
 import {useI18n} from '../lib/i18n-context';
 import {generateAffiliatePinStrategy,type AffiliatePinCopy} from '../services/nestAiClient';
 import type {ProductAiStrategy} from '../lib/aiProductStrategy';
+import {classifyNestAiFailure,nestAiFailureLabel} from '../lib/nestAiFailure';
 
 export type PinCopyDraft={title:string;description:string;tags:string[];strategy?:ProductAiStrategy};
 /** Backward-compatible pure sanitizer for legacy advisory copy responses. */
@@ -30,13 +31,12 @@ export function NestAiDraftReview({campaign,editable,onApply}:{
   try{
    const data=await Promise.race([
     generateAffiliatePinStrategy({user,organizationId,locale,product}),
-    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_TIMEOUT')),24000)),
+    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_TIMEOUT')),65000)),
    ]);
    setDraft(data);setTitleIndex(0);setDescriptionIndex(0);
-  }catch{
-   setError(pt?'O NestAI não entregou uma estratégia validada agora. Seus textos permanecem intactos. Tente novamente depois.':
-     es?'NestAI no entregó una estrategia validada; conservamos los textos.':
-       'NestAI did not return a validated strategy. Existing content is unchanged.');
+  }catch(reason){
+   const code=classifyNestAiFailure(reason);
+   setError(nestAiFailureLabel(code,locale)+' ['+code+']');
   }finally{setBusy(false);}
  }
  return <section className="nestai-review-draft" aria-label={pt?'Criar textos com NestAI':es?'Crear textos con NestAI':'Create copy with NestAI'}>

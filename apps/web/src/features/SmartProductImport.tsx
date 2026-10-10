@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n-context';
 import { extractAffiliateScreenshot,generateAffiliatePinStrategy } from '../services/nestAiClient';
 import type { ProductAiStrategy } from '../lib/aiProductStrategy';
+import {classifyNestAiFailure,type NestAiFailureCode} from '../lib/nestAiFailure';
 import { attachDeclaredAffiliateUrl, resolveOfficialProductLink } from '../services/smartProductImport';
 import { resolveShopeeProductLink } from '../services/shopeeProductResolver';
 
@@ -45,7 +46,7 @@ export function SmartProductImport({
   organizationId,onImported,
 }:{
   organizationId:string;
-  onImported:(product:ProductTruth,keyword:string,strategy?:ProductAiStrategy,aiAttempted?:boolean)=>void;
+  onImported:(product:ProductTruth,keyword:string,strategy?:ProductAiStrategy,aiAttempted?:boolean,aiFailureCode?:NestAiFailureCode)=>void;
 }){
   const {user}=useAuth();
   const {locale}=useI18n();
@@ -160,19 +161,19 @@ export function SmartProductImport({
       product=attachDeclaredAffiliateUrl(product,link,affiliate && Boolean(source));
       setStatus(message(locale,'O NestAI está entendendo o produto e criando títulos específicos…','NestAI is understanding this product and writing bespoke copy…','NestAI está analizando el producto y escribiendo textos específicos…'));
       let strategy:ProductAiStrategy|undefined;
+      let aiFailureCode:NestAiFailureCode|undefined;
       try{
         strategy=await Promise.race([
           generateAffiliatePinStrategy({
             user,organizationId,locale,product,observedFacts:extracted?.visibleFacts??[],
           }),
-          new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_STRATEGY_TIMEOUT')),22_000)),
+          new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_STRATEGY_TIMEOUT')),65_000)),
         ]);
-      }catch{
-        // Zero-cost deterministic path is explicitly labeled in review;
-        // source of truth, affiliate URL and user records remain untouched.
+      }catch(reason){
+        aiFailureCode=classifyNestAiFailure(reason);
       }
       setStatus('');
-      onImported(product,product.title.value,strategy,true);
+      onImported(product,product.title.value,strategy,true,aiFailureCode);
     }catch(e){
       setStatus('');
       setError(e instanceof Error?e.message:'IMPORT_FAILED');
