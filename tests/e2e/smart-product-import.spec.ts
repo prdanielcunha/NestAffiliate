@@ -54,6 +54,20 @@ test('Smart Import preserves an unresolved meli.la affiliate link without claimi
 
 test('Smart Import authenticates through Hub, invokes NestAI and actually USES generated product copy',async({page})=>{
  let hubExchanges=0,aiCalls=0;
+ const requests:string[]=[];
+ const errors:string[]=[];
+ page.on('request',request=>{
+  try{
+   const url=new URL(request.url());
+   if(url.hostname.includes('millionsnest.com'))requests.push(request.method()+' '+url.hostname+url.pathname);
+  }catch{/* ignore */}
+ });
+ page.on('requestfailed',request=>{
+  try{
+   const url=new URL(request.url());
+   if(url.hostname.includes('millionsnest.com'))errors.push(request.method()+' '+url.hostname+url.pathname+' '+(request.failure()?.errorText??''));
+  }catch{/* ignore */}
+ });
  const cors={
   'access-control-allow-origin':'*',
   'access-control-allow-headers':'authorization,content-type,x-firebase-appcheck,x-millionsnest-app',
@@ -102,7 +116,7 @@ test('Smart Import authenticates through Hub, invokes NestAI and actually USES g
  expect({hubExchanges,aiCalls,summary}).toMatchObject({
   hubExchanges:expect.any(Number),aiCalls:expect.any(Number),
  });
- expect(hubExchanges,'Hub AI token exchange failed; UI: '+summary).toBeGreaterThan(0);
+ expect(hubExchanges,'Hub AI token exchange failed; requests='+JSON.stringify(requests)+'; errors='+JSON.stringify(errors)+'; UI: '+summary).toBeGreaterThan(0);
  expect(aiCalls,'NestAI request was never made; UI: '+summary).toBeGreaterThan(0);
  expect(summary,'AI answered but copy was not applied').toContain('NestAI personalizou esta campanha');
  await expect(page.getByText('Jogo de panelas 10 peças: conheça o conjunto').first()).toBeVisible();
