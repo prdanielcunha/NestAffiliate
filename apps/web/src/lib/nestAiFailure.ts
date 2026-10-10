@@ -7,9 +7,9 @@ export function classifyNestAiFailure(error:unknown):NestAiFailureCode{
  const message=(error instanceof Error ? error.message:'').toUpperCase();
  if(/APP_CHECK|RECAPTCHA/.test(message))return 'APP_CHECK';
  if(/AUTH_|UNAUTHENTICATED|INVALID_TOKEN|SDK_HUB_TOKEN|NESTAI_ACCESS_DENIED|403|401/.test(message))return 'AUTH';
+ if(/TIMEOUT|ABORT/.test(message))return 'TIMEOUT';
  if(/OUTPUT_SCHEMA|AI_STRATEGY_|INVALID_JSON|UNSUPPORTED_CLAIM/.test(message))return 'OUTPUT';
  if(/RATE_LIMIT|429|QUOTA|COST_GUARD/.test(message))return 'RATE_LIMIT';
- if(/TIMEOUT|ABORT/.test(message))return 'TIMEOUT';
  if(/ROUTER_|PROVIDER_|503|AI_DISABLED/.test(message))return 'PROVIDER';
  if(/FETCH|NETWORK|FAILED TO FETCH/.test(message))return 'NETWORK';
  return 'UNKNOWN';
