@@ -7,6 +7,7 @@ import { useI18n } from '../lib/i18n-context';
 import { extractAffiliateScreenshot,generateAffiliatePinStrategy } from '../services/nestAiClient';
 import type { ProductAiStrategy } from '../lib/aiProductStrategy';
 import { attachDeclaredAffiliateUrl, resolveOfficialProductLink } from '../services/smartProductImport';
+import { resolveShopeeProductLink } from '../services/shopeeProductResolver';
 
 type Extraction={marketplace:'MELI'|'SHOPEE'|'UNKNOWN';title:string|null;productUrl:string|null;
   price:number|null;seller:string|null;rating:number|null;reviewCount:number|null;
@@ -77,7 +78,15 @@ export function SmartProductImport({
             user,organizationId,locale,mimeType:image.mimeType,base64:image.base64,
             fileName:screenshot.name || 'product.jpg',
           });
-          if(extracted.marketplace!=='UNKNOWN')kind=extracted.marketplace;
+          if(extracted.marketplace!=='UNKNOWN'){
+            // Explicit URL host wins: an OCR guess cannot silently reclassify a
+            // pasted affiliate link as the other marketplace.
+            if(!parsed.marketplace) kind=extracted.marketplace;
+            else if(parsed.marketplace!==extracted.marketplace) setDetail(message(locale,
+              'O print parece ser de outro marketplace. Mantenha o link correto e confira a fonte antes de publicar.',
+              'Screenshot and listing marketplace differ; review the source before publishing.',
+              'La captura y el enlace parecen de tiendas distintas; revisa la fuente.'));
+          }
         }catch{
           setDetail(message(locale,
             'A leitura do print está indisponível. Nenhum dado foi inventado. Use o link oficial ou informe o título para continuar.',
@@ -86,12 +95,17 @@ export function SmartProductImport({
         }
       }
       const sharedUrl=source || cleanSharedListingUrl(extracted?.productUrl || '');
+      // If the image supplied a URL with another marketplace than the selected
+      // user source, do not quietly use a cross-marketplace affiliate URL.
+      if(!source&&extracted?.marketplace!=='UNKNOWN'&&extracted?.marketplace)kind=extracted.marketplace;
       let official:ProductTruth|null=null;
       let providerReason='';
-      if(sharedUrl && kind==='MELI'){
-        setStatus(message(locale,'Identificando o anúncio na fonte oficial…','Resolving official listing…','Buscando el anuncio oficial…'));
+      if(sharedUrl){
+        setStatus(message(locale,'Conferindo identidade do anúncio na fonte oficial…','Checking official listing identity…','Comprobando identidad en la fuente oficial…'));
         try{
-          const response=await resolveOfficialProductLink({user,organizationId,url:sharedUrl});
+          const response=kind==='MELI'
+            ? await resolveOfficialProductLink({user,organizationId,url:sharedUrl})
+            : await resolveShopeeProductLink({user,organizationId,url:sharedUrl});
           if(response.status==='RESOLVED' && response.product)official=response.product;
           else providerReason=response.reason||response.status;
         }catch(e){
@@ -105,13 +119,13 @@ export function SmartProductImport({
       }else{
         const title=(extracted?.title || fallbackTitle.trim() || parsed.title || '').trim().replace(/\s+/g,' ').slice(0,170);
         if(title.length<7){
-          if(sharedUrl && kind==='MELI'){
+          if(sharedUrl){
             setPendingLink(sharedUrl);
             setPendingReason(providerReason || 'LISTING_NOT_IDENTIFIED');
             setDetail(message(locale,
-              'O Mercado Livre não devolveu o produto para este link. O link foi preservado. Envie um print para gerar o Pin ou salve um rascunho de identificação pendente.',
-              'Marketplace did not return product facts. Your link is preserved. Upload a screenshot for the Pin or save a pending draft.',
-              'El marketplace no devolvió el producto. El enlace se conservó. Envía una captura o guarda un borrador pendiente.'));
+              'A fonte não identificou este anúncio com segurança. Links curtos da Shopee podem não revelar o item; o link foi preservado. Envie um print ou salve um rascunho pendente.',
+              'The listing could not be verified. Opaque Shopee shortlinks do not reveal the exact product. Upload a screenshot or save a pending draft.',
+              'No se verificó el anuncio. Los enlaces cortos de Shopee pueden ocultar el producto. Envía una captura o guarda un borrador.'));
             return;
           }
           throw new Error(message(locale,
@@ -128,6 +142,12 @@ export function SmartProductImport({
           ...(typeof extracted?.price==='number'?{price:extracted.price}:{}),
         });
         const observedAt=new Date().toISOString();
+        if(sharedUrl&&kind==='SHOPEE'&&providerReason) {
+          setDetail(message(locale,
+            'Shopee: título do compartilhamento ou print é provisório. A API oficial não confirmou o anúncio ('+providerReason+'). Confira o produto antes de aprovar.',
+            'Shopee listing could not be verified ('+providerReason+'). Shared text/OCR is provisional.',
+            'Shopee no confirmó el anuncio ('+providerReason+'). Los datos compartidos son provisionales.'));
+        }
         product={...product,title:{...product.title,source:extracted?'screenshot-ocr-unverified':'user-provided'},
           url:{...product.url,source:sharedUrl?'user-provided':'research-search-not-listing'},
           ...(extracted&&product.price?{price:{...product.price,source:'screenshot-ocr-unverified'}}:{}),
@@ -164,8 +184,8 @@ export function SmartProductImport({
     if(!pendingLink)return;
     try{
       const draft=createManualProductTruth({
-        organizationId,marketplace:'MELI',productUrl:pendingLink,
-        title:'Produto do Mercado Livre — identificação pendente',
+        organizationId,marketplace,productUrl:pendingLink,
+        title:marketplace==='SHOPEE'?'Produto Shopee — identificação pendente':'Produto do Mercado Livre — identificação pendente',
       });
       const product=attachDeclaredAffiliateUrl({
         ...draft,title:{...draft.title,source:'link-only-pending'},
@@ -186,10 +206,14 @@ export function SmartProductImport({
         'The Radar gathers verifiable facts, analyzes the opportunity and prepares a reviewable creative pack.',
         'El Radar identifica datos verificables, analiza y prepara el creativo para revisión.')}</p></div>
     </header>
+    <p className="field-hint">{message(locale,
+      'Mercado Livre e Shopee: primeiro tentamos identificar o anúncio oficialmente. Links curtos sem ID verificável precisam de print ou título; a IA não inventará características, preços ou comissão.',
+      'Mercado Livre and Shopee: we check official listing identity first. Opaque shortlinks require a screenshot or title; AI never fabricates specifications or commission.',
+      'Mercado Livre y Shopee: primero comprobamos la identidad oficial. Los enlaces cortos pueden necesitar una captura. La IA no inventa datos.')}</p>
     <div className="smart-auto-grid">
       <div className="smart-auto-main">
         <label>{message(locale,'Link do produto (opcional se houver print)','Product link (optional with screenshot)','Enlace del producto (opcional con captura)')}
-          <textarea rows={2} placeholder="https://meli.la/..." value={link}
+          <textarea rows={2} placeholder="https://meli.la/... ou https://s.shopee.com.br/..." value={link}
             onChange={e=>{setLink(e.target.value);setPendingLink('');setPendingReason('');setDetail('');setError('');const facts=parseSharedProductText(e.target.value);if(facts.marketplace)setMarketplace(facts.marketplace);}} />
         </label>
         <fieldset className="smart-affiliate-fieldset">
