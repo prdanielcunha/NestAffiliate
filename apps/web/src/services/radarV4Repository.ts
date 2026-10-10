@@ -64,3 +64,19 @@ export function primaryRadarBlocker(run:SourceCoverageRunV4|null):{reason:string
   const first=sorted[0];
   return first?{reason:first[0],count:first[1]}:null;
 }
+
+/** Read-only historical research drill-down, scoped to the current organization. */
+export async function listRadarV4Research(db:Firestore,organizationId:string):Promise<SourceCoverageRunV4[]>{
+  if(!organizationId || organizationId.includes('/'))return [];
+  const rows=await getDocs(query(collection(db,'organizations',organizationId,'products','nestaffiliate','sourceCoverageRuns'),orderBy('finishedAt','desc'),limit(30)));
+  return rows.docs.map(row=>row.data() as SourceCoverageRunV4).filter(run=>run.organizationId===organizationId && !!run.runId);
+}
+export interface StoredRadarAssessmentV4 {
+  opportunityId:string;runId:string;organizationId:string;
+  [key:string]:unknown;
+}
+export async function listRadarV4Assessments(db:Firestore,organizationId:string,runId:string):Promise<StoredRadarAssessmentV4[]>{
+  if(!organizationId || organizationId.includes('/') || !runId || runId.includes('/'))return [];
+  const rows=await getDocs(query(collection(db,'organizations',organizationId,'products','nestaffiliate','opportunityAssessmentsV4'),limit(500)));
+  return rows.docs.map(row=>row.data() as StoredRadarAssessmentV4).filter(item=>item.organizationId===organizationId && item.runId===runId);
+}

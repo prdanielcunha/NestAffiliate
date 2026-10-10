@@ -48,7 +48,7 @@ import { analyzeAffiliateProduct, type AffiliateProductAnalysis } from './servic
 import { assessRevenueOpportunity, findComparableOffers, type RevenueAssessment } from '@nestaffiliate/radar';
 import './features/revenue3.css';
 import { ProductSourceActions } from './features/ProductSourceActions';
-import { loadLatestRadarV4Coverage, primaryRadarBlocker, saveRadarV4Coverage, type SourceCoverageRunV4 } from './services/radarV4Repository';
+import { loadLatestRadarV4Coverage, listRadarV4Research, listRadarV4Assessments, primaryRadarBlocker, saveRadarV4Coverage, type SourceCoverageRunV4, type StoredRadarAssessmentV4 } from './services/radarV4Repository';
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel, opportunityReasonLabel } from './features/OpportunityV4Panel';
 import { ProblemIntentExplorer } from './features/ProblemIntentExplorer';
@@ -656,12 +656,13 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
             <h2>{locale==='pt-BR'?'O que a última pesquisa realmente encontrou':locale==='es'?'Lo que encontró la última investigación':'What the last research actually found'}</h2>
             <p>{locale==='pt-BR'?'Pesquisa manual autenticada · os números não representam vendas ou lucro.':locale==='es'?'Investigación manual autenticada · no son ventas ni ganancias.':'Authenticated manual research · not sales or profit.'}</p>
           </div>
-          <NavLink className="button secondary" to="/radar">{locale==='pt-BR'?'Abrir Radar':locale==='es'?'Abrir Radar':'Open Radar'} →</NavLink>
+          <NavLink className="button secondary" to="/radar?history=1">{locale==='pt-BR'?'Abrir Radar':locale==='es'?'Abrir Radar':'Open Radar'} →</NavLink>
         </div>
         {researchState==='loading' ? <p className="muted">{locale==='pt-BR'?'Carregando pesquisa…':locale==='es'?'Cargando investigación…':'Loading research…'}</p>
         : researchState==='unavailable' ? <p className="muted">{locale==='pt-BR'?'Não foi possível consultar o relatório da organização. Os dados não foram presumidos como zero.':locale==='es'?'Informe no disponible. No se asumió cero.':'Report unavailable. Missing data was not counted as zero.'}</p>
         : !latestResearch ? <p className="muted">{locale==='pt-BR'?'Nenhuma pesquisa Radar 4.0 foi registrada para esta organização. Abra o Radar para começar.':locale==='es'?'Todavía no hay investigaciones registradas para esta organización.':'No Radar 4.0 research recorded for this organization yet.'}</p>
         : <>
+          <NavLink to="/radar?history=1" className="button secondary">{locale==='pt-BR'?'Ver candidatos e histórico da pesquisa →':'View research candidates and history →'}</NavLink>
           <div className="today-research-metrics">
             <div><strong>{latestResearch.examined}</strong><span>{locale==='pt-BR'?'Candidatos examinados':locale==='es'?'Candidatos examinados':'Examined candidates'}</span></div>
             <div><strong>{latestResearch.report.discovery}</strong><span>{locale==='pt-BR'?'Em investigação':locale==='es'?'En investigación':'Research candidates'}</span></div>
@@ -782,6 +783,51 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
       </div>
     </NavLink>
   );
+}
+
+function RadarResearchHistory({organizationId}:{organizationId:string}){
+  const {locale}=useI18n();
+  const [runs,setRuns]=useState<SourceCoverageRunV4[]>([]);
+  const [selected,setSelected]=useState<string|null>(null);
+  const [items,setItems]=useState<StoredRadarAssessmentV4[]>([]);
+  const [state,setState]=useState<'loading'|'ready'|'error'>('loading');
+  useEffect(()=>{
+    if(!db){setState('error');return;}
+    let active=true;setState('loading');
+    void listRadarV4Research(db,organizationId).then(data=>{
+      if(active){setRuns(data);setSelected(data[0]?.runId??null);setState('ready');}
+    }).catch(()=>{if(active)setState('error');});
+    return()=>{active=false;};
+  },[organizationId]);
+  useEffect(()=>{
+    if(!db||!selected){setItems([]);return;}
+    let active=true;setState('loading');
+    void listRadarV4Assessments(db,organizationId,selected).then(data=>{
+      if(active){setItems(data);setState('ready');}
+    }).catch(()=>{if(active)setState('error');});
+    return()=>{active=false;};
+  },[organizationId,selected]);
+  const run=runs.find(item=>item.runId===selected);
+  return <section className="radar-start-guide" aria-label="Histórico de pesquisas">
+    <h2>{locale==='pt-BR'?'Pesquisas realizadas':'Research history'}</h2>
+    <p>{locale==='pt-BR'?'Candidatos examinados não são necessariamente anúncios identificados. Consulte os registros e motivos antes de criar campanhas.':'Examined candidates are not necessarily identified listings.'}</p>
+    {runs.length>0&&<label>{locale==='pt-BR'?'Execução':'Run'} <select value={selected??''} onChange={event=>setSelected(event.target.value)}>{runs.map(item=><option key={item.runId} value={item.runId}>{new Date(item.finishedAt).toLocaleString(locale)} · {item.query} · {item.examined}</option>)}</select></label>}
+    {state==='loading'&&<p>Carregando registros…</p>}
+    {state==='error'&&<p role="alert">Não foi possível consultar o histórico. Tente novamente.</p>}
+    {state==='ready'&&!run&&<p>Nenhuma pesquisa registrada.</p>}
+    {run&&<><p><strong>{run.examined}</strong> candidatos examinados · <strong>{run.assessed}</strong> avaliações armazenadas · <strong>{run.report.resolvedListings}</strong> anúncios identificados</p>
+      {state==='ready'&&items.length===0&&<p>Esta execução não possui avaliações individuais armazenadas. Não é possível recuperar produtos apenas a partir do contador.</p>}
+      {items.map((item,index)=>{
+        const assessment=item as Record<string,unknown>;
+        const reasons=Array.isArray(assessment.reasons)?assessment.reasons.filter(v=>typeof v==='string') as string[]:[];
+        return <details key={item.opportunityId||index} className="revenue-assessment"><summary>{String(assessment.title??assessment.keyword??item.opportunityId??'Candidato')} · {String(assessment.status??assessment.stage??'Avaliado')}</summary>
+          <p>{reasons.length?reasons.join(' · '):'Sem motivos individuais registrados.'}</p>
+          <p>Identificador: {item.opportunityId}</p>
+          <p>O anúncio original só pode ser aberto quando uma URL verificada estiver disponível na pesquisa de produtos.</p>
+        </details>;
+      })}
+    </>}
+  </section>;
 }
 
 function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Campaign) => void; organizationId: string; editable: boolean }) {
@@ -1290,6 +1336,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   return (
     <div className="page">
       <PageTitle eyebrow="RADAR" title={t('opportunities')} subtitle={t('opportunitiesSub')} />
+      <RadarResearchHistory organizationId={organizationId} />
       <section className="radar-start-guide" aria-label={locale==='pt-BR'?'Como escolher um produto e criar um Pin':'How to select a product'}>
         <strong>{locale==='pt-BR'?'Como começar: 1. Pesquise → 2. Escolha um produto → 3. Prepare o Pin → 4. Publique':locale==='es'?'Cómo empezar: buscar → elegir producto → preparar Pin → publicar':'Start: search → choose product → prepare Pin → publish'}</strong>
         <p>{locale==='pt-BR'?'Quando gostar de um produto, clique em “Escolher produto e preparar Pin”. Você será levado à revisão guiada, com título, descrição, prompt do ChatGPT, imagem e link afiliado.':locale==='es'?'Elige un producto para abrir la revisión guiada.':'Choose a product to open its guided creative review, image prompt and affiliate link confirmation.'}</p>
