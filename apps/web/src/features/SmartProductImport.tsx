@@ -107,7 +107,7 @@ export function SmartProductImport({
             ? await resolveOfficialProductLink({user,organizationId,url:sharedUrl})
             : await resolveShopeeProductLink({user,organizationId,url:sharedUrl});
           if(response.status==='RESOLVED' && response.product)official=response.product;
-          else providerReason=response.reason||response.status;
+          else providerReason=('reason' in response?response.reason:undefined)||response.status;
         }catch(e){
           providerReason=e instanceof Error?e.message:'PROVIDER_UNAVAILABLE';
         }
