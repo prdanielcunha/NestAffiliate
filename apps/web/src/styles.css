@@ -1053,3 +1053,22 @@ html {scroll-behavior:smooth}
 .guided-shopee-note{font-size:12px;line-height:1.5;color:var(--muted);margin:0}
 .nestai-nonblocking-status strong{font-variant-numeric:tabular-nums}
 @media(prefers-reduced-motion:reduce){.smart-import-meter span.active{animation:none}}
+
+/* Home prioritizes the next real action before detailed research on mobile.
+   No card is hidden; users can still inspect source reports below. */
+.login-card-mobile-brand{display:none}
+@media(max-width:720px){
+ .today-page{display:flex;flex-direction:column;gap:12px}
+ .today-page>.today-research-section{order:20}
+ .today-page>.hero{order:-2;padding-top:0}
+ .login-shell{display:flex;flex-direction:column}
+ .login-card{order:-2;width:100%;box-sizing:border-box;margin:0}
+ .login-card-mobile-brand{display:flex;align-items:center;gap:10px;font-weight:750;font-size:16px}
+ .login-card-mobile-brand .brand-mark{width:36px;height:36px;display:grid;place-items:center}
+ .login-brand{order:1;width:100%;min-width:0}
+ .login-brand h1{font-size:clamp(30px,8vw,39px)!important}
+ .login-brand>p:not(.eyebrow){font-size:13px!important}
+ .login-brand .brand-mark.large,.login-brand .login-three-steps{display:none}
+ .login-card .button.primary{min-height:52px}
+ .login-legal-links{margin-top:7px}
+}
