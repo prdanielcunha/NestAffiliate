@@ -9,6 +9,7 @@ import { db } from '../lib/firebase';
 import { useI18n } from '../lib/i18n-context';
 import { savePinterestCreativePack } from '../services/creativePackRepository';
 import { AIImageImport } from './AIImageImport';
+import { LocalPinComposer } from './LocalPinComposer';
 import { CreativeConceptPicker,templateForConcept } from './CreativeConceptPicker';
 import {narrativeForConcept} from '../lib/creativeDirection';
 import { ImagePromptPanel } from './ImagePromptPanel';
@@ -209,6 +210,10 @@ export function PinterestCreativePackPanel({
       <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true} />
     </div>
 
+    <div className="pack-section">
+      <LocalPinComposer campaign={campaign} pack={pack} reference={reference}
+        disabled={!editable} onImported={importAsset}/>
+    </div>
     <div className="pack-section">
       <AIImageImport
         organizationId={campaign.organizationId}
