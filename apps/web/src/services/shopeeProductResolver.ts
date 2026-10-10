@@ -27,6 +27,7 @@ export async function resolveShopeeProductLink(input:{
  try{
   const found=await searchShopeeBrokerDetailed({
    user:input.user,organizationId:input.organizationId,query:title,limit:50,
+   signal:AbortSignal.timeout(12_000),
   });
   candidates=found.products;
  }catch{

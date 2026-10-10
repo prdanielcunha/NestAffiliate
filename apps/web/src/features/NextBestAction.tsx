@@ -47,10 +47,12 @@ export function NextBestAction({campaigns,schedules,agentReport}:{
       <NavLink className="button primary" to={next.to}>{t(next.key)} →</NavLink>
       {next.to!=='/radar' && <NavLink className="button secondary" to="/radar">{t('findOpportunities')}</NavLink>}
     </div>
+    <details className="next-action-more"><summary>{locale==='pt-BR'?'Ver status e detalhes da automação':locale==='es'?'Ver estado y detalles':'View automation status and details'}</summary>
     <div className="next-action-telemetry">
       <span>{t('todayLastAgent')}: {lastRun}</span>
       <span>{t('todayReadyCount',{n:campaigns.filter((item)=>item.status==='READY').length})}</span>
       <span>{t('todayPublishCount',{n:campaigns.filter((item)=>item.status==='PUBLICATION_READY').length})}</span>
     </div>
+    </details>
   </section>;
 }

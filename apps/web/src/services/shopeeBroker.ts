@@ -138,6 +138,7 @@ export async function searchShopeeBrokerDetailed(input:{
   organizationId:string;
   query:string;
   limit?:number;
+  signal?:AbortSignal;
 }):Promise<ShopeeSearchResult>{
   const query=input.query.trim();
 
@@ -185,7 +186,7 @@ export async function searchShopeeBrokerDetailed(input:{
   url.searchParams.set('q',query);
   url.searchParams.set('limit',String(Math.max(1,Math.min(input.limit ?? 20,50))));
 
-  const response=await fetch(url.toString(),{headers:await authHeaders(input.user)});
+  const response=await fetch(url.toString(),{headers:await authHeaders(input.user),signal:input.signal});
   if(!response.ok) throw new Error(await readError(response,`SHOPEE_BROKER_${response.status}`));
 
   const payload=await response.json() as Partial<ShopeeSearchResult> & {products?:ProductTruth[]};

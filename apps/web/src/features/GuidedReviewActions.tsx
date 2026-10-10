@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import type {Campaign} from '@nestaffiliate/core';
 import {useI18n} from '../lib/i18n-context';
+import {inspectAffiliateAttestation,isMarketplaceAffiliateDestination} from '@nestaffiliate/compliance';
 
 function loc(locale:string,pt:string,en:string,es:string){
  return locale==='pt-BR'?pt:locale==='es'?es:en;
@@ -9,7 +10,9 @@ export function GuidedReviewActions({campaign}: {campaign:Campaign}){
  const {locale}=useI18n();
  const [copied,setCopied]=useState<'title'|'description'|null>(null);
  const v=campaign.currentVersion;
- const hasAffiliate=Boolean(v.product.affiliateUrl?.value);
+ const hasAffiliate=v.product.marketplace==='MELI'
+  ? isMarketplaceAffiliateDestination(v.product.affiliateUrl?.value,'MELI')&&inspectAffiliateAttestation(v.product)==='SELF_CONFIRMED'
+  : campaign.status==='PUBLISHED'; // Shopee tagging must be confirmed in publication.
  const hasImage=Boolean(v.creativeAsset?.productFidelityConfirmed && v.creativeAsset.rightsStatus!=='UNKNOWN');
  const copyReady=Boolean(v.narrative.pinterestTitle.trim()&&v.narrative.description.trim());
  const steps=[
