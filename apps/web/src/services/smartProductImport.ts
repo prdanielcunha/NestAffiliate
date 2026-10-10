@@ -1,7 +1,7 @@
 import type { User } from 'firebase/auth';
 import type { ProductTruth } from '@nestaffiliate/core';
 import { cleanSharedListingUrl } from '@nestaffiliate/integrations';
-import { isSafeOfferUrl } from '@nestaffiliate/radar';
+import { isSafeOfferUrl, isSafeAffiliateUrl } from '@nestaffiliate/radar';
 
 const HUB=(import.meta.env.VITE_HUB_URL || 'https://www.millionsnest.com').replace(/\/$/,'');
 export type SmartResolveResult={
@@ -9,6 +9,7 @@ export type SmartResolveResult={
   product?:ProductTruth;
   canonicalUrl?:string;
   reason?:string;
+  metadataOnly?:boolean;
 };
 export async function resolveOfficialProductLink(input:{
   user:User;organizationId:string;url:string;
@@ -30,7 +31,8 @@ export async function resolveOfficialProductLink(input:{
   if(data.status==='RESOLVED'&&data.product){
     const p=data.product;
     if(p.organizationId!==input.organizationId || p.marketplace!=='MELI' ||
-      !isSafeOfferUrl(p.url.value,'MELI') || !p.title?.value || !p.externalId)
+      !(isSafeOfferUrl(p.url.value,'MELI') || (data.metadataOnly===true && isSafeAffiliateUrl(p.url.value,'MELI'))) ||
+      !p.title?.value || !p.externalId)
       throw new Error('PRODUCT_RESOLVE_INVALID_IDENTITY');
   }
   return data;
