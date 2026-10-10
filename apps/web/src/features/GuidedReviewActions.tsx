@@ -10,14 +10,18 @@ export function GuidedReviewActions({campaign}: {campaign:Campaign}){
  const {locale}=useI18n();
  const [copied,setCopied]=useState<'title'|'description'|null>(null);
  const v=campaign.currentVersion;
- const hasAffiliate=v.product.marketplace==='MELI'
-  ? isMarketplaceAffiliateDestination(v.product.affiliateUrl?.value,'MELI')&&inspectAffiliateAttestation(v.product)==='SELF_CONFIRMED'
-  : campaign.status==='PUBLISHED'; // Shopee tagging must be confirmed in publication.
+ const shopee=v.product.marketplace==='SHOPEE';
+ const hasAffiliate=!shopee && isMarketplaceAffiliateDestination(v.product.affiliateUrl?.value,'MELI')
+   && inspectAffiliateAttestation(v.product)==='SELF_CONFIRMED';
+ // Shopee native tagging belongs at publication and must not prevent
+ // users from preparing text/image or trap them in the first step.
  const hasImage=Boolean(v.creativeAsset?.productFidelityConfirmed && v.creativeAsset.rightsStatus!=='UNKNOWN');
  const copyReady=Boolean(v.narrative.pinterestTitle.trim()&&v.narrative.description.trim());
  const steps=[
-  {name:loc(locale,'Conferir link','Confirm affiliate link','Confirmar enlace'),
-   done:hasAffiliate,target:'#review-product'},
+  {name:shopee
+    ?loc(locale,'Marcar Shopee ao publicar','Tag Shopee when posting','Etiquetar Shopee al publicar')
+    :loc(locale,'Conferir link','Confirm affiliate link','Confirmar enlace'),
+   done:shopee||hasAffiliate,target:shopee?'#review-final':'#review-product'},
   {name:loc(locale,'Escolher e copiar textos','Choose and copy text','Elegir y copiar textos'),
    done:copyReady&&v.creativeIntelligence?.origin==='nestai',target:'#review-ai'},
   {name:loc(locale,'Preparar imagem','Prepare image','Preparar imagen'),
@@ -38,6 +42,10 @@ export function GuidedReviewActions({campaign}: {campaign:Campaign}){
    </div>
    <a className="button primary guided-next-cta" href={current.target}>{current.name} →</a>
   </div>
+  {shopee&&<p className="guided-shopee-note">{loc(locale,
+   'Shopee: a marcação de afiliado é conferida na publicação. Prepare os textos e a imagem agora.',
+   'Shopee tagging is confirmed at publication. Prepare copy and image now.',
+   'Shopee: la etiqueta se confirma al publicar. Prepara textos e imagen.')}</p>}
   <nav className="guided-review-shortcuts" aria-label={loc(locale,'Ir para uma tarefa','Jump to a task','Ir a una tarea')}>
    <a href="#review-ai">{loc(locale,'Textos + IA','Copy + AI','Textos + IA')}</a>
    <a href="#review-product">{loc(locale,'Link','Affiliate link','Enlace')}</a>

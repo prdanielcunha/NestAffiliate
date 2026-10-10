@@ -1039,3 +1039,17 @@ html {scroll-behavior:smooth}
  .bottom-nav{padding-bottom:env(safe-area-inset-bottom,0px)}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* Product identification is finite and legible on a narrow screen. */
+.smart-import-progress{margin:12px 0;padding:14px;border:1px solid rgba(185,232,117,.26);border-radius:14px;background:var(--surface2)}
+.smart-import-progress strong{display:block;font-size:14px;overflow-wrap:anywhere}
+.smart-import-progress p{font-size:12px;color:var(--muted);line-height:1.5;margin:6px 0}
+.smart-import-progress small{display:block;font-size:11px;color:var(--muted)}
+.smart-import-meter{display:flex;gap:6px;margin:12px 0}
+.smart-import-meter span{height:5px;flex:1;border-radius:99px;background:var(--border-strong);font-size:0}
+.smart-import-meter span.active{background:var(--accent);animation:import-pulse 1.2s ease-in-out infinite}
+.smart-import-meter span.done{background:var(--accent);opacity:.55}
+@keyframes import-pulse{50%{opacity:.35}}
+.guided-shopee-note{font-size:12px;line-height:1.5;color:var(--muted);margin:0}
+.nestai-nonblocking-status strong{font-variant-numeric:tabular-nums}
+@media(prefers-reduced-motion:reduce){.smart-import-meter span.active{animation:none}}
