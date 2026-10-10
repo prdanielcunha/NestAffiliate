@@ -30,14 +30,12 @@ export function CampaignJourney({campaign,mode='review'}:{campaign:Campaign;mode
  const {locale}=useI18n();const stages=getCampaignJourney(campaign,locale);
  const l=(pt:string,en:string,es:string)=>t3(locale,pt,en,es);
  const current=mode==='publish'?'publication':(stages.find(s=>!s.done && !(campaign.marketplace==='SHOPEE'&&s.id==='affiliate'))??stages[4]!).id;
- const next=stages.find(s=>s.id===current)??stages[4]!;
  return <section className="campaign-journey" aria-label={l('Etapas para publicar seu Pin','Steps to publish your Pin','Pasos para publicar tu Pin')}>
   {mode==='publish'&&<div className="campaign-journey-intro">
    <div><p className="eyebrow">{mode==='publish'?'ETAPA FINAL · PUBLICAÇÃO':'DO RADAR AO PIN · PASSO A PASSO'}</p>
     <h2>{mode==='publish'?l('Publicar no Pinterest','Publish on Pinterest','Publicar en Pinterest'):l('Falta pouco para o seu Pin','Your Pin is taking shape','Tu Pin está tomando forma')}</h2>
     <p>{mode==='publish'?l('Baixe a arte, copie os campos para o Pinterest e registre o link da publicação. Nada é publicado automaticamente.','Download, copy the Pinterest fields and save the public URL. No automatic posting.','Descarga, copia los datos y registra el enlace. Sin publicación automática.'):
      l('A campanha está salva. Veja apenas o próximo passo ou abra todas as etapas.','Your campaign is saved. See the next action or expand all steps.','Tu campaña está guardada. Mira el siguiente paso o abre todas las etapas.')}</p></div>
-   {mode==='review'&&<a href={next.target} className="button primary journey-next-link">{l('Ir para: ','Go to: ','Ir a: ')}{next.name} →</a>}
    {mode==='publish'&&<NavLink to={'/review/'+campaign.id} className="button secondary">{l('Voltar à revisão','Back to review','Volver a la revisión')}</NavLink>}
   </div>}
   <details className="campaign-journey-details">
