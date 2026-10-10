@@ -1350,7 +1350,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       },
       history: [],
     };
-    if(autoPrepare){
+    if(autoPrepare && product.title.source!=='link-only-pending'){
       // Deterministic zero-cost Pinterest package (titles, descriptions, boards,
       // three angles and prompts). A truthful finished image still requires an
       // authorized product reference / user confirmation in the review stage.

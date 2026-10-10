@@ -16,7 +16,8 @@ export async function resolveOfficialProductLink(input:{
   const source=cleanSharedListingUrl(input.url);
   if(!source)throw new Error('INVALID_PRODUCT_URL');
   const parsed=new URL(source);
-  if(!['meli.la','www.mercadolivre.com.br','mercadolivre.com.br','www.mercadolibre.com.br','mercadolibre.com.br'].includes(parsed.hostname.toLowerCase()))
+  const host=parsed.hostname.toLowerCase();
+  if(host!=='meli.la'&&!['mercadolivre.com.br','mercadolibre.com.br','mercadolibre.com'].some(domain=>host===domain||host.endsWith('.'+domain)))
     throw new Error('PROVIDER_NOT_SUPPORTED');
   const token=await input.user.getIdToken();
   const response=await fetch(HUB+'/api/v1/nestaffiliate/mercadolivre/resolve',{
@@ -41,8 +42,7 @@ export function attachDeclaredAffiliateUrl(product:ProductTruth,sourceUrl:string
   const u=new URL(url);
   const hostname=u.hostname.toLowerCase();
   const accepted=product.marketplace==='MELI'
-    ? ['meli.la','mercadolivre.com.br','www.mercadolivre.com.br',
-        'mercadolibre.com.br','www.mercadolibre.com.br'].includes(hostname)
+    ? hostname==='meli.la'||['mercadolivre.com.br','mercadolibre.com.br','mercadolibre.com'].some(domain=>hostname===domain||hostname.endsWith('.'+domain))
     : ['shopee.com.br','www.shopee.com.br','s.shopee.com.br','shope.ee','shopee.com'].includes(hostname);
   if(!accepted)throw new Error('AFFILIATE_MARKETPLACE_MISMATCH');
   return {...product,affiliateUrl:{value:url,source:'user-declared-affiliate-unverified',observedAt:new Date().toISOString()},

@@ -10,6 +10,9 @@ export function reviewBlockers(campaign:Campaign,guard:GuardResult):ReviewBlocke
  const add=(key:string,message:string,target:ReviewBlocker['target'])=>{
    if(!issues.some(item=>item.key===key))issues.push({key,message,target});
  };
+ if(v.product.title.source==='link-only-pending'){
+   add('product-identity','Este link foi preservado, mas ainda falta identificar o produto real. Envie um print ou informe e confirme o título do anúncio antes de preparar/publicar o Pin.','#review-product');
+ }
  // Existing demo fixtures keep their previous behavior for smoke tests.
  // For real newly reviewed Pins, text-only mockups must not be mistaken for a finished photo.
  if(campaign.organizationId!=='demo-org'){

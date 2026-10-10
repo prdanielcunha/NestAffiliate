@@ -926,3 +926,9 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 
 /* Preserve the trust state on the smallest mobile screens. */
 @media(max-width:520px){.review-header .score-badge span{display:block;max-width:130px;font-size:11px;overflow-wrap:anywhere}.review-header .score-badge{min-width:98px;flex-wrap:wrap;gap:4px}}
+
+.smart-auto-pending{padding:16px 18px;margin:14px 0;border:1px solid var(--border);border-radius:14px;background:var(--surface);display:grid;gap:8px}
+.smart-auto-pending p{margin:0;color:var(--muted);line-height:1.5}
+.smart-auto-pending small{color:var(--muted)}.smart-auto-pending-actions{display:flex;gap:10px;flex-wrap:wrap}
+.smart-auto-pending-actions .button{white-space:normal;text-align:center}
+@media(max-width:540px){.smart-auto-pending-actions{display:grid}.smart-auto-pending-actions .button{width:100%}}

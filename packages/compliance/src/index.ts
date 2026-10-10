@@ -175,6 +175,9 @@ export function runPublishingGuard(input: GuardInput): GuardResult {
   const push = (key: string, outcome: ComplianceOutcome, message: string) =>
     checks.push({ key, outcome, message });
 
+  if(input.product.title.source==='link-only-pending'){
+    push('product-identity','BLOCK','Produto ainda não identificado: confirme título e anúncio antes da publicação.');
+  }
   push(
     'availability',
     input.product.availability.value === 'unavailable' ? 'BLOCK' : input.product.availability.value === 'unknown' ? 'WARN' : 'PASS',
