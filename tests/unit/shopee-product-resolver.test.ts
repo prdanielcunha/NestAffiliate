@@ -42,10 +42,27 @@ describe('Shopee official link resolution',()=>{
  });
  it('does not infer product ids from opaque affiliate shortlinks',async()=>{
   search.mockClear();
+  vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>({status:'LINK_ONLY',listingVerified:false})}));
+  try {
   expect(await resolveShopeeProductLink({...input,url:'https://s.shopee.com.br/abc123'})).toMatchObject({
    status:'SOURCE_LIMITED',reason:'SHOPEE_SHORTLINK_NO_OFFICIAL_ID',
   });
   expect(search).not.toHaveBeenCalled();
+  } finally {vi.unstubAllGlobals();}
+ });
+ it('resolves short share URLs into an exact official item without ever using the shortlink as verified evidence',async()=>{
+  const response=vi.fn().mockResolvedValue({ok:true,json:async()=>({
+   status:'IDENTIFIED_URL',canonicalUrl:'https://shopee.com.br/Organizador-de-Cozinha-i.12345.98765',
+   itemId:'98765',shopId:'12345',titleHint:'Organizador de Cozinha',listingVerified:false,
+  })});
+  vi.stubGlobal('fetch',response);
+  respond([product()]);
+  try{
+   const result=await resolveShopeeProductLink({...input,url:'https://s.shopee.com.br/TESTLINK'});
+   expect(result.status).toBe('RESOLVED');
+   expect(response).toHaveBeenCalledOnce();
+   expect(JSON.parse(response.mock.calls[0]![1].body).url).toBe('https://s.shopee.com.br/TESTLINK');
+  }finally{vi.unstubAllGlobals();}
  });
  it('rejects lookalike hosts and recognizes shortlinks in shared text',async()=>{
   expect(await resolveShopeeProductLink({...input,url:'https://shopee.com.br.evil.org/product/1/2'}))

@@ -116,3 +116,21 @@ test('mobile review starts with copy, next action and collapsed detailed journey
  }
  await expect(actions.getByRole('button',{name:'Copiar título'})).toBeVisible();
 });
+
+test('Shopee short share URL resolves through Hub while preserving affiliate attribution',async({page})=>{
+ await page.route('**/api/v1/nestaffiliate/shopee/resolve',async route=>{
+  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+   status:'IDENTIFIED_URL',canonicalUrl:'https://shopee.com.br/Organizador-Giratorio-Multiuso-Shopee-i.12345.98765001',
+   shopId:'12345',itemId:'98765001',titleHint:'Organizador Giratorio Multiuso Shopee',listingVerified:false,affiliateVerified:false,
+  })});
+ });
+ await page.goto('/radar');
+ const smart=page.getByRole('region',{name:'Importação inteligente'});
+ await smart.getByPlaceholder(/https:\/\/meli\.la/).fill('https://s.shopee.com.br/ABC123');
+ await smart.getByLabel('Sim, já é meu link afiliado').check();
+ await smart.getByRole('button',{name:/Salvar produto e preparar Pin/}).click();
+ await expect(page).toHaveURL(/\/review\/campaign-/);
+ await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://s.shopee.com.br/ABC123');
+ await expect(page.getByRole('region',{name:'Próxima ação e textos do Pin'})).toBeVisible();
+ await expect(page.getByText('Marcar Shopee ao publicar').first()).toBeVisible();
+});
