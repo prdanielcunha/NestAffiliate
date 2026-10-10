@@ -9,15 +9,20 @@ function loc(locale:string,pt:string,en:string,es:string){
 export function GuidedReviewActions({campaign}: {campaign:Campaign}){
  const {locale}=useI18n();
  const [copied,setCopied]=useState<'title'|'description'|null>(null);
+ const [copyError,setCopyError]=useState(false);
  const v=campaign.currentVersion;
- const hasAffiliate=v.product.marketplace==='MELI'
-  ? isMarketplaceAffiliateDestination(v.product.affiliateUrl?.value,'MELI')&&inspectAffiliateAttestation(v.product)==='SELF_CONFIRMED'
-  : campaign.status==='PUBLISHED'; // Shopee tagging must be confirmed in publication.
+ const shopee=v.product.marketplace==='SHOPEE';
+ const hasAffiliate=!shopee && isMarketplaceAffiliateDestination(v.product.affiliateUrl?.value,'MELI')
+   && inspectAffiliateAttestation(v.product)==='SELF_CONFIRMED';
+ // Shopee native tagging belongs at publication and must not prevent
+ // users from preparing text/image or trap them in the first step.
  const hasImage=Boolean(v.creativeAsset?.productFidelityConfirmed && v.creativeAsset.rightsStatus!=='UNKNOWN');
  const copyReady=Boolean(v.narrative.pinterestTitle.trim()&&v.narrative.description.trim());
  const steps=[
-  {name:loc(locale,'Conferir link','Confirm affiliate link','Confirmar enlace'),
-   done:hasAffiliate,target:'#review-product'},
+  {name:shopee
+    ?loc(locale,'Marcar Shopee ao publicar','Tag Shopee when posting','Etiquetar Shopee al publicar')
+    :loc(locale,'Conferir link','Confirm affiliate link','Confirmar enlace'),
+   done:shopee||hasAffiliate,target:shopee?'#review-final':'#review-product'},
   {name:loc(locale,'Escolher e copiar textos','Choose and copy text','Elegir y copiar textos'),
    done:copyReady&&v.creativeIntelligence?.origin==='nestai',target:'#review-ai'},
   {name:loc(locale,'Preparar imagem','Prepare image','Preparar imagen'),
@@ -27,8 +32,23 @@ export function GuidedReviewActions({campaign}: {campaign:Campaign}){
  ];
  const current=steps.find(s=>!s.done)??steps[steps.length-1]!;
  async function copy(text:string,which:'title'|'description'){
-  try{await navigator.clipboard.writeText(text);setCopied(which);}
-  catch{setCopied(null);}
+  setCopyError(false);
+  try{
+   await navigator.clipboard.writeText(text);
+   setCopied(which);
+  }catch{
+   // Older iOS Safari/WebViews may reject Clipboard API while the user is
+   // already interacting. Keep an accessible fallback without extra apps.
+   const node=document.createElement('textarea');
+   node.value=text;node.readOnly=true;node.style.position='fixed';
+   node.style.opacity='0';node.style.top='0';
+   document.body.appendChild(node);
+   node.select();node.setSelectionRange(0,node.value.length);
+   const success=document.execCommand('copy');
+   node.remove();
+   if(success)setCopied(which);
+   else{setCopied(null);setCopyError(true);}
+  }
  }
  return <section className="guided-review-actions" aria-label={loc(locale,'Próxima ação e textos do Pin','Next step and Pin text','Siguiente paso y textos')}>
   <div className="guided-review-top">
@@ -38,6 +58,10 @@ export function GuidedReviewActions({campaign}: {campaign:Campaign}){
    </div>
    <a className="button primary guided-next-cta" href={current.target}>{current.name} →</a>
   </div>
+  {shopee&&<p className="guided-shopee-note">{loc(locale,
+   'Shopee: a marcação de afiliado é conferida na publicação. Prepare os textos e a imagem agora.',
+   'Shopee tagging is confirmed at publication. Prepare copy and image now.',
+   'Shopee: la etiqueta se confirma al publicar. Prepara textos e imagen.')}</p>}
   <nav className="guided-review-shortcuts" aria-label={loc(locale,'Ir para uma tarefa','Jump to a task','Ir a una tarea')}>
    <a href="#review-ai">{loc(locale,'Textos + IA','Copy + AI','Textos + IA')}</a>
    <a href="#review-product">{loc(locale,'Link','Affiliate link','Enlace')}</a>
@@ -60,6 +84,10 @@ export function GuidedReviewActions({campaign}: {campaign:Campaign}){
     <p>{v.narrative.description||'—'}</p>
    </div>
   </div>
+  {copyError&&<p role="alert" className="guided-copy-error">{loc(locale,
+    'Não foi possível copiar automaticamente. Mantenha pressionado sobre o texto acima para selecionar e copiar.',
+    'Automatic copy failed. Press and hold the text above to select and copy.',
+    'No se pudo copiar. Mantén pulsado el texto para seleccionarlo.')}</p>}
   <a className="guided-more-copy" href="#review-ai">{loc(locale,'Não gostou? Criar novos textos com NestAI →','Want better copy? Generate with NestAI →','¿Otros textos? Crear con NestAI →')}</a>
  </section>;
 }

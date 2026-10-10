@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ProductTruth } from '@nestaffiliate/core';
 import { createManualProductTruth, cleanSharedListingUrl, parseSharedProductText } from '@nestaffiliate/integrations';
 import { detectImageMime } from '@nestaffiliate/creative-engine';
@@ -57,6 +57,14 @@ export function SmartProductImport({
   const [marketplace,setMarketplace]=useState<'MELI'|'SHOPEE'>('MELI');
   const [fallbackTitle,setFallbackTitle]=useState('');
   const [busy,setBusy]=useState(false);
+  const [elapsed,setElapsed]=useState(0);
+  const [phase,setPhase]=useState<'starting'|'reading'|'checking'|'saving'>('starting');
+  useEffect(()=>{
+    if(!busy){setElapsed(0);return;}
+    const started=Date.now();
+    const timer=window.setInterval(()=>setElapsed(Math.floor((Date.now()-started)/1000)),1000);
+    return ()=>window.clearInterval(timer);
+  },[busy]);
   const [status,setStatus]=useState('');
   const [detail,setDetail]=useState('');
   const [error,setError]=useState('');
@@ -65,13 +73,14 @@ export function SmartProductImport({
 
   async function analyze(){
     if(!user || busy)return;
-    setBusy(true);setError('');setDetail('');setPendingLink('');setPendingReason('');
+    setBusy(true);setPhase('starting');setError('');setDetail('');setPendingLink('');setPendingReason('');
     try{
       const source=cleanSharedListingUrl(link);
       const parsed=parseSharedProductText(link);
       let kind=parsed.marketplace || marketplace;
       let extracted:Extraction|null=null;
       if(screenshot){
+        setPhase('reading');
         setStatus(message(locale,'Lendo dados visíveis do print com NestAI…','Reading screenshot…','Leyendo la captura…'));
         try{
           const image=await normalizeFile(screenshot);
@@ -101,24 +110,31 @@ export function SmartProductImport({
       if(!source&&extracted?.marketplace!=='UNKNOWN'&&extracted?.marketplace)kind=extracted.marketplace;
       let official:ProductTruth|null=null;
       let providerReason='';
+      let sourceTitleHint='';
       if(sharedUrl){
+        setPhase('checking');
         setStatus(message(locale,'Conferindo identidade do anúncio na fonte oficial…','Checking official listing identity…','Comprobando identidad en la fuente oficial…'));
         try{
           const response=kind==='MELI'
             ? await resolveOfficialProductLink({user,organizationId,url:sharedUrl})
             : await resolveShopeeProductLink({user,organizationId,url:sharedUrl});
           if(response.status==='RESOLVED' && response.product)official=response.product;
-          else providerReason=('reason' in response?response.reason:undefined)||response.status;
+          else {
+            providerReason=('reason' in response?response.reason:undefined)||response.status;
+            if(kind==='SHOPEE'&&'titleHint' in response)
+              sourceTitleHint=(response.titleHint||'').trim();
+          }
         }catch(e){
           providerReason=e instanceof Error?e.message:'PROVIDER_UNAVAILABLE';
         }
       }
+      setPhase('saving');
       setStatus(message(locale,'Preparando análise e Pin…','Preparing analysis and Pin…','Preparando análisis y Pin…'));
       let product:ProductTruth;
       if(official){
         product=official;
       }else{
-        const title=(extracted?.title || fallbackTitle.trim() || parsed.title || '').trim().replace(/\s+/g,' ').slice(0,170);
+        const title=(extracted?.title || fallbackTitle.trim() || parsed.title || sourceTitleHint || '').trim().replace(/\s+/g,' ').slice(0,170);
         if(title.length<7){
           if(sharedUrl){
             setPendingLink(sharedUrl);
@@ -149,7 +165,7 @@ export function SmartProductImport({
             'Shopee listing could not be verified ('+providerReason+'). Shared text/OCR is provisional.',
             'Shopee no confirmó el anuncio ('+providerReason+'). Los datos compartidos son provisionales.'));
         }
-        product={...product,title:{...product.title,source:extracted?'screenshot-ocr-unverified':'user-provided'},
+        product={...product,title:{...product.title,source:extracted?'screenshot-ocr-unverified':sourceTitleHint&&!fallbackTitle.trim()&&!parsed.title?'url-slug-unverified':'user-provided'},
           url:{...product.url,source:sharedUrl?'user-provided':'research-search-not-listing'},
           ...(extracted&&product.price?{price:{...product.price,source:'screenshot-ocr-unverified'}}:{}),
           listingVerified:false,
@@ -260,7 +276,19 @@ export function SmartProductImport({
       </div>
     </div>}
     {error&&<p role="alert" className="field-error">{error}</p>}
-    {status&&<p role="status" className="field-hint">{status}</p>}
+    {busy&&<div className="smart-import-progress" role="status" aria-live="polite">
+      <strong>{status||message(locale,'Identificando produto…','Identifying product…','Identificando producto…')}</strong>
+      <p>{message(locale,
+        'Você pode continuar após salvar. A geração de texto com IA acontece na revisão, sem bloquear este formulário.',
+        'AI copy is prepared in Review without holding up product import.',
+        'La IA prepara textos en Revisión sin bloquear la importación.')}</p>
+      <div className="smart-import-meter" aria-hidden="true">
+        <span className={phase==='reading'?'active':'done'}>1</span>
+        <span className={phase==='checking'?'active':phase==='saving'?'done':''}>2</span>
+        <span className={phase==='saving'?'active':''}>3</span>
+      </div>
+      <small>{elapsed}s · {elapsed>=15?message(locale,'A fonte está demorando. Não feche a página; seus dados digitados continuam aqui.','The source is slow. Your input is still here.','La fuente tarda. Tus datos siguen aquí.'):message(locale,'Consultando as fontes disponíveis…','Checking available sources…','Consultando fuentes…')}</small>
+    </div>}
     <button className="button primary smart-auto-button" type="button" disabled={busy||!user||(!link.trim()&&!screenshot)}
       onClick={()=>void analyze()}>
       {busy?status || message(locale,'Identificando anúncio…','Identifying listing…','Identificando anuncio…'):

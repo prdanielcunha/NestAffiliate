@@ -524,6 +524,7 @@ function Login() {
         <div className="login-three-steps" aria-label="Como funciona"><span>1. {t('radar')}</span><span>2. {t('review')}</span><span>3. Pinterest</span></div>
       </section>
       <section className="login-card">
+        <div className="login-card-mobile-brand"><span className="brand-mark">N</span><strong>NestAffiliate</strong></div>
         <div className="status-orb" />
         <h2>{state === 'loading' ? t('loadingAccount') : t('enterContinue')}</h2>
         <p className="login-reassurance">{locale==='pt-BR'?'Entre para encontrar produtos, criar conteúdo e acompanhar seus Pins.':locale==='es'?'Entra para descubrir productos y preparar tus Pins.':'Sign in to discover products and prepare your Pins.'}</p>
@@ -680,7 +681,7 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
     agentReport?.queueState === 'NO_ELIGIBLE' ? t('queueNoEligible') :
     t('queueStable');
   return (
-    <div className="page">
+    <div className="page today-page">
       <section className="hero">
         <p className="eyebrow">{t('today').toUpperCase()}</p>
         <h1>{FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? t('r3HomeTitle') : t('workedForYou')}</h1>

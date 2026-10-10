@@ -23,6 +23,13 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
  const pt=locale==='pt-BR',es=locale==='es';
  const product=campaign.currentVersion.product;
  const [busy,setBusy]=useState(false),[draft,setDraft]=useState<ProductAiStrategy|null>(null);
+ const [seconds,setSeconds]=useState(0);
+ useEffect(()=>{
+  if(!busy){setSeconds(0);return;}
+  const started=Date.now();
+  const ticker=window.setInterval(()=>setSeconds(Math.floor((Date.now()-started)/1000)),1000);
+  return ()=>window.clearInterval(ticker);
+ },[busy]);
  const [titleIndex,setTitleIndex]=useState(0),[descriptionIndex,setDescriptionIndex]=useState(0);
  const [error,setError]=useState(''),[saved,setSaved]=useState(false);
  const [dismissed,setDismissed]=useState(false);
@@ -37,7 +44,10 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
   started.current=currentCampaignId;
   let active=true;
   setBusy(true);setError('');setSaved(false);
-  void generateAffiliatePinStrategy({user,organizationId,locale,product})
+  void Promise.race([
+    generateAffiliatePinStrategy({user,organizationId,locale,product}),
+    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_TIMEOUT')),65000)),
+  ])
     .then(data=>{if(active&&!dismissedRef.current){setDraft(data);setTitleIndex(0);setDescriptionIndex(0);}})
     .catch(reason=>{if(active&&!dismissedRef.current){
       const code=classifyNestAiFailure(reason);
@@ -73,8 +83,10 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
      :'Analyze likely buyer intent and three distinct angles. You approve before saving.'}</p>
   </div></div>
   {busy&&<div className="nestai-nonblocking-status" role="status">
-    <strong>{pt?'NestAI está preparando opções':es?'NestAI está preparando opciones':'NestAI is preparing options'}</strong>
-    <p>{pt?'O produto já está salvo. Você pode conferir o link ou a imagem enquanto a IA trabalha. Não precisa esperar nesta tela.':es?'El producto ya está guardado. Puedes revisar el enlace y la imagen mientras trabaja la IA.':'Product saved. You can review link and image while AI works.'}</p>
+    <strong>{pt?'NestAI está preparando opções':es?'NestAI está preparando opciones':'NestAI is preparing options'} · {seconds}s</strong>
+    <p>{seconds>=20
+      ?(pt?'A análise está demorando. Seu Pin continua salvo: confira o link ou a imagem, ou tente novamente mais tarde.':es?'La IA está tardando; puedes seguir con el producto guardado.':'AI is taking longer; continue with your saved product.')
+      :(pt?'O produto já está salvo. Enquanto o NestAI trabalha, confira o link ou a imagem.':es?'El producto está guardado. Puedes revisar el enlace y la imagen.':'Product saved. Review the link or image while AI works.')}</p>
     <button className="text-button" type="button" onClick={()=>{dismissedRef.current=true;setDismissed(true);}}>
       {pt?'Continuar sem esperar':'Continue without waiting'}
     </button>
