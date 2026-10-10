@@ -154,7 +154,7 @@ export async function generateAffiliatePinStrategy(input:{
      price:input.product.price?.source ?? null,
     },
     observableAttributes:observations,
-    sourceUrl:input.product.url.value,
+    // Never forward affiliate/tracking URLs or tokens into a generative prompt.
     availableFacts:{
       ...(input.product.price?{price:input.product.price.value}:{}),
       ...(input.product.rating?{rating:input.product.rating.value}:{}),
