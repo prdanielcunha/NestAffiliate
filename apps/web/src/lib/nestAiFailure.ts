@@ -10,7 +10,7 @@ export function classifyNestAiFailure(error:unknown):NestAiFailureCode{
  if(/TIMEOUT|ABORT/.test(message))return 'TIMEOUT';
  if(/OUTPUT_SCHEMA|AI_STRATEGY_|INVALID_JSON|UNSUPPORTED_CLAIM/.test(message))return 'OUTPUT';
  if(/RATE_LIMIT|429|QUOTA|COST_GUARD/.test(message))return 'RATE_LIMIT';
- if(/ROUTER_|PROVIDER_|503|AI_DISABLED/.test(message))return 'PROVIDER';
+ if(/TASK_NOT_REGISTERED|PROMPT_NOT_REGISTERED|ROUTER_|PROVIDER_|503|AI_DISABLED/.test(message))return 'PROVIDER';
  if(/FETCH|NETWORK|FAILED TO FETCH/.test(message))return 'NETWORK';
  return 'UNKNOWN';
 }
