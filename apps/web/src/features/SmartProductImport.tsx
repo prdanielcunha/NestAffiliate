@@ -57,10 +57,12 @@ export function SmartProductImport({
   const [status,setStatus]=useState('');
   const [detail,setDetail]=useState('');
   const [error,setError]=useState('');
+  const [pendingLink,setPendingLink]=useState('');
+  const [pendingReason,setPendingReason]=useState('');
 
   async function analyze(){
     if(!user || busy)return;
-    setBusy(true);setError('');setDetail('');
+    setBusy(true);setError('');setDetail('');setPendingLink('');setPendingReason('');
     try{
       const source=cleanSharedListingUrl(link);
       const parsed=parseSharedProductText(link);
@@ -84,17 +86,15 @@ export function SmartProductImport({
       }
       const sharedUrl=source || cleanSharedListingUrl(extracted?.productUrl || '');
       let official:ProductTruth|null=null;
+      let providerReason='';
       if(sharedUrl && kind==='MELI'){
         setStatus(message(locale,'Identificando o anúncio na fonte oficial…','Resolving official listing…','Buscando el anuncio oficial…'));
         try{
           const response=await resolveOfficialProductLink({user,organizationId,url:sharedUrl});
           if(response.status==='RESOLVED' && response.product)official=response.product;
-          else if(!detail)setDetail(message(locale,
-            'A fonte não confirmou o anúncio exato. O card permanecerá como pesquisa, não como produto verificado.',
-            'The exact listing could not be verified; this remains a research draft.',
-            'La oferta exacta no se pudo verificar; se guardará como investigación.'));
-        }catch{
-          setDetail(message(locale,'A consulta oficial está temporariamente limitada.','Official source temporarily limited.','Fuente oficial temporalmente limitada.'));
+          else providerReason=response.reason||response.status;
+        }catch(e){
+          providerReason=e instanceof Error?e.message:'PROVIDER_UNAVAILABLE';
         }
       }
       setStatus(message(locale,'Preparando análise e Pin…','Preparing analysis and Pin…','Preparando análisis y Pin…'));
@@ -103,10 +103,21 @@ export function SmartProductImport({
         product=official;
       }else{
         const title=(extracted?.title || fallbackTitle.trim() || parsed.title || '').trim().replace(/\s+/g,' ').slice(0,170);
-        if(title.length<7)throw new Error(message(locale,
-          'Não consegui identificar o título do produto. Anexe um print legível ou preencha somente o título abaixo.',
-          'Product title could not be identified. Attach a clear screenshot or enter the title.',
-          'No se identificó el título. Envía una captura legible o escribe el título.'));
+        if(title.length<7){
+          if(sharedUrl && kind==='MELI'){
+            setPendingLink(sharedUrl);
+            setPendingReason(providerReason || 'LISTING_NOT_IDENTIFIED');
+            setDetail(message(locale,
+              'O Mercado Livre não devolveu o produto para este link. O link foi preservado. Envie um print para gerar o Pin ou salve um rascunho de identificação pendente.',
+              'Marketplace did not return product facts. Your link is preserved. Upload a screenshot for the Pin or save a pending draft.',
+              'El marketplace no devolvió el producto. El enlace se conservó. Envía una captura o guarda un borrador pendiente.'));
+            return;
+          }
+          throw new Error(message(locale,
+            'Não consegui ler o produto. Envie um print legível ou informe o título.',
+            'Product not recognized. Upload a clear screenshot or enter the title.',
+            'Producto no identificado. Adjunta una captura o escribe el título.'));
+        }
         // Screenshot without a URL gets a clearly labeled search destination, NOT a listing.
         const destination=sharedUrl || (kind==='MELI'
           ?'https://lista.mercadolivre.com.br/'+encodeURIComponent(title.replace(/\s+/g,'-'))
@@ -134,6 +145,25 @@ export function SmartProductImport({
     }finally{setBusy(false);}
   }
 
+
+  function savePendingDraft(){
+    if(!pendingLink)return;
+    try{
+      const draft=createManualProductTruth({
+        organizationId,marketplace:'MELI',productUrl:pendingLink,
+        title:'Produto do Mercado Livre — identificação pendente',
+      });
+      const product=attachDeclaredAffiliateUrl({
+        ...draft,title:{...draft.title,source:'link-only-pending'},
+        listingVerified:false,
+      },link,affiliate);
+      setError('');setPendingLink('');
+      onImported(product,product.title.value);
+    }catch(e){
+      setError(e instanceof Error?e.message:'DRAFT_SAVE_FAILED');
+    }
+  }
+
   return <section className="smart-auto-import" aria-label={message(locale,'Importação inteligente','Smart import','Importación inteligente')}>
     <header className="smart-auto-head">
       <div><p className="eyebrow">SMART IMPORT · NESTAI</p>
@@ -146,7 +176,7 @@ export function SmartProductImport({
       <div className="smart-auto-main">
         <label>{message(locale,'Link do produto (opcional se houver print)','Product link (optional with screenshot)','Enlace del producto (opcional con captura)')}
           <textarea rows={2} placeholder="https://meli.la/..." value={link}
-            onChange={e=>{setLink(e.target.value);const facts=parseSharedProductText(e.target.value);if(facts.marketplace)setMarketplace(facts.marketplace);}} />
+            onChange={e=>{setLink(e.target.value);setPendingLink('');setPendingReason('');setDetail('');setError('');const facts=parseSharedProductText(e.target.value);if(facts.marketplace)setMarketplace(facts.marketplace);}} />
         </label>
         <fieldset className="smart-affiliate-fieldset">
           <legend>{message(locale,'O link colado já é de afiliado?','Is this already an affiliate link?','¿Ya es un enlace de afiliado?')}</legend>
@@ -169,7 +199,7 @@ export function SmartProductImport({
         <input ref={input} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setScreenshot(e.target.files?.[0]||null)}/>
       </div>
     </div>
-    <details className="smart-auto-optional">
+    <details className="smart-auto-optional" key={pendingLink||'empty'} open={Boolean(pendingLink)}>
       <summary>{message(locale,'Caso a fonte não identifique o produto','If identification fails','Si falla la identificación')}</summary>
       <div className="smart-auto-extra">
         <label>{message(locale,'Título (somente se necessário)','Title (only if needed)','Título (solo si es necesario)')}
@@ -183,6 +213,23 @@ export function SmartProductImport({
       </div>
     </details>
     {detail&&<p role="status" className="field-hint">{detail}</p>}
+    {pendingLink&&<div className="smart-auto-pending" role="region"
+      aria-label={message(locale,'Link preservado para revisão','Pending link','Enlace pendiente')}>
+      <strong>{message(locale,'Link salvo no formulário, produto ainda não identificado','Link preserved, product not identified','Enlace conservado, producto no identificado')}</strong>
+      <p>{message(locale,
+        'Não criaremos uma análise ou Pin com um produto fictício. Você pode enviar um print agora, escrever o título acima ou guardar o link como rascunho para continuar.',
+        'We will not generate a fictional product Pin. Upload a screenshot, enter the title, or save the link as a pending draft.',
+        'No inventaremos un Pin. Sube una captura, escribe el título o guarda el enlace pendiente.')}</p>
+      <small>{pendingReason}</small>
+      <div className="smart-auto-pending-actions">
+        <a className="button secondary" href={pendingLink} target="_blank" rel="noopener noreferrer">
+          {message(locale,'Abrir anúncio para tirar print ↗','Open listing for screenshot ↗','Abrir producto para captura ↗')}
+        </a>
+        <button className="button secondary" type="button" onClick={savePendingDraft}>
+          {message(locale,'Salvar link como rascunho (sem Pin)','Save pending link (no Pin)','Guardar enlace pendiente (sin Pin)')}
+        </button>
+      </div>
+    </div>}
     {error&&<p role="alert" className="field-error">{error}</p>}
     {status&&<p role="status" className="field-hint">{status}</p>}
     <button className="button primary smart-auto-button" type="button" disabled={busy||!user||(!link.trim()&&!screenshot)}
