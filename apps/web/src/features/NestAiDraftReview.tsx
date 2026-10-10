@@ -28,7 +28,7 @@ export function NestAiDraftReview({campaign,editable,onApply}:{
   if(!editable||!user||!organizationId||busy)return;
   setBusy(true);setDraft(null);setError('');setStatus('idle');
   try{
-   const result=await generateAffiliatePinCopy({
+   const result=await Promise.race([generateAffiliatePinCopy({
      user,organizationId,locale,
      instruction,
      product:{
@@ -43,7 +43,7 @@ export function NestAiDraftReview({campaign,editable,onApply}:{
        keywords:campaign.currentVersion.creativePack.copy.keywords,
        recommendedAngle:campaign.currentVersion.creativePack.creativeDirection.useCase,
      }:undefined,
-   });
+   }),new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_TIMEOUT')),30000))]);
    setDraft(sanitizePinCopyDraft(result));setStatus('ready');
   }catch{
    setError(pt?'O NestAI não respondeu ou recusou esta tarefa. Seus textos existentes foram preservados. Você pode continuar pelo Creative Pack, sem perda de dados.':es?'NestAI no respondió. Tus textos existentes se mantienen; puedes continuar manualmente.':'NestAI unavailable. Your existing content is unchanged. Continue with the Creative Pack.');
