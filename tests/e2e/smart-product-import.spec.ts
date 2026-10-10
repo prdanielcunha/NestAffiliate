@@ -26,7 +26,7 @@ test('Smart Import keeps a declared affiliate URL and prepares Pin copy automati
   await expect(page).toHaveURL(/\/review\/campaign-/);
   await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://meli.la/2GDhhKL');
   await expect(page.getByText('NestScore pendente', {exact:false})).toBeVisible();
-  await expect(page.getByText(/NestAI personalizou esta campanha|Textos locais — NestAI não respondeu/)).toBeVisible();
+  await expect(page.getByText(/NestAI personalizou esta campanha|Textos locais — geração NestAI não concluída/)).toBeVisible();
   await expect(page.getByText(/PIN (TITLE|COPY|PREVIEW)|Creative Pack|CONCEITOS|3 CONCEITOS/i).first()).toBeVisible();
 });
 test('Smart Import defaults to ordinary link and never labels it as an affiliate URL', async ({page})=>{
@@ -96,8 +96,14 @@ test('Smart Import authenticates through Hub, invokes NestAI and actually USES g
  await smart.getByPlaceholder('Nome do produto').fill('Conjunto de panelas antiaderente 10 peças');
  await smart.getByRole('button',{name:/Entender produto com NestAI e criar Pin/}).click();
  await expect(page).toHaveURL(/\/review\/campaign-/);
- await expect(page.getByText('NestAI personalizou esta campanha')).toBeVisible();
+ const summary=await page.locator('.ai-intelligence-summary').innerText().catch(()=>'(missing)');
+ // This smoke test deliberately fails if the Hub token or NestAI request does
+ // not happen; its failure message isolates integration vs validation errors.
+ expect({hubExchanges,aiCalls,summary}).toMatchObject({
+  hubExchanges:expect.any(Number),aiCalls:expect.any(Number),
+ });
+ expect(hubExchanges,'Hub AI token exchange failed; UI: '+summary).toBeGreaterThan(0);
+ expect(aiCalls,'NestAI request was never made; UI: '+summary).toBeGreaterThan(0);
+ expect(summary,'AI answered but copy was not applied').toContain('NestAI personalizou esta campanha');
  await expect(page.getByText('Jogo de panelas 10 peças: conheça o conjunto').first()).toBeVisible();
- expect(hubExchanges).toBeGreaterThan(0);
- expect(aiCalls).toBeGreaterThan(0);
 });
