@@ -923,3 +923,6 @@ button{cursor:pointer}.muted{color:var(--muted)}.eyebrow{font-size:11px;font-wei
 .smart-auto-extra{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:12px}
 .smart-auto-button{width:100%;max-width:500px;min-height:48px}
 @media(max-width:720px){.smart-auto-import{padding:18px;border-radius:18px}.smart-auto-grid,.smart-auto-extra{grid-template-columns:1fr}.smart-affiliate-fieldset{display:flex;flex-direction:column;align-items:flex-start;gap:9px}.smart-auto-button{max-width:none}}
+
+/* Preserve the trust state on the smallest mobile screens. */
+@media(max-width:520px){.review-header .score-badge span{display:block;max-width:130px;font-size:11px;overflow-wrap:anywhere}.review-header .score-badge{min-width:98px;flex-wrap:wrap;gap:4px}}

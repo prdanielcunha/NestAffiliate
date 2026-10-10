@@ -118,6 +118,7 @@ export function SmartProductImport({
         const observedAt=new Date().toISOString();
         product={...product,title:{...product.title,source:extracted?'screenshot-ocr-unverified':'user-provided'},
           url:{...product.url,source:sharedUrl?'user-provided':'research-search-not-listing'},
+          ...(extracted&&product.price?{price:{...product.price,source:'screenshot-ocr-unverified'}}:{}),
           listingVerified:false,
           ...(extracted?.seller?{sellerName:{value:extracted.seller,source:'screenshot-ocr-unverified',observedAt}}:{}),
           ...(typeof extracted?.rating==='number'?{rating:{value:extracted.rating,source:'screenshot-ocr-unverified',observedAt}}:{}),
