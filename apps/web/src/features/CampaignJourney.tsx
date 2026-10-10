@@ -49,6 +49,6 @@ export function CampaignJourney({campaign,mode='review'}:{campaign:Campaign;mode
       <span className="journey-step-number">{stage.done?'✓':i+1}</span><span><strong>{stage.name}</strong><small>{stage.details}</small></span></a>}
   </li>)}</ol>
   </details>
-  {mode==='publish'&&<p className="campaign-journey-note">{l('Importante: a pesquisa identifica produtos, mas não gera ou comprova automaticamente a comissão da sua conta de afiliado.','Research finds products but does not automatically generate or verify your affiliate link.','La búsqueda encuentra productos, pero no genera ni verifica la comisión.')}</p>
+  {mode==='publish'&&<p className="campaign-journey-note">{l('Importante: a pesquisa identifica produtos, mas não gera ou comprova automaticamente a comissão da sua conta de afiliado.','Research finds products but does not automatically generate or verify your affiliate link.','La búsqueda encuentra productos, pero no genera ni verifica la comisión.')}</p>}
  </section>;
 }
