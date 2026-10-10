@@ -1,6 +1,7 @@
 import type {ProductTruth} from '@nestaffiliate/core';
 import {cleanSharedListingUrl,inferShopeeTitleFromUrl,parseShopeeProductReference} from '@nestaffiliate/integrations';
 import {searchShopeeBrokerDetailed} from './shopeeBroker';
+import {isSafeOfferUrl} from '@nestaffiliate/radar';
 import type {User} from 'firebase/auth';
 
 export type ShopeeLinkResolution =
@@ -34,9 +35,10 @@ export async function resolveShopeeProductLink(input:{
  const matching=candidates.find(p=>{
   if(p.marketplace!=='SHOPEE'||p.organizationId!==input.organizationId||p.listingVerified!==true)return false;
   const fromUrl=parseShopeeProductReference(p.url?.value??'');
+  const trustedShop=p.shopId?.source==='shopee-affiliate-open-api'?p.shopId.value:fromUrl.shopId;
   return (p.externalId===reference.itemId || fromUrl.itemId===reference.itemId)
-    &&fromUrl.shopId===reference.shopId&&p.title?.value?.trim().length>=7
-    &&p.url?.value?.startsWith('https://');
+    &&trustedShop===reference.shopId&&p.title?.value?.trim().length>=7
+    &&isSafeOfferUrl(p.url?.value??'','SHOPEE');
  });
  if(!matching)return {status:'SOURCE_LIMITED',reason:'SHOPEE_NO_EXACT_OFFICIAL_MATCH'};
  return {status:'RESOLVED',product:matching,source:'OFFICIAL_API'};

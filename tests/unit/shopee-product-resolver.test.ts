@@ -10,6 +10,7 @@ const stamp='2026-10-10T15:00:00.000Z';
 const product=(item='98765',shop='12345')=>({
  productId:'shopee:'+item,externalId:item,organizationId:'org',marketplace:'SHOPEE',listingVerified:true,
  title:{value:'Organizador de Cozinha',source:'shopee-affiliate-open-api',observedAt:stamp},
+ shopId:{value:shop,source:'shopee-affiliate-open-api',observedAt:stamp},
  url:{value:'https://shopee.com.br/Organizador-de-Cozinha-i.'+shop+'.'+item,source:'shopee-affiliate-open-api',observedAt:stamp},
  currency:{value:'BRL',source:'shopee-affiliate-open-api',observedAt:stamp},
  availability:{value:'available',source:'shopee-affiliate-open-api',observedAt:stamp},assetRights:'UNKNOWN',
@@ -26,6 +27,12 @@ describe('Shopee official link resolution',()=>{
   const result=await resolveShopeeProductLink(input);
   expect(result.status).toBe('RESOLVED');
   if(result.status==='RESOLVED')expect(result.product.externalId).toBe('98765');
+ });
+ it('accepts shop ID from official API if broker returns short product link',async()=>{
+  const candidate=product();
+  candidate.url.value='https://s.shopee.com.br/xyz987';
+  respond([candidate]);
+  expect((await resolveShopeeProductLink(input)).status).toBe('RESOLVED');
  });
  it('never verifies an unrelated item with similar title',async()=>{
   respond([product('11111')]);

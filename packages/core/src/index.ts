@@ -15,6 +15,8 @@ export interface ProductTruth {
   organizationId: string;
   marketplace: Marketplace;
   externalId: string;
+  /** Official Shopee Affiliate Open API shop identifier when actually returned. */
+  shopId?: TruthValue<string>;
   catalogProductId?: string;
   listingVerified?: boolean;
   soldQuantity?: TruthValue<number>;
