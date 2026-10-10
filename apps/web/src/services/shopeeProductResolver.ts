@@ -1,7 +1,7 @@
 import type {ProductTruth} from '@nestaffiliate/core';
-import {cleanSharedListingUrl,inferShopeeTitleFromUrl,parseShopeeProductReference} from '@nestaffiliate/integrations';
+import {cleanSharedListingUrl,inferShopeeTitleFromUrl,parseShopeeProductReference} from '../../../../packages/integrations/src/index';
 import {searchShopeeBrokerDetailed} from './shopeeBroker';
-import {isSafeOfferUrl} from '@nestaffiliate/radar';
+import {isSafeOfferUrl} from '../../../../packages/radar/src/index';
 import type {User} from 'firebase/auth';
 
 export type ShopeeLinkResolution =

@@ -1,6 +1,6 @@
 import {describe,it,expect,vi} from 'vitest';
 import type {ProductTruth} from '@nestaffiliate/core';
-import {parseSharedProductText} from '@nestaffiliate/integrations';
+import {parseSharedProductText} from '../../packages/integrations/src/index';
 import {resolveShopeeProductLink} from '../../apps/web/src/services/shopeeProductResolver';
 vi.mock('../../apps/web/src/services/shopeeBroker',()=>({searchShopeeBrokerDetailed:vi.fn()}));
 import {searchShopeeBrokerDetailed} from '../../apps/web/src/services/shopeeBroker';
