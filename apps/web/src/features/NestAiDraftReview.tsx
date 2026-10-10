@@ -8,7 +8,7 @@ import type {ProductAiStrategy} from '../lib/aiProductStrategy';
 export type PinCopyDraft={title:string;description:string;tags:string[];strategy?:ProductAiStrategy};
 /** Backward-compatible pure sanitizer for legacy advisory copy responses. */
 export function sanitizePinCopyDraft(raw:AffiliatePinCopy):PinCopyDraft{
- const title=typeof raw?.title==='string'?raw.title.replace(/\\s+/g,' ').trim().slice(0,100):'';
+ const title=typeof raw?.title==='string'?raw.title.replace(/\s+/g,' ').trim().slice(0,100):'';
  const description=typeof raw?.description==='string'?raw.description.trim().slice(0,500):'';
  const tags=Array.isArray(raw?.tags)?[...new Set(raw.tags.filter((x):x is string=>typeof x==='string')
    .map(x=>x.trim()).filter(Boolean))].slice(0,12):[];
