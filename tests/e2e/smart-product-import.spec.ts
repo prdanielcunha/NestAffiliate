@@ -132,5 +132,5 @@ test('Shopee short share URL resolves through Hub while preserving affiliate att
  await expect(page).toHaveURL(/\/review\/campaign-/);
  await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://s.shopee.com.br/ABC123');
  await expect(page.getByRole('region',{name:'Próxima ação e textos do Pin'})).toBeVisible();
- await expect(page.getByText('Marcar Shopee ao publicar').first()).toBeVisible();
+ await expect(page.getByText(/Shopee: a marcação de afiliado é conferida na publicação/i)).toBeVisible();
 });
