@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ProductTruth, SceneProfile } from '../../packages/core/src/index';
+import type { ProductTruth } from '../../packages/core/src/index';
 import { buildConversionPinCopy, buildPinterestCreativePack, buildSceneProfile, compactPinText, isGenericLegacyPinCopy } from '../../packages/creative-engine/src/index';
 const stamp='2026-10-10T10:00:00.000Z';
 function product(title:string): ProductTruth{
