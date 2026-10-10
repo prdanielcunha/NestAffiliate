@@ -2,10 +2,19 @@ import {useState} from 'react';
 import type {Campaign} from '@nestaffiliate/core';
 import {useAuth} from '../lib/auth';
 import {useI18n} from '../lib/i18n-context';
-import {generateAffiliatePinStrategy} from '../services/nestAiClient';
+import {generateAffiliatePinStrategy,type AffiliatePinCopy} from '../services/nestAiClient';
 import type {ProductAiStrategy} from '../lib/aiProductStrategy';
 
 export type PinCopyDraft={title:string;description:string;tags:string[];strategy?:ProductAiStrategy};
+/** Backward-compatible pure sanitizer for legacy advisory copy responses. */
+export function sanitizePinCopyDraft(raw:AffiliatePinCopy):PinCopyDraft{
+ const title=typeof raw?.title==='string'?raw.title.replace(/\\s+/g,' ').trim().slice(0,100):'';
+ const description=typeof raw?.description==='string'?raw.description.trim().slice(0,500):'';
+ const tags=Array.isArray(raw?.tags)?[...new Set(raw.tags.filter((x):x is string=>typeof x==='string')
+   .map(x=>x.trim()).filter(Boolean))].slice(0,12):[];
+ if(title.length<8||description.length<15)throw new Error('NESTAI_EMPTY_OR_INVALID_DRAFT');
+ return {title,description,tags};
+}
 export function NestAiDraftReview({campaign,editable,onApply}:{
  campaign:Campaign;editable:boolean;onApply:(draft:PinCopyDraft)=>void;
 }){
