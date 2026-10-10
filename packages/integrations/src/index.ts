@@ -373,10 +373,21 @@ export interface SharedProductFacts {
 }
 
 function sharedMarketplace(value:string){
-  const normalized=value.toLowerCase();
-  if(normalized.includes('mercadolivre.') || normalized.includes('mercadolibre.com') || /https?:\/\/(?:www\.)?meli\.la(?:[/?#]|$)/i.test(value)) return 'MELI' as const;
-  if(normalized.includes('shopee.')) return 'SHOPEE' as const;
-  return null;
+  const trimmed=value.trim();
+  try{
+    const host=new URL(trimmed).hostname.toLowerCase().replace(/^www\./,'');
+    if(host==='meli.la' || /^mercadolivre\.[a-z.]+$/.test(host) ||
+       host.includes('.mercadolivre.') || /^mercadolibre\.[a-z.]+$/.test(host) ||
+       host.includes('.mercadolibre.')) return 'MELI' as const;
+    if(/^shopee\.[a-z.]+$/.test(host) || host.includes('.shopee.')) return 'SHOPEE' as const;
+    return null;
+  }catch{
+    const normalized=trimmed.toLowerCase();
+    if(normalized.includes('mercadolivre.') || normalized.includes('mercadolibre.') ||
+       normalized.includes('meli.la')) return 'MELI' as const;
+    if(normalized.includes('shopee.')) return 'SHOPEE' as const;
+    return null;
+  }
 }
 
 export function inferShopeeTitleFromUrl(value:string){

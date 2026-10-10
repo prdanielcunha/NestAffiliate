@@ -467,19 +467,30 @@ function campaignDuplicateSimilarity(candidate:Campaign,campaigns:Campaign[]){
 }
 
 function SyncErrorBanner({
-  kind,
-  onDismiss,
-  onRetry,
+  kind, onDismiss, onRetry,
 }:{
   kind:'conflict'|'generic'|'secondary'|null;
   onDismiss:()=>void;
   onRetry:()=>void;
 }){
-  const {t}=useI18n();
+  const {t,locale}=useI18n();
   if(!kind) return null;
+  const message=locale==='pt-BR'
+    ? kind==='secondary' ? 'Campanha salva, mas alguns dados complementares não foram sincronizados.'
+      : kind==='conflict' ? 'Outra versão foi salva na nuvem. Seu rascunho está preservado neste dispositivo.'
+      : 'Falha ao salvar na nuvem. Seu rascunho está preservado neste dispositivo.'
+    : locale==='es'
+      ? kind==='secondary' ? 'Campaña guardada. Algunos datos adicionales no se sincronizaron.'
+        : kind==='conflict' ? 'Existe otra versión en la nube. Tu borrador sigue guardado en este dispositivo.'
+        : 'No se pudo guardar en la nube. Tu borrador sigue guardado en este dispositivo.'
+      : kind==='secondary' ? 'Campaign saved, but some secondary data did not sync.'
+        : kind==='conflict' ? 'A newer cloud version exists. Your local draft is preserved on this device.'
+        : 'Could not save to the cloud. Your draft is preserved on this device.';
   return <div className="global-sync-error" role="alert">
-    <span>{kind==='secondary' ? 'Campanha salva, mas dados complementares não sincronizaram.' : kind==='conflict' ? 'Existe outra versão na nuvem. Seu rascunho foi preservado neste dispositivo.' : 'Falha ao salvar na nuvem. O rascunho continua preservado neste dispositivo.'}</span>
-    {kind==='generic' && <button className="text-button" onClick={onRetry}>Tentar novamente</button>}
+    <span>{message}</span>
+    {kind==='generic' && <button className="text-button" onClick={onRetry}>
+      {locale==='pt-BR'?'Tentar novamente':locale==='es'?'Reintentar':'Retry'}
+    </button>}
     <button className="text-button" onClick={onDismiss}>{t('dismiss')}</button>
   </div>;
 }

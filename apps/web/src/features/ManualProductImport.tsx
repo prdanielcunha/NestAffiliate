@@ -21,7 +21,7 @@ export function ManualProductImport({
   defaultMarketplace?:'SHOPEE'|'MELI';
   seedKeyword?:string;
 }){
-  const { t } = useI18n();
+  const { t,locale } = useI18n();
   const fileRef=useRef<HTMLInputElement>(null);
   const [marketplace,setMarketplace]=useState<'SHOPEE'|'MELI'>(defaultMarketplace);
   const [quickInput,setQuickInput]=useState('');
@@ -199,7 +199,7 @@ export function ManualProductImport({
       <div className="form-grid">
         <label className="span-2">{t('affiliateLink')}<input value={affiliateUrl} onChange={(e)=>setAffiliateUrl(e.target.value)} placeholder="https://..." inputMode="url" /></label>
         <label>{t('optionalPrice')}<input value={price} onChange={(e)=>setPrice(e.target.value)} placeholder="69,90" inputMode="decimal" /></label>
-        <label className="span-2">URL da imagem do produto (opcional, uso sujeito a autorização)<input value={imageUrl} onChange={(e)=>setImageUrl(e.target.value)} placeholder="https://..." inputMode="url" /></label>
+        <label className="span-2">{locale==='pt-BR'?'URL da imagem do produto (opcional, uso sujeito a autorização)':locale==='es'?'URL de imagen del producto (opcional, requiere permiso)':'Product image URL (optional, requires permission)'}<input value={imageUrl} onChange={(e)=>setImageUrl(e.target.value)} placeholder="https://..." inputMode="url" /></label>
         <label>{t('assetRights')}<select value={rights} onChange={(e)=>setRights(e.target.value as ProductTruth['assetRights'])}><option value="UNKNOWN">{t('unconfirmed')}</option><option value="AUTHORIZED">{t('authorized')}</option><option value="USER_PROVIDED">{t('providedByMe')}</option><option value="GENERATED">{t('generated')}</option></select></label>
         {marketplace==='SHOPEE' && <>
           <label>{t('shopeeSignal')}<select value={shopeeSignal} onChange={(e)=>setShopeeSignal(e.target.value as ShopeeManualSignalType)}><option value="SHOPEE_RECOMMENDATION">{t('shopeeRecommendation')}</option><option value="SHOPEE_EXTRA_COMMISSION">{t('shopeeExtraCommission')}</option><option value="SHOPEE_TOP_SALES">{t('shopeeTopSales')}</option></select></label>
