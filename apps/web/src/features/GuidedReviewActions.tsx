@@ -9,6 +9,7 @@ function loc(locale:string,pt:string,en:string,es:string){
 export function GuidedReviewActions({campaign}: {campaign:Campaign}){
  const {locale}=useI18n();
  const [copied,setCopied]=useState<'title'|'description'|null>(null);
+ const [copyError,setCopyError]=useState(false);
  const v=campaign.currentVersion;
  const shopee=v.product.marketplace==='SHOPEE';
  const hasAffiliate=!shopee && isMarketplaceAffiliateDestination(v.product.affiliateUrl?.value,'MELI')
@@ -31,8 +32,23 @@ export function GuidedReviewActions({campaign}: {campaign:Campaign}){
  ];
  const current=steps.find(s=>!s.done)??steps[steps.length-1]!;
  async function copy(text:string,which:'title'|'description'){
-  try{await navigator.clipboard.writeText(text);setCopied(which);}
-  catch{setCopied(null);}
+  setCopyError(false);
+  try{
+   await navigator.clipboard.writeText(text);
+   setCopied(which);
+  }catch{
+   // Older iOS Safari/WebViews may reject Clipboard API while the user is
+   // already interacting. Keep an accessible fallback without extra apps.
+   const node=document.createElement('textarea');
+   node.value=text;node.readOnly=true;node.style.position='fixed';
+   node.style.opacity='0';node.style.top='0';
+   document.body.appendChild(node);
+   node.select();node.setSelectionRange(0,node.value.length);
+   const success=document.execCommand('copy');
+   node.remove();
+   if(success)setCopied(which);
+   else{setCopied(null);setCopyError(true);}
+  }
  }
  return <section className="guided-review-actions" aria-label={loc(locale,'Próxima ação e textos do Pin','Next step and Pin text','Siguiente paso y textos')}>
   <div className="guided-review-top">
@@ -68,6 +84,10 @@ export function GuidedReviewActions({campaign}: {campaign:Campaign}){
     <p>{v.narrative.description||'—'}</p>
    </div>
   </div>
+  {copyError&&<p role="alert" className="guided-copy-error">{loc(locale,
+    'Não foi possível copiar automaticamente. Mantenha pressionado sobre o texto acima para selecionar e copiar.',
+    'Automatic copy failed. Press and hold the text above to select and copy.',
+    'No se pudo copiar. Mantén pulsado el texto para seleccionarlo.')}</p>}
   <a className="guided-more-copy" href="#review-ai">{loc(locale,'Não gostou? Criar novos textos com NestAI →','Want better copy? Generate with NestAI →','¿Otros textos? Crear con NestAI →')}</a>
  </section>;
 }
