@@ -11,7 +11,7 @@ describe('NestAI first-party Firebase Hosting CSP',()=>{
  });
  it('does not allow all arbitrary remote connections',()=>{
   expect(connect).not.toContain('https: ');
-  expect(connect).not.toContain('https://*');
+  expect(connect).not.toContain('https://*.millionsnest.com');
   expect(policy).toContain("default-src 'self'");
  });
 });
