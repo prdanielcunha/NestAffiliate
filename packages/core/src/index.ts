@@ -275,6 +275,7 @@ export interface CampaignVersion {
     positioning?:string;
     unknowns:string[];
     aiAttempted:boolean;
+    failureCode?:'AUTH'|'APP_CHECK'|'OUTPUT'|'PROVIDER'|'RATE_LIMIT'|'TIMEOUT'|'NETWORK'|'UNKNOWN';
   };
   creativeAsset?: CreativeAsset;
 }
