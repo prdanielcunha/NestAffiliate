@@ -9,13 +9,19 @@ export function buildSceneProfile(input: SceneEngineInput): SceneProfile {
     hits: rule.patterns.filter((pattern) => pattern.test(text)).length,
   })).filter((candidate) => candidate.hits > 0);
 
-  // A generic "cozinha" board or keyword must not classify a cookware set
-  // as a storage organizer. Specific product nouns beat surrounding context.
-  const cookware=/\b(panela\w*|frigideira\w*|cac[aç]rola\w*|assadeira\w*)\b/.test(
-    input.product.title.value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),
-  );
-  const best = (cookware
-    ? candidates.find(candidate=>candidate.rule.category==='kitchen-utensils')
+  // Specific product nouns outrank incidental words from the search term
+  // or board. "Caneca para cozinha" is not kitchen storage, and
+  // "organizador infantil" belongs in the child's room, not the kitchen.
+  const title=input.product.title.value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const exactCategory =
+    /\b(infantil|crianca|bebe|brinquedo)\b/.test(title) ? 'kids-room' :
+    /\b(pet|gato|cachorro|comedouro|bebedouro)\b/.test(title) ? 'pet' :
+    /\b(lavanderia|cesto de roupa|varal)\b/.test(title) ? 'laundry' :
+    /\b(panela\w*|frigideira\w*|cacarola\w*|assadeira\w*|caneca\w*|talher\w*|copo\w*|tigela\w*)\b/.test(title)
+      && !/\borganizador\b/.test(title) ? 'kitchen-utensils' :
+    undefined;
+  const best = (exactCategory
+    ? candidates.find(candidate=>candidate.rule.category===exactCategory)
     : undefined) ?? candidates.sort((a, b) => b.hits - a.hits)[0]
     ?? { rule: SCENE_RULES[SCENE_RULES.length - 1]!, hits: 1 };
   const isFallback = best.rule.id === 'generic-home';
