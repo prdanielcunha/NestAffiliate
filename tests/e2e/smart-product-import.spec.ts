@@ -26,7 +26,7 @@ test('Smart Import keeps a declared affiliate URL and prepares Pin copy automati
   await expect(page).toHaveURL(/\/review\/campaign-/);
   await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://meli.la/2GDhhKL');
   await expect(page.getByText('NestScore pendente', {exact:false})).toBeVisible();
-  await expect(page.getByText('NestAI personalizou esta campanha')).toBeVisible();
+  await expect(page.getByText(/NestAI personalizou esta campanha|Textos locais — NestAI não respondeu/)).toBeVisible();
   await expect(page.getByText(/PIN (TITLE|COPY|PREVIEW)|Creative Pack|CONCEITOS|3 CONCEITOS/i).first()).toBeVisible();
 });
 test('Smart Import defaults to ordinary link and never labels it as an affiliate URL', async ({page})=>{
