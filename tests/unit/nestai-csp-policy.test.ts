@@ -6,8 +6,8 @@ describe('NestAI first-party Firebase Hosting CSP',()=>{
   .headers.find((h:{key:string})=>h.key==='Content-Security-Policy').value;
  const connect=policy.match(/(?:^|; )connect-src ([^;]+)/)?.[1]||'';
  it('allows the exact NestAI Workers domain used by the authenticated SDK',()=>{
-  expect(connect.split(/\\s+/)).toContain('https://ai.millionsnest.com');
-  expect(connect.split(/\\s+/)).toContain('https://www.millionsnest.com');
+  expect(connect.split(/\s+/)).toContain('https://ai.millionsnest.com');
+  expect(connect.split(/\s+/)).toContain('https://www.millionsnest.com');
  });
  it('does not allow all arbitrary remote connections',()=>{
   expect(connect).not.toContain('https: ');
