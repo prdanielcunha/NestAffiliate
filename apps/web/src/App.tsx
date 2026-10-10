@@ -2003,7 +2003,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         <section className="decision-panel">
           <div className="review-header">
             <div><p className="eyebrow">{t('review')}</p><h1>{v.keyword}</h1></div>
-            <div className="score-badge"><strong>{campaign.score.score}</strong><span>NestScore<br/>{t('confidence')} {t(campaign.score.confidence as 'high'|'medium'|'low')}</span></div>
+            <div className="score-badge">{v.product.title.source==='user-provided' && !v.product.listingVerified ? <><strong>—</strong><span>{locale==='pt-BR'?'NestScore pendente · oferta sem verificação':locale==='es'?'NestScore pendiente':'NestScore pending'}</span></> : <><strong>{campaign.score.score}</strong><span>NestScore<br/>{t('confidence')} {t(campaign.score.confidence as 'high'|'medium'|'low')}</span></>}</div>
           </div>
           <div id="review-product"><Disclosure title={t('product')} defaultOpen>
             <h3>{v.product.title.value}</h3>
