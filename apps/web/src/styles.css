@@ -1074,3 +1074,16 @@ html {scroll-behavior:smooth}
  .login-card .button.primary{min-height:52px}
  .login-legal-links{margin-top:7px}
 }
+
+/* AI fallback and copy selection - mobile-first, never mask usable local drafts. */
+.nestai-fallback-notice{padding:14px 16px;border:1px solid rgba(245,197,108,.35);border-radius:14px;background:rgba(245,197,108,.065);min-width:0;overflow-wrap:anywhere}
+.nestai-fallback-notice strong{display:block;font-size:14px;line-height:1.45}
+.nestai-fallback-notice p{color:var(--muted);font-size:13px;line-height:1.6;margin:8px 0}
+.nestai-fallback-notice a{display:inline-block;padding:8px 0;color:var(--accent);font-weight:700}
+.nestai-fallback-notice details{margin-top:10px;font-size:12px;color:var(--muted)}
+.nestai-fallback-notice summary{cursor:pointer}
+.nestai-fallback-notice code{display:inline-block;margin-top:7px}
+.pinterest-creative-pack .copy-option{overflow-wrap:anywhere;text-align:left}
+.pinterest-creative-pack .section-heading{flex-wrap:wrap;gap:10px}
+.pinterest-creative-pack .section-heading .text-button{min-height:44px}
+@media(max-width:720px){.pinterest-creative-pack .section-heading .text-button{width:100%;text-align:left}}
