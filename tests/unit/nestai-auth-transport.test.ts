@@ -11,6 +11,7 @@ describe('NestAI production authentication and network regression',()=>{
    ['script-src','https://www.google.com/recaptcha/'],
    ['script-src','https://www.gstatic.com/recaptcha/'],
    ['frame-src','https://www.google.com/recaptcha/'],
+   ['frame-src','https://recaptcha.google.com/recaptcha/'],
    ['connect-src','https://www.google.com/recaptcha/']
   ]){
    const section=csp.split(';').map(s=>s.trim()).find(s=>s.startsWith(directive+' '));

@@ -1,0 +1,62 @@
+name: Diagnostic - Live Firebase Hosting AppCheck headers
+on:
+  push:
+    branches:
+      - main
+      - production
+      - diagnostics/appcheck-live-hosting-probe-20261010
+  workflow_dispatch:
+
+permissions:
+  contents: read
+jobs:
+  inspect-live-site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect production and default Hosting domain
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request, urllib.error, urllib.parse, re
+          domains=[
+            "https://nestaffiliate.millionsnest.com/",
+            "https://mn-nestaffiliate-555464791734.web.app/"
+          ]
+          rules={
+            "script-src":["https://www.google.com/recaptcha/","https://www.gstatic.com/recaptcha/"],
+            "frame-src":["https://www.google.com/recaptcha/","https://recaptcha.google.com/recaptcha/"],
+            "connect-src":["https://www.google.com/recaptcha/","https://firebaseappcheck.googleapis.com"]
+          }
+          # Fetch HTTP headers only; no auth/cookies/users/secrets.
+          for domain in domains:
+            print("\\nLIVE_ORIGIN",domain)
+            try:
+              request=urllib.request.Request(domain,method="GET",headers={"User-Agent":"NestAffiliate-AppCheck-Header-Diagnostic/1"})
+              with urllib.request.urlopen(request,timeout=18) as res:
+                headers=res.headers
+                print("HTTP_STATUS",res.status)
+                print("FINAL_ORIGIN",urllib.parse.urlsplit(res.url).netloc)
+                print("CACHE_CONTROL",headers.get("cache-control","MISSING"))
+                policy=headers.get("content-security-policy","")
+                if not policy:
+                  print("CSP_HEADER_MISSING")
+                  continue
+                print("LIVE_CSP",policy)
+                parts={}
+                for part in policy.split(";"):
+                  token=part.strip()
+                  if not token:continue
+                  name,*values=token.split()
+                  parts[name]=values
+                for directive,origins in rules.items():
+                  values=parts.get(directive,parts.get("default-src",[]))
+                  for origin in origins:
+                    # Check exact allowed host or a narrower sub-path; a host-source permits descendants.
+                    parsed=urllib.parse.urlsplit(origin)
+                    host=f"{parsed.scheme}://{parsed.netloc}"
+                    ok=any(item==host or item.startswith(origin) or item=="*" or (item.startswith("https://*.") and host.endswith(item[len("https://*.")-1:])) for item in values)
+                    print(f"CHECK {directive} {origin} {'ALLOW' if ok else 'MISSING'}")
+            except Exception as exc:
+              print("SITE_PROBE_FAILED",type(exc).__name__,str(exc)[:140])
+          PY
