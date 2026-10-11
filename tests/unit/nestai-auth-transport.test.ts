@@ -29,18 +29,21 @@ describe('NestAI production authentication and network regression',()=>{
    init?.signal?.addEventListener('abort',()=>{aborted=true;},{once:true});
    return await new Promise<Response>(()=>{});
   }) as typeof fetch;
-  const watched=observedNestAiFetch(fakeFetch);
-  const req=watched(new URL('https://www.millionsnest.com/api/v1/ai/token'),{
-   method:'POST',headers:{'x-request-id':'f5a641f0-3156-44e2-a903-8a26efb1b85a'}
-  });
-  // The real network timeout is intentionally 10 seconds. Abort once ourselves
-  // to verify no tokens, paths, or private data are included in diagnostics.
-  expect(typeof req.then).toBe('function');
-  const detail=aiSupportDiagnostic(new NestAiStageError('hub_token','TIMEOUT','f5a641f0-3156-44e2-a903-8a26efb1b85a'));
-  expect(detail).toContain('hub_token / TIMEOUT');
-  expect(detail).toContain('ref f5a641f0-3156-44e2-a903-8a26efb1b85a');
-  expect(detail).not.toMatch(/Bearer |https:|token=/);
-  expect(aborted).toBe(false);
+  vi.useFakeTimers();
+  try{
+   const watched=observedNestAiFetch(fakeFetch);
+   const req=watched(new URL('https://www.millionsnest.com/api/v1/ai/token'),{
+    method:'POST',headers:{'x-request-id':'f5a641f0-3156-44e2-a903-8a26efb1b85a'}
+   });
+   const assertion=expect(req).rejects.toMatchObject({stage:'hub_token',issue:'TIMEOUT'});
+   await vi.advanceTimersByTimeAsync(10020);
+   await assertion;
+   expect(aborted).toBe(true);
+   const detail=aiSupportDiagnostic(new NestAiStageError('hub_token','TIMEOUT','f5a641f0-3156-44e2-a903-8a26efb1b85a'));
+   expect(detail).toContain('hub_token / TIMEOUT');
+   expect(detail).toContain('ref f5a641f0-3156-44e2-a903-8a26efb1b85a');
+   expect(detail).not.toMatch(/Bearer |https:|token=/);
+  }finally{vi.useRealTimers();}
  });
  it('network rejection is attributed to the NestAI request safely',async()=>{
   const fakeFetch=vi.fn(async()=>{throw new TypeError('Failed to fetch');}) as unknown as typeof fetch;
