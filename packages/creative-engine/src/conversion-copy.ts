@@ -245,7 +245,14 @@ export function buildConversionPinCopy(input: {
   // The disclosure is a separate field AND a short notice in the description,
   // so copying only the Pinterest description remains transparent.
   const titleOptions=dedupe(titles,100);
-  const descriptionOptions=dedupe(descriptions,500);
+  // A third factual, disclosure-safe local alternative completes the three-option
+  // review experience. It does not claim to be model-generated content.
+  const thirdDescription=locale==='pt-BR'
+    ? 'Antes de decidir por '+f.subject+', confira no anúncio as imagens, os itens incluídos e as informações publicadas pelo vendedor. Compare com o espaço e a necessidade da sua rotina. '+affiliateShort
+    : locale==='es'
+      ? 'Antes de elegir '+f.subject+', revisa las fotos, el contenido y los datos del vendedor en el anuncio. Compara las opciones disponibles para tu espacio y tus necesidades. '+affiliateShort
+      : 'Before choosing '+f.subject+', check the listing photographs, included items and seller details. Compare what is shown with your available space and needs before deciding. '+affiliateShort;
+  const descriptionOptions=dedupe([...descriptions,thirdDescription],500).slice(0,3);
   return {
     titles:titleOptions,
     descriptions:descriptionOptions,
