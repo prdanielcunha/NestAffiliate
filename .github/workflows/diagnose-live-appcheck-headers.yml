@@ -2,6 +2,8 @@ name: Diagnostic - Live Firebase Hosting AppCheck headers
 on:
   push:
     branches:
+      - main
+      - production
       - diagnostics/appcheck-live-hosting-probe-20261010
   workflow_dispatch:
 
@@ -53,7 +55,7 @@ jobs:
                     # Check exact allowed host or a narrower sub-path; a host-source permits descendants.
                     parsed=urllib.parse.urlsplit(origin)
                     host=f"{parsed.scheme}://{parsed.netloc}"
-                    ok=any(item==host or item.startswith(origin) or item=="*" for item in values)
+                    ok=any(item==host or item.startswith(origin) or item=="*" or (item.startswith("https://*.") and host.endswith(item[len("https://*.")-1:])) for item in values)
                     print(f"CHECK {directive} {origin} {'ALLOW' if ok else 'MISSING'}")
             except Exception as exc:
               print("SITE_PROBE_FAILED",type(exc).__name__,str(exc)[:140])
