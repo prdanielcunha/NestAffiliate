@@ -1,131 +1,165 @@
-import {useState,useRef,useEffect} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import type {Campaign} from '@nestaffiliate/core';
+import {validateCommercialClaims} from '@nestaffiliate/creative-engine';
 import {useAuth} from '../lib/auth';
 import {useI18n} from '../lib/i18n-context';
-import {generateAffiliatePinStrategy,type AffiliatePinCopy} from '../services/nestAiClient';
+import {generateAffiliatePinCopy,generateAffiliatePinStrategy,type AffiliatePinCopy} from '../services/nestAiClient';
 import type {ProductAiStrategy} from '../lib/aiProductStrategy';
-import {classifyNestAiFailure,nestAiFailureLabel} from '../lib/nestAiFailure';
+import {classifyNestAiFailure,type NestAiFailureCode} from '../lib/nestAiFailure';
 
 export type PinCopyDraft={title:string;description:string;tags:string[];strategy?:ProductAiStrategy};
-/** Backward-compatible pure sanitizer for legacy advisory copy responses. */
+/** Validate even partial model output; no publishing or product fact mutation. */
 export function sanitizePinCopyDraft(raw:AffiliatePinCopy):PinCopyDraft{
  const title=typeof raw?.title==='string'?raw.title.replace(/\s+/g,' ').trim().slice(0,100):'';
  const description=typeof raw?.description==='string'?raw.description.trim().slice(0,500):'';
  const tags=Array.isArray(raw?.tags)?[...new Set(raw.tags.filter((x):x is string=>typeof x==='string')
    .map(x=>x.trim()).filter(Boolean))].slice(0,12):[];
- if(title.length<8||description.length<15)throw new Error('NESTAI_EMPTY_OR_INVALID_DRAFT');
+ if(title.length<8||description.length<70||!/(?:afiliad|affiliate)/i.test(description))
+   throw new Error('AI_STRATEGY_INVALID_PARTIAL_COPY');
+ if(validateCommercialClaims([title,description]).outcome==='BLOCK')
+   throw new Error('AI_STRATEGY_UNSUPPORTED_CLAIM');
  return {title,description,tags};
 }
+export function withAiDeadline<T>(promise:Promise<T>,milliseconds:number):Promise<T>{
+ return new Promise((resolve,reject)=>{
+  const timeout=setTimeout(()=>reject(new Error('NESTAI_TIMEOUT')),milliseconds);
+  promise.then(value=>{clearTimeout(timeout);resolve(value);},reason=>{clearTimeout(timeout);reject(reason);});
+ });
+}
+type Suggestion={kind:'strategy';data:ProductAiStrategy}|{kind:'copy';data:PinCopyDraft};
 export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
  campaign:Campaign;editable:boolean;onApply:(draft:PinCopyDraft)=>void;autoStart?:boolean;
 }){
  const {locale}=useI18n();const {user,organizationId}=useAuth();
  const pt=locale==='pt-BR',es=locale==='es';
  const product=campaign.currentVersion.product;
- const [busy,setBusy]=useState(false),[draft,setDraft]=useState<ProductAiStrategy|null>(null);
+ const [busy,setBusy]=useState(false),[suggestion,setSuggestion]=useState<Suggestion|null>(null);
  const [seconds,setSeconds]=useState(0);
- useEffect(()=>{
-  if(!busy){setSeconds(0);return;}
-  const started=Date.now();
-  const ticker=window.setInterval(()=>setSeconds(Math.floor((Date.now()-started)/1000)),1000);
-  return ()=>window.clearInterval(ticker);
- },[busy]);
  const [titleIndex,setTitleIndex]=useState(0),[descriptionIndex,setDescriptionIndex]=useState(0);
- const [error,setError]=useState(''),[saved,setSaved]=useState(false);
+ const [error,setError]=useState<NestAiFailureCode|null>(null),[saved,setSaved]=useState(false);
  const [dismissed,setDismissed]=useState(false);
- const started=useRef<string|null>(null);
  const dismissedRef=useRef(false);
+ const operation=useRef(0);
+ const autoStarted=useRef<string|null>(null);
  const currentCampaignId=campaign.id;
  useEffect(()=>{
-  // Background prepare is opt-in through Smart Import, never on arbitrary
-  // legacy campaigns; no persisted changes until the user reviews the copy.
+  if(!busy){setSeconds(0);return;}
+  const timestamp=Date.now();
+  const timer=window.setInterval(()=>setSeconds(Math.floor((Date.now()-timestamp)/1000)),1000);
+  return ()=>window.clearInterval(timer);
+ },[busy]);
+ async function requestSuggestions():Promise<Suggestion>{
+  if(!user||!organizationId)throw new Error('AUTH_REQUIRED');
+  try{
+   const strategy=await withAiDeadline(generateAffiliatePinStrategy({user,organizationId,locale,product}),17000);
+   return {kind:'strategy',data:strategy};
+  }catch(primaryFailure){
+   const code=classifyNestAiFailure(primaryFailure);
+   // A second AI attempt cannot repair missing permissions or App Check.
+   if(code==='AUTH'||code==='APP_CHECK')throw primaryFailure;
+   const copy=await withAiDeadline(generateAffiliatePinCopy({
+    user,organizationId,locale,
+    instruction:'Create a specific Pinterest Pin title and a 110-450 character description based only on the explicit product name. Mention affiliate link disclosure. Do not invent prices, discounts, materials, technical specs, sales, shipping, reviews or performance. The result is a draft requiring human review.',
+    product:{title:product.title.value,marketplace:product.marketplace,
+      sourceNotes:['Only attributes explicitly stated in the supplied product title may be claimed.']},
+   }),13500);
+   return {kind:'copy',data:sanitizePinCopyDraft(copy)};
+  }
+ }
+ function begin(isAuto:boolean){
+  if(!editable||!user||!organizationId||busy)return;
+  const id=++operation.current;
+  dismissedRef.current=false;setDismissed(false);
+  setBusy(true);setSuggestion(null);setError(null);setSaved(false);
+  void withAiDeadline(requestSuggestions(),35000)
+   .then(data=>{
+    if(operation.current!==id||dismissedRef.current)return;
+    setSuggestion(data);setTitleIndex(0);setDescriptionIndex(0);
+   })
+   .catch(reason=>{
+    if(operation.current!==id||dismissedRef.current)return;
+    setError(classifyNestAiFailure(reason));
+   })
+   .finally(()=>{if(operation.current===id)setBusy(false);});
+ }
+ useEffect(()=>{
   if(!autoStart||!editable||!user||!organizationId||
-     product.title.source==='link-only-pending'||started.current===currentCampaignId)return;
-  started.current=currentCampaignId;
-  let active=true;
-  setBusy(true);setError('');setSaved(false);
-  void Promise.race([
-    generateAffiliatePinStrategy({user,organizationId,locale,product}),
-    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_TIMEOUT')),40000)),
-  ])
-    .then(data=>{if(active&&!dismissedRef.current){setDraft(data);setTitleIndex(0);setDescriptionIndex(0);}})
-    .catch(reason=>{if(active&&!dismissedRef.current){
-      const code=classifyNestAiFailure(reason);
-      setError(nestAiFailureLabel(code,locale)+' ['+code+']');
-    }})
-    .finally(()=>{if(active)setBusy(false);});
-  return ()=>{active=false;};
-  // Track by saved campaign ID; later version edits must not restart inference.
+    product.title.source==='link-only-pending'||autoStarted.current===currentCampaignId)return;
+  autoStarted.current=currentCampaignId;
+  begin(true);
+  // Auto-run exactly once per imported campaign; version changes do not restart it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
  },[currentCampaignId,autoStart,editable,user?.uid,organizationId]);
-
- async function generate(){
-  if(!editable||!user||!organizationId||busy)return;
-  dismissedRef.current=false;setDismissed(false);
-  setBusy(true);setDraft(null);setError('');setSaved(false);
-  try{
-   const data=await Promise.race([
-    generateAffiliatePinStrategy({user,organizationId,locale,product}),
-    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_TIMEOUT')),40000)),
-   ]);
-   setDraft(data);setTitleIndex(0);setDescriptionIndex(0);
-  }catch(reason){
-   const code=classifyNestAiFailure(reason);
-   setError(nestAiFailureLabel(code,locale)+' ['+code+']');
-  }finally{setBusy(false);}
- }
+ useEffect(()=>()=>{operation.current+=1;},[currentCampaignId]);
+ const titles=suggestion?.kind==='strategy'?suggestion.data.titles:suggestion?[suggestion.data.title]:[];
+ const descriptions=suggestion?.kind==='strategy'?suggestion.data.descriptions:suggestion?[suggestion.data.description]:[];
  return <section className="nestai-review-draft" aria-label={pt?'Criar textos com NestAI':es?'Crear textos con NestAI':'Create copy with NestAI'}>
-  <div className="nestai-review-intro"><div>
-   <p className="eyebrow">NESTAI · ESTRATÉGIA POR PRODUTO</p>
-   <h3>{pt?'A IA entende o produto antes de escrever':es?'La IA entiende el producto antes de escribir':'AI understands the product before writing'}</h3>
-   <p>{pt?'Analise a intenção de compra, o público provável e três abordagens específicas. Nada será salvo sem sua aprovação.'
-     :es?'Analiza el comprador probable y tres enfoques específicos. Solo se guarda con tu aprobación.'
-     :'Analyze likely buyer intent and three distinct angles. You approve before saving.'}</p>
-  </div></div>
-  {busy&&!dismissed&&<div className="nestai-nonblocking-status" role="status">
-    <strong>{pt?'NestAI está preparando opções':es?'NestAI está preparando opciones':'NestAI is preparing options'} · {seconds}s</strong>
-    <p>{seconds>=20
-      ?(pt?'A análise está demorando. Seu Pin continua salvo: confira o link ou a imagem, ou tente novamente mais tarde.':es?'La IA está tardando; puedes seguir con el producto guardado.':'AI is taking longer; continue with your saved product.')
-      :(pt?'O produto já está salvo. Enquanto o NestAI trabalha, confira o link ou a imagem.':es?'El producto está guardado. Puedes revisar el enlace y la imagen.':'Product saved. Review the link or image while AI works.')}</p>
-    <button className="text-button" type="button" onClick={()=>{dismissedRef.current=true;setDismissed(true);}}>
-      {pt?'Continuar sem esperar':'Continue without waiting'}
-    </button>
-   </div>}
-  {dismissed&&<p className="field-hint">{pt?'A campanha permanece salva. Você pode solicitar novos textos a qualquer momento.':'Campaign saved. You can request new copy later.'}</p>}
+  <div className="nestai-review-intro">
+   <p className="eyebrow">NESTAI · {pt?'PERSONALIZAÇÃO OPCIONAL':es?'PERSONALIZACIÓN OPCIONAL':'OPTIONAL PERSONALIZATION'}</p>
+   <h3>{pt?'Personalizar seus textos com IA':es?'Personalizar tus textos con IA':'Personalize copy with AI'}</h3>
+   <p>{pt?'Os textos locais do Pin já estão disponíveis abaixo. A IA pode sugerir novos textos, mas nada é substituído sem sua aprovação.'
+       :es?'Los textos locales ya están listos. La IA sugiere alternativas sin reemplazarlas hasta que apruebes.'
+       :'Local Pin copy is ready below. AI can suggest alternatives, subject to your approval.'}</p>
+  </div>
+  {busy&&!dismissed&&<div className="nestai-nonblocking-status" role="status" aria-live="polite">
+   <strong>{pt?'Consultando NestAI':es?'Consultando NestAI':'Contacting NestAI'} · {seconds}s</strong>
+   <p>{seconds>=17
+      ?(pt?'Tentando uma sugestão simplificada. Você pode continuar usando os textos locais.':es?'Probando una sugerencia más simple. Puedes continuar con los textos locales.':'Trying a smaller AI suggestion; local copy remains available.')
+      :(pt?'Buscando uma sugestão específica sem interromper a revisão.':es?'Buscando una sugerencia sin bloquear la revisión.':'Finding specific copy without blocking your review.')}</p>
+   <button className="text-button" type="button" onClick={()=>{dismissedRef.current=true;setDismissed(true);}}>
+    {pt?'Continuar com textos locais':es?'Seguir con textos locales':'Continue with local copy'}
+   </button>
+  </div>}
+  {dismissed&&<p className="field-hint">{pt?'Os textos locais seguem prontos para revisão.':'Local copy remains ready for review.'}</p>}
   <button type="button" className="button secondary" disabled={!editable||!user||!organizationId||busy||product.title.source==='link-only-pending'}
-   aria-busy={busy} onClick={()=>void generate()}>{busy?(pt?'Preparando sugestões…':es?'Preparando opciones…':'Preparing suggestions…')
-   :(pt?'Personalizar com NestAI':es?'Personalizar con NestAI':'Personalize with NestAI')}</button>
-  {error&&<p className="notice danger" role="alert">{error}</p>}
-  {draft&&<div className="nestai-draft-preview">
-   <p className="eyebrow">{pt?'ESTRATÉGIA · NÃO SALVA':es?'ESTRATEGIA · SIN GUARDAR':'STRATEGY · NOT SAVED'}</p>
-   <strong>{draft.productType}</strong>
-   <p><b>{pt?'Público provável: ':es?'Público probable: ':'Likely audience: '}</b>{draft.audience}</p>
-   <p><b>{pt?'Intenção de compra: ':es?'Intención: ':'Buyer intent: '}</b>{draft.buyerIntent}</p>
-   <p><b>{pt?'Abordagem: ':es?'Enfoque: ':'Positioning: '}</b>{draft.positioning}</p>
-   {draft.unknowns.length>0&&<small>{pt?'Não confirmado: ':es?'Datos pendientes: ':'Not confirmed: '}{draft.unknowns.join(' · ')}</small>}
+   aria-busy={busy} onClick={()=>begin(false)}>
+   {busy?(pt?'Consultando IA…':es?'Consultando IA…':'Asking AI…')
+     :(pt?'Tentar personalização com NestAI':es?'Intentar con NestAI':'Try AI personalization')}
+  </button>
+  {error&&<div className="nestai-fallback-notice" role="alert">
+   <strong>{pt?'A IA não respondeu. Seus 3 títulos e 3 descrições locais continuam prontos.'
+     :es?'La IA no respondió. Tus textos locales están disponibles.'
+     :'AI is unavailable. Your local titles and descriptions are ready.'}</strong>
+   <p>{pt?'Você pode escolher e publicar seus próprios textos abaixo, ou tentar IA novamente depois.'
+      :es?'Puedes usar las alternativas locales o intentar la IA de nuevo más tarde.'
+      :'Use the local options below or retry AI later.'}</p>
+   <a href="#review-copy-editor">{pt?'Ver títulos e descrições disponíveis →':es?'Ver opciones disponibles →':'See available copy →'}</a>
+   <details><summary>{pt?'Detalhes para suporte':es?'Detalles de soporte':'Support details'}</summary><code>{error}</code></details>
+  </div>}
+  {suggestion&&<div className="nestai-draft-preview" role="region" aria-label={pt?'Sugestão da IA para revisão':'AI suggestions to review'}>
+   <p className="eyebrow">{suggestion.kind==='copy'
+       ?(pt?'SUGESTÃO PARCIAL DE IA · 1 TÍTULO + 1 DESCRIÇÃO':es?'SUGERENCIA PARCIAL DE IA':'PARTIAL AI SUGGESTION')
+       :(pt?'ESTRATÉGIA DA IA · NÃO SALVA':es?'ESTRATEGIA DE IA · SIN GUARDAR':'AI STRATEGY · NOT SAVED')}</p>
+   {suggestion.kind==='strategy'&&<>
+    <strong>{suggestion.data.productType}</strong>
+    <p><b>{pt?'Público provável: ':'Likely audience: '}</b>{suggestion.data.audience}</p>
+    <p><b>{pt?'Intenção de compra: ':'Buyer intent: '}</b>{suggestion.data.buyerIntent}</p>
+    {suggestion.data.unknowns.length>0&&<small>{pt?'Não confirmado: ':'Unconfirmed: '}{suggestion.data.unknowns.join(' · ')}</small>}
+   </>}
    <div className="nestai-strategy-choices">
-    <div><strong>{pt?'Escolha um título':es?'Elige título':'Choose title'}</strong>
-     {draft.titles.map((s,i)=><label key={i} className="nestai-strategy-choice">
-      <input type="radio" name="nestai-title" checked={titleIndex===i} onChange={()=>setTitleIndex(i)}/>{s}
+    <div><strong>{pt?'Escolha um título':'Choose a title'}</strong>
+     {titles.map((text,i)=><label key={i} className="nestai-strategy-choice">
+      <input type="radio" name="nestai-title" checked={titleIndex===i} onChange={()=>setTitleIndex(i)}/>{text}
      </label>)}
     </div>
-    <div><strong>{pt?'Escolha uma descrição':es?'Elige descripción':'Choose description'}</strong>
-     {draft.descriptions.map((s,i)=><label key={i} className="nestai-strategy-choice">
-      <input type="radio" name="nestai-description" checked={descriptionIndex===i} onChange={()=>setDescriptionIndex(i)}/>{s}
+    <div><strong>{pt?'Escolha uma descrição':'Choose a description'}</strong>
+     {descriptions.map((text,i)=><label key={i} className="nestai-strategy-choice">
+      <input type="radio" name="nestai-description" checked={descriptionIndex===i} onChange={()=>setDescriptionIndex(i)}/>{text}
      </label>)}
     </div>
    </div>
-   <small>{pt?'Os públicos são hipóteses. As características do produto e o link de comissão não são alterados.':'Review suggestions; source product facts stay unchanged.'}</small>
+   <small>{pt?'Sugestões editoriais. Revise os fatos, a imagem e o link antes de aprovar.':'Review facts and affiliate links before approving.'}</small>
    <div className="nestai-draft-actions">
     <button type="button" className="button primary" disabled={!editable} onClick={()=>{
-     onApply({title:draft.titles[titleIndex]!,description:draft.descriptions[descriptionIndex]!,
-       tags:draft.keywords,strategy:draft});
-     setSaved(true);setDraft(null);
-    }}>{pt?'Aplicar textos aprovados':es?'Aplicar textos':'Apply approved copy'}</button>
-    <button type="button" className="button secondary" onClick={()=>setDraft(null)}>{pt?'Descartar':'Discard'}</button>
+      onApply({title:titles[titleIndex]!,description:descriptions[descriptionIndex]!,
+       tags:suggestion.kind==='strategy'?suggestion.data.keywords:suggestion.data.tags,
+       ...(suggestion.kind==='strategy'?{strategy:suggestion.data}:{})});
+      setSaved(true);setSuggestion(null);
+    }}>{pt?'Aplicar sugestão aprovada':es?'Aplicar sugerencia':'Apply approved suggestion'}</button>
+    <button type="button" className="button secondary" onClick={()=>setSuggestion(null)}>{pt?'Descartar':'Discard'}</button>
    </div>
   </div>}
-  {saved&&<p role="status" className="success-text">{pt?'Nova versão salva. Revise a imagem e o Pin.':'New version saved for review.'}</p>}
-  <small className="nestai-review-safety">{pt?'Usa provedores gratuitos do NestAI quando disponíveis. Na falha, seus textos não são substituídos.':'Free NestAI providers when available. No changes on failure.'}</small>
+  {saved&&<p role="status" className="success-text">{pt?'Textos revisados salvos em uma nova versão.':'Reviewed copy saved in a new version.'}</p>}
+  <small className="nestai-review-safety">{pt?'NestAI usa provedores gratuitos quando disponíveis. Os textos locais, o produto e o link afiliado nunca são sobrescritos sem aprovação.':'AI uses free providers when available; no product or affiliate link is replaced.'}</small>
  </section>;
 }
