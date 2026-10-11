@@ -198,10 +198,10 @@ test('Review shows NestAI copy as optional, safely previewed, never auto-approve
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
  const assist=page.getByRole('region',{name:'Criar textos com NestAI'});
  await expect(assist).toBeVisible();
- await expect(assist.getByRole('heading',{name:/A IA entende o produto antes de escrever/})).toBeVisible();
- await expect(assist.getByRole('button',{name:/Personalizar com NestAI/})).toBeEnabled();
- await expect(assist.getByRole('button',{name:'Aplicar textos aprovados'})).toHaveCount(0);
- await expect(assist).toContainText(/seus textos não são substituídos/i);
+ await expect(assist.getByRole('heading',{name:/Personalizar seus textos com IA/})).toBeVisible();
+ await expect(assist.getByRole('button',{name:/Tentar personalização com NestAI/})).toBeEnabled();
+ await expect(assist.getByRole('button',{name:'Aplicar sugestão aprovada'})).toHaveCount(0);
+ await expect(assist).toContainText(/nunca são sobrescritos sem aprovação/i);
 });
 test('an incomplete Pin uses a visible requirement count instead of a misleading Approve button',async({page})=>{
  await page.goto('/');
