@@ -398,7 +398,7 @@ export interface Publication {
 
 export function nextCampaignVersion(
   campaign: Campaign,
-  patch: Partial<Pick<CampaignVersion, 'product' | 'narrative' | 'boardName' | 'keyword' | 'template' | 'creativePack' | 'creativeAsset'>>,
+  patch: Partial<Pick<CampaignVersion, 'product' | 'narrative' | 'boardName' | 'keyword' | 'template' | 'creativePack' | 'creativeAsset' | 'creativeIntelligence'>>,
   reason: string,
 ): Campaign {
   const previous = campaign.currentVersion;
@@ -436,6 +436,7 @@ export function restoreCampaignVersion(campaign: Campaign, version: number): Cam
       template: source.template,
       creativePack: source.creativePack,
       creativeAsset: source.creativeAsset,
+      creativeIntelligence: source.creativeIntelligence,
     },
     `restore v${version}`,
   );
