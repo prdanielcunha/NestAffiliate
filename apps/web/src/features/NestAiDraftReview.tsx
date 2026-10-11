@@ -66,7 +66,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
    return {kind:'copy',data:sanitizePinCopyDraft(copy)};
   }
  }
- function begin(isAuto:boolean){
+ function begin(){
   if(!editable||!user||!organizationId||busy)return;
   const id=++operation.current;
   dismissedRef.current=false;setDismissed(false);
@@ -86,7 +86,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
   if(!autoStart||!editable||!user||!organizationId||
     product.title.source==='link-only-pending'||autoStarted.current===currentCampaignId)return;
   autoStarted.current=currentCampaignId;
-  begin(true);
+  begin();
   // Auto-run exactly once per imported campaign; version changes do not restart it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
  },[currentCampaignId,autoStart,editable,user?.uid,organizationId]);
@@ -112,7 +112,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
   </div>}
   {dismissed&&<p className="field-hint">{pt?'Os textos locais seguem prontos para revisão.':'Local copy remains ready for review.'}</p>}
   <button type="button" className="button secondary" disabled={!editable||!user||!organizationId||busy||product.title.source==='link-only-pending'}
-   aria-busy={busy} onClick={()=>begin(false)}>
+   aria-busy={busy} onClick={()=>begin()}>
    {busy?(pt?'Consultando IA…':es?'Consultando IA…':'Asking AI…')
      :(pt?'Tentar personalização com NestAI':es?'Intentar con NestAI':'Try AI personalization')}
   </button>
