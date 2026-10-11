@@ -1087,3 +1087,22 @@ html {scroll-behavior:smooth}
 .pinterest-creative-pack .section-heading{flex-wrap:wrap;gap:10px}
 .pinterest-creative-pack .section-heading .text-button{min-height:44px}
 @media(max-width:720px){.pinterest-creative-pack .section-heading .text-button{width:100%;text-align:left}}
+
+/* Small-screen review: previews must be legible instead of three tiny columns. */
+@media(max-width:600px){
+ .pinterest-creative-pack .concept-grid-v5{
+   display:flex;grid-template-columns:none;gap:14px;
+   overflow-x:auto;overscroll-behavior-inline:contain;
+   scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
+   padding:8px 4px 18px;scroll-padding-inline:6px;
+ }
+ .pinterest-creative-pack .concept-grid-v5 .concept-card{
+   flex:0 0 min(78vw,290px);min-width:228px;
+   padding:14px;scroll-snap-align:start;gap:12px;
+ }
+ .pinterest-creative-pack .concept-grid-v5 .concept-info strong{font-size:15px;line-height:1.3}
+ .pinterest-creative-pack .concept-grid-v5 .concept-info p{font-size:13px;line-height:1.5}
+ .pinterest-creative-pack .concept-grid-v5 .concept-info small{font-size:11px;line-height:1.4}
+ .pinterest-creative-pack .concept-grid-v5 .concept-visual{min-height:280px}
+ .pinterest-creative-pack .copy-option{font-size:14px;min-height:48px;line-height:1.55}
+}
