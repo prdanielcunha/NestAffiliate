@@ -112,7 +112,7 @@ test('Review can prepare a full Pinterest Creative Pack and blocks approval unti
 
   await page.getByRole('button', { name: /Ver \d+ pendência\(s\) para aprovar/ }).click();
   await expect(page.getByRole('heading',{name:/Ainda faltam algumas coisas antes de aprovar/})).toBeVisible();
-  await expect(page.getByRole('alert')).toContainText('A aprovação ainda não foi realizada');
+  await expect(page.locator('.approval-blocker-alert')).toContainText('A aprovação ainda não foi realizada');
   await expect(page).toHaveURL(/\/review\//);
 });
 
@@ -198,10 +198,10 @@ test('Review shows NestAI copy as optional, safely previewed, never auto-approve
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
  const assist=page.getByRole('region',{name:'Criar textos com NestAI'});
  await expect(assist).toBeVisible();
- await expect(assist.getByRole('heading',{name:/A IA entende o produto antes de escrever/})).toBeVisible();
- await expect(assist.getByRole('button',{name:/Personalizar com NestAI/})).toBeEnabled();
- await expect(assist.getByRole('button',{name:'Aplicar textos aprovados'})).toHaveCount(0);
- await expect(assist).toContainText(/seus textos não são substituídos/i);
+ await expect(assist.getByRole('heading',{name:/Personalizar seus textos com IA/})).toBeVisible();
+ await expect(assist.getByRole('button',{name:/Tentar personalização com NestAI/})).toBeEnabled();
+ await expect(assist.getByRole('button',{name:'Aplicar sugestão aprovada'})).toHaveCount(0);
+ await expect(assist).toContainText(/nunca são sobrescritos sem aprovação/i);
 });
 test('an incomplete Pin uses a visible requirement count instead of a misleading Approve button',async({page})=>{
  await page.goto('/');
@@ -211,6 +211,6 @@ test('an incomplete Pin uses a visible requirement count instead of a misleading
  await expect(resolve).toBeVisible();
  await resolve.click();
  await expect(page.locator('#review-blockers')).toContainText('Ainda faltam algumas coisas');
- await expect(page.getByRole('alert')).toContainText('A aprovação ainda não foi realizada');
+ await expect(page.locator('.approval-blocker-alert')).toContainText('A aprovação ainda não foi realizada');
  await expect(page).toHaveURL(/\/review\//);
 });

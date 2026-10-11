@@ -28,7 +28,7 @@ describe('Conversion Copy 2.0 — real buyer intent, factual and editorial',()=>
    expect(titles).toHaveLength(3);
    expect(new Set(titles).size).toBe(3);
    expect(titles.every(t=>t.length>=33&&t.length<=100&&!BANNED.test(t))).toBe(true);
-   expect(descriptions).toHaveLength(2);
+   expect(descriptions).toHaveLength(3);
    expect(descriptions.every(d=>d.length>=140&&d.length<=500&&/link de afiliado/i.test(d))).toBe(true);
    expect(descriptions[0]).toMatch(/fotos/i);
    expect(descriptions[0]).toMatch(/avaliações/i);
@@ -79,7 +79,7 @@ describe('Conversion Copy 2.0 — real buyer intent, factual and editorial',()=>
    for(const locale of ['en','es'] as const){
      const p=packFor('Luminária de mesa',locale);
      expect(p.copy.titles).toHaveLength(3);
-     expect(p.copy.descriptions).toHaveLength(2);
+     expect(p.copy.descriptions).toHaveLength(3);
      expect(p.copy.titles[0]).not.toMatch(/uma ideia prática|para sua casa/i);
      expect(p.copy.descriptions.join(' ')).not.toMatch(/conteúdo com link de afiliado/i);
    }

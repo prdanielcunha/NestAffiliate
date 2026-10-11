@@ -2,7 +2,6 @@ import {useEffect,useRef,useState} from 'react';
 import type {CampaignVersion,PinterestCreativePack} from '@nestaffiliate/core';
 import {renderPin} from '@nestaffiliate/creative-engine';
 import {useI18n} from '../lib/i18n-context';
-import {narrativeForConcept} from '../lib/creativeDirection';
 
 /** These templates are used for both the thumbnails and the final exported PNG. */
 export const V5_CONCEPT_TEMPLATES=['Problem → Solution','Room Inspiration','Editorial Light'] as const;
@@ -20,7 +19,7 @@ function ConceptCanvas({version,pack,index,conceptId}:{version:CampaignVersion;p
   let cancelled=false;
   const currentConceptId=version.creativePack?.recommendedConceptId;
   const staged:CampaignVersion={
-   ...version,template:templateForConcept(index),narrative:narrativeForConcept(version,pack,index),
+   ...version,template:templateForConcept(index),narrative:version.narrative,
    creativeAsset:currentConceptId===conceptId?version.creativeAsset:undefined,
   };
   setRenderError(false);

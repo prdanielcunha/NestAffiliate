@@ -12,7 +12,6 @@ import { savePinterestCreativePack } from '../services/creativePackRepository';
 import { AIImageImport } from './AIImageImport';
 import { LocalPinComposer } from './LocalPinComposer';
 import { CreativeConceptPicker,templateForConcept } from './CreativeConceptPicker';
-import {narrativeForConcept} from '../lib/creativeDirection';
 import { ImagePromptPanel } from './ImagePromptPanel';
 import type { ReferencePreview } from '../services/productReferenceRepository';
 
@@ -62,18 +61,34 @@ export function PinterestCreativePackPanel({
   const { t, locale }=useI18n();
   const [directionOffset,setDirectionOffset]=useState(0);
   const [saving,setSaving]=useState(false);
+  const [saveError,setSaveError]=useState(false);
   const [reference,setReference]=useState<ReferencePreview|null>(null);
   const pack=campaign.currentVersion.creativePack;
+  const copyOptions=pack?.copy.descriptions.length && pack.copy.descriptions.length>=3
+    ? pack.copy.descriptions
+    : pack ? [...new Set([...pack.copy.descriptions,...buildPinterestCreativePack({
+      organizationId:campaign.organizationId,campaignId:campaign.id,
+      campaignVersion:campaign.currentVersion.version,product:campaign.currentVersion.product,
+      keyword:campaign.currentVersion.keyword,boardName:campaign.currentVersion.boardName,locale,
+    }).copy.descriptions])].slice(0,3) : [];
 
   async function persist(nextPack:PinterestCreativePack){
-    if(!db) return;
-    await savePinterestCreativePack(db,campaign.organizationId,nextPack);
+    try{
+      if(!db)throw new Error('FIRESTORE_UNAVAILABLE');
+      await savePinterestCreativePack(db,campaign.organizationId,nextPack);
+      setSaveError(false);
+    }catch{
+      // A failed save must not be displayed as confirmed synchronization.
+      setSaveError(true);
+    }finally{
+      setSaving(false);
+    }
   }
 
   function createPack(offset=directionOffset, refreshCopy=false){
-    if(!editable) return;
+    if(!editable||saving) return;
     const nextVersion=campaign.currentVersion.version+1;
-    const nextPack=buildPinterestCreativePack({
+    const generated=buildPinterestCreativePack({
       organizationId:campaign.organizationId,
       campaignId:campaign.id,
       campaignVersion:nextVersion,
@@ -85,53 +100,55 @@ export function PinterestCreativePackPanel({
       editorialContext:'Achados do Nest · Pinterest Creative Pack',
       directionOffset:offset,
     });
+    // Visual generation does not silently replace already chosen/AI-approved copy.
+    const nextPack=!refreshCopy&&pack?{...generated,copy:{...pack.copy,descriptions:copyOptions}}:generated;
     const next=nextCampaignVersion(campaign,{
       creativePack:nextPack,
       creativeAsset:undefined,
-      narrative:packNarrative(nextPack,campaign.currentVersion.narrative),
-      boardName:nextPack.copy.recommendedBoardName,
+      narrative:refreshCopy||!pack?packNarrative(nextPack,campaign.currentVersion.narrative):campaign.currentVersion.narrative,
+      boardName:refreshCopy||!pack?nextPack.copy.recommendedBoardName:campaign.currentVersion.boardName,
       template:templateForConcept(nextPack.imageConcepts.findIndex(item=>item.id===nextPack.recommendedConceptId)),
     },refreshCopy?'Pinterest copy refreshed with contextual hooks':offset===0?'Pinterest Creative Pack generated':'Pinterest Creative Pack alternate direction');
     onUpdate(next);
     setSaving(true);
-    void persist(nextPack).finally(()=>setSaving(false));
+    void persist(nextPack);
   }
 
   function selectConcept(conceptId:string){
-    if(!pack || !editable) return;
+    if(!pack || !editable || saving || pack.recommendedConceptId===conceptId) return;
     const nextVersion=campaign.currentVersion.version+1;
     const nextPack=directionFromSelected(versionPinterestCreativePack(pack,nextVersion,conceptId));
     const chosen=nextPack.imageConcepts.findIndex(item=>item.id===nextPack.recommendedConceptId);
-    const next=nextCampaignVersion(campaign,{creativePack:nextPack,creativeAsset:undefined,template:templateForConcept(chosen),narrative:narrativeForConcept(campaign.currentVersion,nextPack,chosen)},'creative concept changed');
+    const next=nextCampaignVersion(campaign,{creativePack:nextPack,creativeAsset:undefined,template:templateForConcept(chosen),narrative:campaign.currentVersion.narrative},'creative concept changed');
     onUpdate(next);
     setSaving(true);
-    void persist(nextPack).finally(()=>setSaving(false));
+    void persist(nextPack);
   }
 
   function selectTitle(title:string){
-    if(!pack || !editable || title===campaign.currentVersion.narrative.pinterestTitle) return;
+    if(!pack || !editable || saving || title===campaign.currentVersion.narrative.pinterestTitle) return;
     const nextVersion=campaign.currentVersion.version+1;
     const nextPack=versionPinterestCreativePack(pack,nextVersion);
     const narrative={...campaign.currentVersion.narrative,pinterestTitle:title,headline:compactPinText(title,57)};
     const next=nextCampaignVersion(campaign,{creativePack:nextPack,narrative},'Pinterest title selected');
     onUpdate(next);
     setSaving(true);
-    void persist(nextPack).finally(()=>setSaving(false));
+    void persist(nextPack);
   }
 
   function selectDescription(description:string){
-    if(!pack || !editable || description===campaign.currentVersion.narrative.description) return;
+    if(!pack || !editable || saving || description===campaign.currentVersion.narrative.description) return;
     const nextVersion=campaign.currentVersion.version+1;
-    const nextPack=versionPinterestCreativePack(pack,nextVersion);
+    const nextPack={...versionPinterestCreativePack(pack,nextVersion),copy:{...pack.copy,descriptions:copyOptions}};
     const narrative={...campaign.currentVersion.narrative,description};
     const next=nextCampaignVersion(campaign,{creativePack:nextPack,narrative},'Pinterest description selected');
     onUpdate(next);
     setSaving(true);
-    void persist(nextPack).finally(()=>setSaving(false));
+    void persist(nextPack);
   }
 
   function importAsset(asset:CreativeAsset){
-    if(!pack || !editable) return;
+    if(!pack || !editable || saving) return;
     const nextVersion=campaign.currentVersion.version+1;
     const nextPack=versionPinterestCreativePack(pack,nextVersion);
     const selected=nextPack.imageConcepts.find((item)=>item.id===nextPack.recommendedConceptId) ?? nextPack.imageConcepts[0];
@@ -147,7 +164,7 @@ export function PinterestCreativePackPanel({
     },'generated image imported');
     onUpdate(next);
     setSaving(true);
-    void persist(nextPack).finally(()=>setSaving(false));
+    void persist(nextPack);
   }
 
   if(!pack){
@@ -176,13 +193,13 @@ export function PinterestCreativePackPanel({
   return <section className="pinterest-creative-pack">
     <div className="copy-refresh-bar">
       <p>{locale==='pt-BR'
-        ? 'Textos antigos e genéricos? Gere novamente 3 títulos e 2 descrições específicos para o produto, sem API paga. A versão anterior permanece no histórico.'
+        ? 'Alternativas locais, sem IA: 3 títulos e 3 descrições baseados no nome do produto. A versão anterior permanece no histórico.'
         : locale==='es'
           ? '¿Textos genéricos? Renueva títulos y descripciones sin perder el historial.'
           : 'Generic copy? Refresh titles and descriptions without losing version history.'}</p>
       <button type="button" className="button secondary" disabled={!editable || saving}
         onClick={()=>createPack(directionOffset,true)}>
-        {locale==='pt-BR'?'Melhorar títulos e descrições':locale==='es'?'Mejorar títulos y descripciones':'Improve titles and descriptions'}
+        {locale==='pt-BR'?'Gerar outras opções locais':locale==='es'?'Generar alternativas locales':'Regenerate local options'}
       </button>
     </div>
     <header className="creative-pack-header">
@@ -193,10 +210,11 @@ export function PinterestCreativePackPanel({
       </div>
       <div className="pack-quality">
         <strong>{pack.qualityScore}</strong>
-        <span>{t('packQuality')}<br/>{saving?t('saving'):t('saved')}</span>
+        <span>{t('packQuality')}<br/>{saving?t('saving'):saveError?(locale==='pt-BR'?'Falha na sincronização':locale==='es'?'Error de sincronización':'Sync failed'):t('saved')}</span>
       </div>
     </header>
 
+    {saveError&&<div className="notice danger" role="alert">{locale==='pt-BR'?'Não foi possível sincronizar o Creative Pack. Suas opções continuam na tela.':'Creative Pack sync failed; current copy remains on screen.'}<button type="button" className="button secondary" disabled={saving} onClick={()=>{setSaving(true);void persist(pack);}}>{locale==='pt-BR'?'Tentar salvar novamente':'Retry save'}</button></div>}
     <details className="pack-advanced-details"><summary>{locale==='pt-BR'?'Ver dados, qualidade e SEO':locale==='es'?'Ver datos, calidad y SEO':'View data, quality and SEO'}</summary>
     <div className="pack-summary-grid">
       <div><span>{t('product')}</span><strong>{campaign.currentVersion.product.title.value}</strong></div>
@@ -212,21 +230,21 @@ export function PinterestCreativePackPanel({
       <p className="eyebrow">{t('copy')}</p>
       <div className="copy-option-grid">
         <div>
-          <h3>{t('pinTitles')}</h3>
+          <h3>{t('pinTitles')} ({pack.copy.titles.length})</h3>
           {pack.copy.titles.map((title)=><button
             type="button"
             key={title}
-            disabled={!editable}
+            disabled={!editable || saving}
             className={title===campaign.currentVersion.narrative.pinterestTitle?'copy-option selected':'copy-option'}
             onClick={()=>selectTitle(title)}
           >{title}</button>)}
         </div>
         <div>
-          <h3>{t('descriptions')}</h3>
-          {pack.copy.descriptions.map((description)=><button
+          <h3>{t('descriptions')} ({copyOptions.length})</h3>
+          {copyOptions.map((description)=><button
             type="button"
             key={description}
-            disabled={!editable}
+            disabled={!editable || saving}
             className={description===campaign.currentVersion.narrative.description?'copy-option selected':'copy-option'}
             onClick={()=>selectDescription(description)}
           >{description}</button>)}
@@ -237,13 +255,15 @@ export function PinterestCreativePackPanel({
     <div className="pack-section">
       <div className="section-heading">
         <div><p className="eyebrow">{t('visualConcepts')}</p><h3>{t('chooseCreativeDirection')}</h3></div>
-        <button className="text-button" disabled={!editable} onClick={()=>{
+        <button type="button" className="text-button" disabled={!editable || saving} onClick={()=>{
           const next=directionOffset+1;
           setDirectionOffset(next);
           createPack(next);
         }}>{t('generateAnotherDirection')}</button>
       </div>
-      <CreativeConceptPicker pack={pack} version={campaign.currentVersion} disabled={!editable} onSelect={selectConcept} />
+      <p className="field-hint" role="note">{locale==='pt-BR'?'Escolher um visual muda apenas a composição e o prompt da imagem; seus títulos e descrições continuam iguais.':locale==='es'?'Cambiar el diseño no modifica los títulos ni las descripciones.':'Choosing a visual changes only the image direction, never the selected copy.'}</p>
+      <p className="field-hint">{locale==='pt-BR'?'No celular, deslize para comparar os três estilos.':'Swipe to compare all three visual styles on mobile.'}</p>
+      <CreativeConceptPicker pack={pack} version={campaign.currentVersion} disabled={!editable || saving} onSelect={selectConcept} />
     </div>
 
     <div className="pack-section" id="review-images">
