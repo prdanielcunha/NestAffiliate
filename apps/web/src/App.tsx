@@ -1991,19 +1991,30 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     // overwrite commission URL, rights, pricing or actual publication status.
     const narrative={...v.narrative,pinterestTitle:draft.title,
       headline:compactPinText(draft.title,57),description:draft.description};
-    const nextPack=v.creativePack?versionPinterestCreativePack(v.creativePack,nextVersion):undefined;
+    const versionedPack=v.creativePack?versionPinterestCreativePack(v.creativePack,nextVersion):undefined;
+    const nextPack=versionedPack && !draft.strategy ? {
+      ...versionedPack,
+      copy:{
+        ...versionedPack.copy,
+        titles:[draft.title,...versionedPack.copy.titles.filter(title=>title!==draft.title)].slice(0,3),
+        descriptions:[draft.description,...versionedPack.copy.descriptions.filter(description=>description!==draft.description)].slice(0,3),
+      },
+    }:versionedPack;
     const next=nextCampaignVersion(campaign,{
       narrative,
       ...(nextPack?{creativePack:draft.strategy?overlayAiStrategy(nextPack,draft.strategy):nextPack}:{}),
-      ...(draft.strategy?{creativeIntelligence:{
+      creativeIntelligence:{
         origin:'nestai',
-        productType:draft.strategy.productType,
-        buyerIntent:draft.strategy.buyerIntent,
-        audience:draft.strategy.audience,
-        positioning:draft.strategy.positioning,
-        unknowns:draft.strategy.unknowns,
+        copyMode:draft.strategy?'strategy':'single-copy',
+        ...(draft.strategy?{
+          productType:draft.strategy.productType,
+          buyerIntent:draft.strategy.buyerIntent,
+          audience:draft.strategy.audience,
+          positioning:draft.strategy.positioning,
+        }:{}),
+        unknowns:draft.strategy?.unknowns??[],
         aiAttempted:true,
-      } as const}:{}),
+      },
     },'NestAI strategy explicitly reviewed and applied');
     update(next);
     recordDecision('EDITED',next,'NestAI copy suggestion reviewed');
@@ -2045,7 +2056,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           <p>{locale==='pt-BR'?'A IA propõe textos. Depois, gere ou importe uma imagem fiel ao produto. Tudo pode ser retomado sem perder a campanha.':locale==='es'?'La IA sugiere textos; luego prepara una imagen fiel al producto.':'AI suggests copy; then prepare a faithful product image. Your campaign remains saved.'}</p>
         </div>
         {v.creativeIntelligence&&<div className="ai-intelligence-summary" role="status">
-          <strong>{v.creativeIntelligence.origin==='nestai'?(locale==='pt-BR'?'NestAI personalizou esta campanha':locale==='es'?'NestAI personalizó la campaña':'NestAI personalized this campaign'):!v.creativeIntelligence.aiAttempted?(locale==='pt-BR'?'Produto salvo · Textos locais disponíveis':locale==='es'?'Producto guardado · IA preparando opciones':'Product saved · AI preparing options'):(locale==='pt-BR'?'Textos locais — NestAI não respondeu':locale==='es'?'Textos locales — IA no disponible':'Local copy — NestAI unavailable')}</strong>
+          <strong>{v.creativeIntelligence.origin==='nestai'?(locale==='pt-BR'?v.creativeIntelligence.copyMode==='single-copy'?'NestAI gerou 1 título e 1 descrição': 'NestAI personalizou esta campanha':locale==='es'?'NestAI personalizó la campaña':'NestAI personalized this campaign'):!v.creativeIntelligence.aiAttempted?(locale==='pt-BR'?'Produto salvo · Textos locais disponíveis':locale==='es'?'Producto guardado · IA preparando opciones':'Product saved · AI preparing options'):(locale==='pt-BR'?'Textos locais — NestAI não respondeu':locale==='es'?'Textos locales — IA no disponible':'Local copy — NestAI unavailable')}</strong>
           {v.creativeIntelligence.origin!=='nestai'&&v.creativeIntelligence.aiAttempted&&<p>{nestAiFailureLabel(v.creativeIntelligence.failureCode??'UNKNOWN',locale)} <code>{v.creativeIntelligence.failureCode??'UNKNOWN'}</code></p>}
           {v.creativeIntelligence.origin==='nestai'&&<p>{locale==='pt-BR'?'Intenção provável de compra: ':locale==='es'?'Intención probable: ':'Likely buyer intent: '}{v.creativeIntelligence.buyerIntent} · {locale==='pt-BR'?'Público provável: ':locale==='es'?'Público probable: ':'Likely audience: '}{v.creativeIntelligence.audience}</p>}
           <small>{locale==='pt-BR'?'Sugestão editorial, não comprovação comercial. Revise textos e produto antes de aprovar.':locale==='es'?'Propuesta editorial. Revisa antes de aprobar.':'Editorial proposal. Review before approving.'}</small>
