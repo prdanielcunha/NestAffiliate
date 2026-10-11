@@ -51,7 +51,9 @@ describe('Pinterest Creative Pack',()=>{
       createdAt:now,
     });
     expect(pack.copy.titles).toHaveLength(3);
-    expect(pack.copy.descriptions).toHaveLength(2);
+    expect(pack.copy.descriptions).toHaveLength(3);
+    expect(new Set(pack.copy.descriptions)).toHaveProperty('size',3);
+    expect(pack.copy.descriptions.every(text=>/afiliad/i.test(text))).toBe(true);
     expect(pack.copy.keywords.length).toBeGreaterThanOrEqual(8);
     expect(pack.copy.keywords.length).toBeLessThanOrEqual(12);
     expect(pack.imageConcepts).toHaveLength(3);
