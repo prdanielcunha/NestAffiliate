@@ -277,6 +277,7 @@ export interface CampaignVersion {
     positioning?:string;
     unknowns:string[];
     aiAttempted:boolean;
+    copyMode?:'strategy'|'single-copy';
     failureCode?:'AUTH'|'APP_CHECK'|'OUTPUT'|'PROVIDER'|'RATE_LIMIT'|'TIMEOUT'|'NETWORK'|'UNKNOWN';
   };
   creativeAsset?: CreativeAsset;
