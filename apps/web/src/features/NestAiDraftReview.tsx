@@ -14,11 +14,17 @@ export function sanitizePinCopyDraft(raw:AffiliatePinCopy):PinCopyDraft{
  const description=typeof raw?.description==='string'?raw.description.trim().slice(0,500):'';
  const tags=Array.isArray(raw?.tags)?[...new Set(raw.tags.filter((x):x is string=>typeof x==='string')
    .map(x=>x.trim()).filter(Boolean))].slice(0,12):[];
- if(title.length<8||description.length<70||!/(?:afiliad|affiliate)/i.test(description))
-   throw new Error('AI_STRATEGY_INVALID_PARTIAL_COPY');
- if(validateCommercialClaims([title,description]).outcome==='BLOCK')
-   throw new Error('AI_STRATEGY_UNSUPPORTED_CLAIM');
+ if(title.length<8||description.length<15)throw new Error('NESTAI_EMPTY_OR_INVALID_DRAFT');
  return {title,description,tags};
+}
+/** Stronger gate only for the one-copy AI fallback, without breaking legacy drafts. */
+function sanitizeAiFallbackCopy(raw:AffiliatePinCopy):PinCopyDraft{
+ const draft=sanitizePinCopyDraft(raw);
+ if(draft.description.length<70||!/(?:afiliad|affiliate)/i.test(draft.description))
+   throw new Error('AI_STRATEGY_INVALID_PARTIAL_COPY');
+ if(validateCommercialClaims([draft.title,draft.description]).outcome==='BLOCK')
+   throw new Error('AI_STRATEGY_UNSUPPORTED_CLAIM');
+ return draft;
 }
 export function withAiDeadline<T>(promise:Promise<T>,milliseconds:number):Promise<T>{
  return new Promise((resolve,reject)=>{
@@ -63,7 +69,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
     product:{title:product.title.value,marketplace:product.marketplace,
       sourceNotes:['Only attributes explicitly stated in the supplied product title may be claimed.']},
    }),13500);
-   return {kind:'copy',data:sanitizePinCopyDraft(copy)};
+   return {kind:'copy',data:sanitizeAiFallbackCopy(copy)};
   }
  }
  function begin(){
