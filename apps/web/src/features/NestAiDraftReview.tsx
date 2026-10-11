@@ -6,6 +6,7 @@ import {useI18n} from '../lib/i18n-context';
 import {generateAffiliatePinCopy,generateAffiliatePinStrategy,type AffiliatePinCopy} from '../services/nestAiClient';
 import type {ProductAiStrategy} from '../lib/aiProductStrategy';
 import {classifyNestAiFailure,type NestAiFailureCode} from '../lib/nestAiFailure';
+import {aiSupportDiagnostic,NestAiStageError} from '../lib/nestAiTransport';
 
 export type PinCopyDraft={title:string;description:string;tags:string[];strategy?:ProductAiStrategy};
 /** Validate even partial model output; no publishing or product fact mutation. */
@@ -43,6 +44,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
  const [seconds,setSeconds]=useState(0);
  const [titleIndex,setTitleIndex]=useState(0),[descriptionIndex,setDescriptionIndex]=useState(0);
  const [error,setError]=useState<NestAiFailureCode|null>(null),[saved,setSaved]=useState(false);
+ const [errorDetails,setErrorDetails]=useState('');
  const [dismissed,setDismissed]=useState(false);
  const dismissedRef=useRef(false);
  const operation=useRef(0);
@@ -62,7 +64,9 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
   }catch(primaryFailure){
    const code=classifyNestAiFailure(primaryFailure);
    // A second AI attempt cannot repair missing permissions or App Check.
-   if(code==='AUTH'||code==='APP_CHECK')throw primaryFailure;
+   if(code==='AUTH'||code==='APP_CHECK'||
+     (primaryFailure instanceof NestAiStageError&&primaryFailure.stage!=='nestai_request'))throw primaryFailure;
+   try{
    const copy=await withAiDeadline(generateAffiliatePinCopy({
     user,organizationId,locale,
     instruction:'Create a specific Pinterest Pin title and a 110-450 character description based only on the explicit product name. Mention affiliate link disclosure. Do not invent prices, discounts, materials, technical specs, sales, shipping, reviews or performance. The result is a draft requiring human review.',
@@ -70,13 +74,20 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
       sourceNotes:['Only attributes explicitly stated in the supplied product title may be claimed.']},
    }),13500);
    return {kind:'copy',data:sanitizeAiFallbackCopy(copy)};
+   }catch(fallbackFailure){
+    const code=classifyNestAiFailure(fallbackFailure);
+    const next=new Error('NESTAI_'+code);
+    Object.assign(next,{supportTrace:'estrategia='+aiSupportDiagnostic(primaryFailure)+
+      ' | alternativa='+aiSupportDiagnostic(fallbackFailure)});
+    throw next;
+   }
   }
  }
  function begin(){
   if(!editable||!user||!organizationId||busy)return;
   const id=++operation.current;
   dismissedRef.current=false;setDismissed(false);
-  setBusy(true);setSuggestion(null);setError(null);setSaved(false);
+  setBusy(true);setSuggestion(null);setError(null);setErrorDetails('');setSaved(false);
   void withAiDeadline(requestSuggestions(),35000)
    .then(data=>{
     if(operation.current!==id||dismissedRef.current)return;
@@ -85,6 +96,8 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
    .catch(reason=>{
     if(operation.current!==id||dismissedRef.current)return;
     setError(classifyNestAiFailure(reason));
+    const data=reason as {supportTrace?:unknown};
+    setErrorDetails(typeof data?.supportTrace==='string'?data.supportTrace:aiSupportDiagnostic(reason));
    })
    .finally(()=>{if(operation.current===id)setBusy(false);});
  }
@@ -110,7 +123,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
   {busy&&!dismissed&&<div className="nestai-nonblocking-status" role="status" aria-live="polite">
    <strong>{pt?'Consultando NestAI':es?'Consultando NestAI':'Contacting NestAI'} · {seconds}s</strong>
    <p>{seconds>=17
-      ?(pt?'Tentando uma sugestão simplificada. Você pode continuar usando os textos locais.':es?'Probando una sugerencia más simple. Puedes continuar con los textos locales.':'Trying a smaller AI suggestion; local copy remains available.')
+      ?(pt?'A conexão está demorando. Você pode continuar usando os textos locais enquanto verificamos o serviço.':es?'Probando una sugerencia más simple. Puedes continuar con los textos locales.':'Trying a smaller AI suggestion; local copy remains available.')
       :(pt?'Buscando uma sugestão específica sem interromper a revisão.':es?'Buscando una sugerencia sin bloquear la revisión.':'Finding specific copy without blocking your review.')}</p>
    <button className="text-button" type="button" onClick={()=>{dismissedRef.current=true;setDismissed(true);}}>
     {pt?'Continuar com textos locais':es?'Seguir con textos locales':'Continue with local copy'}
@@ -130,7 +143,13 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
       :es?'Puedes usar las alternativas locales o intentar la IA de nuevo más tarde.'
       :'Use the local options below or retry AI later.'}</p>
    <a href="#review-copy-editor">{pt?'Ver títulos e descrições disponíveis →':es?'Ver opciones disponibles →':'See available copy →'}</a>
-   <details><summary>{pt?'Detalhes para suporte':es?'Detalles de soporte':'Support details'}</summary><code>{error}</code></details>
+   <details><summary>{pt?'Detalhes para suporte':es?'Detalles de soporte':'Support details'}</summary>
+    <code>{error} · {errorDetails}</code>
+    <p>{pt?'Envie apenas este diagnóstico ao suporte, nunca tokens ou senhas.':'Share this diagnostic only, never tokens or passwords.'}</p>
+    <button type="button" className="button secondary" onClick={()=>{
+     if(navigator.clipboard)void navigator.clipboard.writeText(error+' · '+errorDetails).catch(()=>{});
+    }}>{pt?'Copiar diagnóstico':'Copy diagnostic'}</button>
+   </details>
   </div>}
   {suggestion&&<div className="nestai-draft-preview" role="region" aria-label={pt?'Sugestão da IA para revisão':'AI suggestions to review'}>
    <p className="eyebrow">{suggestion.kind==='copy'

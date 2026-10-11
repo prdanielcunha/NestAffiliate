@@ -1,6 +1,7 @@
 import { createNestAiClient, type Locale } from '@millionsnest/ai';
 import type { User } from 'firebase/auth';
 import { getNestAffiliateAppCheckToken } from '../lib/firebase';
+import { observedNestAiFetch,withNestAiStage } from '../lib/nestAiTransport';
 
 export type AffiliatePinCopy = {
   title: string;
@@ -18,20 +19,31 @@ function localeOf(locale: 'pt-BR' | 'en' | 'es'): Locale {
   return locale;
 }
 
+// A single SDK instance per Firebase session, organization and locale reuses
+// short-lived Hub authorization instead of performing two exchanges for every request.
+const clients=new WeakMap<User,Map<string,ReturnType<typeof createNestAiClient>>>();
 function clientFor(input: {
   user: User;
   organizationId: string;
   locale: 'pt-BR' | 'en' | 'es';
 }) {
-  return createNestAiClient({
+  const key=input.organizationId+'|'+input.locale;
+  let byScope=clients.get(input.user);
+  if(!byScope){byScope=new Map();clients.set(input.user,byScope);}
+  const existing=byScope.get(key);
+  if(existing)return existing;
+  const client=createNestAiClient({
     appId: 'nestaffiliate',
     organizationId: input.organizationId,
     locale: localeOf(input.locale),
-    getFirebaseIdToken: async () => input.user.getIdToken(),
-    getAppCheckToken: getNestAffiliateAppCheckToken,
+    getFirebaseIdToken: () => withNestAiStage('firebase_token',7000,()=>input.user.getIdToken()),
+    getAppCheckToken: () => withNestAiStage('app_check',9000,getNestAffiliateAppCheckToken),
+    fetcher: observedNestAiFetch(fetch),
     baseUrl: 'https://ai.millionsnest.com/v1/',
     hubBaseUrl: 'https://www.millionsnest.com/',
   });
+  byScope.set(key,client);
+  return client;
 }
 
 export async function generateAffiliatePinCopy(input: {
@@ -55,6 +67,7 @@ export async function generateAffiliatePinCopy(input: {
   };
 }): Promise<AffiliatePinCopy> {
   const response = await clientFor(input).run<AffiliatePinCopy>({
+    requestId:crypto.randomUUID(),
     task: 'affiliate.pin.copy',
     input: {
       instruction: input.instruction,
@@ -142,6 +155,7 @@ export async function generateAffiliatePinStrategy(input:{
 }):Promise<import('../lib/aiProductStrategy').ProductAiStrategy>{
  const observations=(input.observedFacts??[]).slice(0,8).map(x=>x.slice(0,200));
  const response=await clientFor(input).run<unknown>({
+  requestId:crypto.randomUUID(),
   task:'affiliate.pin.strategy',
   input:{
    product:{
