@@ -112,7 +112,7 @@ test('Review can prepare a full Pinterest Creative Pack and blocks approval unti
 
   await page.getByRole('button', { name: /Ver \d+ pendência\(s\) para aprovar/ }).click();
   await expect(page.getByRole('heading',{name:/Ainda faltam algumas coisas antes de aprovar/})).toBeVisible();
-  await expect(page.getByRole('alert')).toContainText('A aprovação ainda não foi realizada');
+  await expect(page.locator('.approval-blocker-alert')).toContainText('A aprovação ainda não foi realizada');
   await expect(page).toHaveURL(/\/review\//);
 });
 
@@ -211,6 +211,6 @@ test('an incomplete Pin uses a visible requirement count instead of a misleading
  await expect(resolve).toBeVisible();
  await resolve.click();
  await expect(page.locator('#review-blockers')).toContainText('Ainda faltam algumas coisas');
- await expect(page.getByRole('alert')).toContainText('A aprovação ainda não foi realizada');
+ await expect(page.locator('.approval-blocker-alert')).toContainText('A aprovação ainda não foi realizada');
  await expect(page).toHaveURL(/\/review\//);
 });
