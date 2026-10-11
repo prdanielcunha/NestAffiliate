@@ -46,7 +46,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
   setBusy(true);setError('');setSaved(false);
   void Promise.race([
     generateAffiliatePinStrategy({user,organizationId,locale,product}),
-    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_TIMEOUT')),65000)),
+    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_TIMEOUT')),40000)),
   ])
     .then(data=>{if(active&&!dismissedRef.current){setDraft(data);setTitleIndex(0);setDescriptionIndex(0);}})
     .catch(reason=>{if(active&&!dismissedRef.current){
@@ -66,7 +66,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
   try{
    const data=await Promise.race([
     generateAffiliatePinStrategy({user,organizationId,locale,product}),
-    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_TIMEOUT')),65000)),
+    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('NESTAI_TIMEOUT')),40000)),
    ]);
    setDraft(data);setTitleIndex(0);setDescriptionIndex(0);
   }catch(reason){
@@ -82,7 +82,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
      :es?'Analiza el comprador probable y tres enfoques específicos. Solo se guarda con tu aprobación.'
      :'Analyze likely buyer intent and three distinct angles. You approve before saving.'}</p>
   </div></div>
-  {busy&&<div className="nestai-nonblocking-status" role="status">
+  {busy&&!dismissed&&<div className="nestai-nonblocking-status" role="status">
     <strong>{pt?'NestAI está preparando opções':es?'NestAI está preparando opciones':'NestAI is preparing options'} · {seconds}s</strong>
     <p>{seconds>=20
       ?(pt?'A análise está demorando. Seu Pin continua salvo: confira o link ou a imagem, ou tente novamente mais tarde.':es?'La IA está tardando; puedes seguir con el producto guardado.':'AI is taking longer; continue with your saved product.')

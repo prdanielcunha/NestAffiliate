@@ -29,7 +29,7 @@ test('Smart Import keeps a declared affiliate URL and prepares Pin copy automati
   await expect(page.getByRole('region',{name:'Próxima ação e textos do Pin'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Copiar título'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Copiar descrição'})).toBeVisible();
-  await expect(page.getByText(/Produto salvo · IA preparando sugestões|NestAI personalizou esta campanha|Textos locais — NestAI não respondeu/)).toBeVisible();
+  await expect(page.getByText(/Produto salvo · Textos locais disponíveis|NestAI personalizou esta campanha|Textos locais — NestAI não respondeu/)).toBeVisible();
   await expect(page.locator('#review-copy-editor')).toBeVisible();
 });
 test('Smart Import defaults to ordinary link and never labels it as an affiliate URL', async ({page})=>{
