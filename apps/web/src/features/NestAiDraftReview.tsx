@@ -122,7 +122,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
    {busy?(pt?'Consultando IA…':es?'Consultando IA…':'Asking AI…')
      :(pt?'Tentar personalização com NestAI':es?'Intentar con NestAI':'Try AI personalization')}
   </button>
-  {error&&<div className="nestai-fallback-notice" role="alert">
+  {error&&<div className="nestai-fallback-notice" role="status" aria-live="polite">
    <strong>{pt?'A IA não respondeu. Seus 3 títulos e 3 descrições locais continuam prontos.'
      :es?'La IA no respondió. Tus textos locales están disponibles.'
      :'AI is unavailable. Your local titles and descriptions are ready.'}</strong>
