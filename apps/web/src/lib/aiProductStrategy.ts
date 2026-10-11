@@ -86,7 +86,7 @@ export function overlayAiStrategy(pack:PinterestCreativePack,s:ProductAiStrategy
   return {
     ...pack,
     copy:{
-      ...pack.copy,titles:s.titles,descriptions:s.descriptions,
+      ...pack.copy,titles:s.titles,descriptions:[...s.descriptions,...pack.copy.descriptions.slice(2)].slice(0,3),
       headline:s.headline,
       cta:s.cta,
       primaryKeyword:s.keywords[0]!,
