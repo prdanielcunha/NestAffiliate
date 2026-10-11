@@ -134,3 +134,29 @@ test('Shopee short share URL resolves through Hub while preserving affiliate att
  await expect(page.getByRole('region',{name:'Próxima ação e textos do Pin'})).toBeVisible();
  await expect(page.getByText(/Shopee: a marcação de afiliado é conferida na publicação/i)).toBeVisible();
 });
+
+
+test('mobile visual concept and new direction NEVER change selected title or description',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.route('**/api/v1/nestaffiliate/mercadolivre/resolve',async route=>
+  route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'SOURCE_LIMITED'})}));
+ await page.goto('/radar');
+ const smart=page.getByRole('region',{name:'Importação inteligente'});
+ await smart.getByPlaceholder(/https:\/\/meli\.la/).fill('https://meli.la/2GDhhKL');
+ await smart.getByText('Caso a fonte não identifique o produto').click();
+ await smart.getByPlaceholder('Nome do produto').fill('Jogo de panelas 10 peças');
+ await smart.getByRole('button',{name:/Salvar produto e preparar Pin/}).click();
+ await expect(page).toHaveURL(/\/review\/campaign-/);
+ const copy=page.locator('#review-copy-editor');
+ await expect(copy.locator('.copy-option')).toHaveCount(6);
+ const chosen=copy.locator('.copy-option.selected');
+ const title=await chosen.first().innerText();
+ const description=await chosen.last().innerText();
+ await page.locator('.concept-grid-v5 .concept-card').nth(1).click();
+ await expect(copy.locator('.copy-option.selected').first()).toHaveText(title);
+ await expect(copy.locator('.copy-option.selected').last()).toHaveText(description);
+ await page.getByRole('button',{name:/Gerar outra direção/}).click();
+ await expect(copy.locator('.copy-option.selected').first()).toHaveText(title);
+ await expect(copy.locator('.copy-option.selected').last()).toHaveText(description);
+ await expect(page.getByText(/Escolher um visual muda apenas a composição/)).toBeVisible();
+});
