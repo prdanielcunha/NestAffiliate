@@ -109,10 +109,10 @@ test('mobile review starts with copy, next action and collapsed detailed journey
  // In mocked E2E auth, the Hub may reject immediately instead of waiting on
  // the intercepted provider; either outcome must remain nonblocking.
  if(await waiting.isVisible()){
-  await page.getByRole('button',{name:'Continuar sem esperar'}).click();
-  await expect(page.getByText('A campanha permanece salva. Você pode solicitar novos textos a qualquer momento.')).toBeVisible();
+  await page.getByRole('button',{name:'Continuar com textos locais'}).click();
+  await expect(page.getByText('Os textos locais seguem prontos para revisão.')).toBeVisible();
  }else{
-  await expect(page.getByRole('button',{name:/Personalizar com NestAI/})).toBeVisible();
+  await expect(page.getByRole('button',{name:/Tentar personalização com NestAI/})).toBeVisible();
  }
  await expect(actions.getByRole('button',{name:'Copiar título'})).toBeVisible();
 });
