@@ -11,6 +11,7 @@ try {
   const response=await fetch('/__/firebase/init.json',{cache:'no-store'});
   if(!response.ok)throw Object.assign(new Error('FIREBASE_HOSTING_CONFIG_MISSING'),{code:'HOSTING_CONFIG_MISSING'});
   const config=await response.json();
+  config.appId=window.__NESTAFFILIATE_PUBLISHED_APP_ID__ || config.appId;
   configSummary={projectId:typeof config.projectId==='string'?config.projectId:'missing',appIdPrefix:typeof config.appId==='string'?config.appId.split(':').slice(0,3).join(':'):'missing',appIdPresent:Boolean(config.appId)};
   if(config.projectId!=='millionsnest'||typeof config.appId!=='string'||!config.appId.startsWith('1:555464791734:'))
     throw Object.assign(new Error('FIREBASE_WRONG_APP'),{code:'WRONG_PROJECT_OR_WEB_APP'});
