@@ -1,8 +1,34 @@
 import {describe,expect,it,vi} from 'vitest';
 import {readFileSync} from 'node:fs';
-import {NestAiStageError,aiSupportDiagnostic,observedNestAiFetch,withNestAiStage} from '../../apps/web/src/lib/nestAiTransport';
+import {NestAiStageError,aiSupportDiagnostic,observedNestAiFetch,singleFlight,withNestAiStage} from '../../apps/web/src/lib/nestAiTransport';
 
 describe('NestAI production authentication and network regression',()=>{
+ it('deduplicates concurrent App Check attestation including Hub and NestAI headers',async()=>{
+  let started=0;
+  let finish:((token:string)=>void)|undefined;
+  const fetchToken=singleFlight(()=>{
+   started++;
+   return new Promise<string>(resolve=>{finish=resolve;});
+  });
+  const one=fetchToken(),two=fetchToken();
+  expect(one).toBe(two);
+  await Promise.resolve();
+  expect(started).toBe(1);
+  finish?.('a-test-token');
+  expect(await Promise.all([one,two])).toEqual(['a-test-token','a-test-token']);
+  const three=fetchToken();
+  await Promise.resolve();
+  expect(started).toBe(2);
+  finish?.('next-token');
+  expect(await three).toBe('next-token');
+ });
+ it('clears failed App Check attestation for explicit retry',async()=>{
+  let started=0;
+  const getToken=singleFlight(async()=>{started++;if(started===1)throw new Error('ONE_TIME_FAILURE');return 'ok';});
+  await expect(getToken()).rejects.toThrow('ONE_TIME_FAILURE');
+  await expect(getToken()).resolves.toBe('ok');
+  expect(started).toBe(2);
+ });
  it('Firebase CSP allows enterprise reCAPTCHA to obtain required App Check tokens',()=>{
   const config=JSON.parse(readFileSync('firebase.json','utf8'));
   const csp:string=config.hosting.headers.find((h:{source:string})=>h.source==='**')
