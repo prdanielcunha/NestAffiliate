@@ -1,3 +1,20 @@
+/** Reuse exactly one attestation promise across concurrent SDK header/token calls.
+ * Cache only while in flight; Firebase itself manages the expiry of successful tokens.
+ */
+export function singleFlight<T>(operation:()=>Promise<T>):()=>Promise<T>{
+ let pending:Promise<T>|null=null;
+ return ()=>{
+  if(pending)return pending;
+  const started=Promise.resolve().then(operation);
+  pending=started;
+  void started.then(
+   ()=>{if(pending===started)pending=null;},
+   ()=>{if(pending===started)pending=null;},
+  );
+  return started;
+ };
+}
+
 /** Browser-only, sanitized NestAI diagnostics. Never serialize bearer tokens or user data. */
 export type NestAiStage='app_check'|'firebase_token'|'hub_token'|'nestai_request';
 export class NestAiStageError extends Error {
