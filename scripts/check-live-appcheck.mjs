@@ -58,7 +58,7 @@ try {
      blocked.push(/Content Security Policy|Refused to load/i.test(txt)?'CSP_BLOCK':'RECAPTCHA_CONSOLE_ERROR');
      // Only preapproved diagnostic words. Never echo raw console messages,
      // cookies, credentials, URLs or user data.
-     const terms=txt.match(/appcheck\\/[a-z-]+|invalid|domain|sitekey|unauthorized|blocked|throttle|network|timeout|403|400|429|captcha|firebase/gi)??[];
+     const terms=txt.match(/invalid|domain|sitekey|unauthorized|blocked|throttle|network|timeout|403|400|429|captcha|firebase/gi)??[];
      safeConsoleHints.push(...terms.map(x=>x.toLowerCase()));
    }
  });
