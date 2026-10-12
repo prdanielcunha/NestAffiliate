@@ -3,7 +3,7 @@ import type {Campaign} from '@nestaffiliate/core';
 import {validateCommercialClaims} from '@nestaffiliate/creative-engine';
 import {useAuth} from '../lib/auth';
 import {useI18n} from '../lib/i18n-context';
-import {generateAffiliatePinCopy,generateAffiliatePinStrategy,type AffiliatePinCopy} from '../services/nestAiClient';
+import {generateAffiliatePinCopy,generateAffiliatePinStrategy,prepareNestAiSecurity,type AffiliatePinCopy} from '../services/nestAiClient';
 import type {ProductAiStrategy} from '../lib/aiProductStrategy';
 import {classifyNestAiFailure,type NestAiFailureCode} from '../lib/nestAiFailure';
 import {aiSupportDiagnostic,NestAiStageError} from '../lib/nestAiTransport';
@@ -58,6 +58,9 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
  },[busy]);
  async function requestSuggestions():Promise<Suggestion>{
   if(!user||!organizationId)throw new Error('AUTH_REQUIRED');
+  // Do not start the strategy/model timer until App Check has actually returned.
+  // App Check failure stops here: neither strategy nor fallback can use that session.
+  await prepareNestAiSecurity();
   try{
    const strategy=await withAiDeadline(generateAffiliatePinStrategy({user,organizationId,locale,product}),17000);
    return {kind:'strategy',data:strategy};
@@ -88,7 +91,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
   const id=++operation.current;
   dismissedRef.current=false;setDismissed(false);
   setBusy(true);setSuggestion(null);setError(null);setErrorDetails('');setSaved(false);
-  void withAiDeadline(requestSuggestions(),35000)
+  void withAiDeadline(requestSuggestions(),55000)
    .then(data=>{
     if(operation.current!==id||dismissedRef.current)return;
     setSuggestion(data);setTitleIndex(0);setDescriptionIndex(0);
@@ -122,7 +125,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
   </div>
   {busy&&!dismissed&&<div className="nestai-nonblocking-status" role="status" aria-live="polite">
    <strong>{pt?'Consultando NestAI':es?'Consultando NestAI':'Contacting NestAI'} · {seconds}s</strong>
-   <p>{seconds>=17
+   <p>{seconds>=20
       ?(pt?'A conexão está demorando. Você pode continuar usando os textos locais enquanto verificamos o serviço.':es?'Probando una sugerencia más simple. Puedes continuar con los textos locales.':'Trying a smaller AI suggestion; local copy remains available.')
       :(pt?'Buscando uma sugestão específica sem interromper a revisão.':es?'Buscando una sugerencia sin bloquear la revisión.':'Finding specific copy without blocking your review.')}</p>
    <button className="text-button" type="button" onClick={()=>{dismissedRef.current=true;setDismissed(true);}}>
