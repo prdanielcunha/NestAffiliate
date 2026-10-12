@@ -64,6 +64,31 @@ jobs:
           PY
 
 
+
+  verify-live-appcheck-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect current published Vite JavaScript for the new App Check safeguards
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request,re,urllib.parse
+          for base in ['https://nestaffiliate.millionsnest.com/','https://mn-nestaffiliate-555464791734.web.app/']:
+              html=urllib.request.urlopen(urllib.request.Request(base,headers={'Cache-Control':'no-cache'}),timeout=15).read().decode('utf-8','replace')
+              assets=re.findall(r'<script[^>]+src=["\\']([^"\\']+\\.js[^"\\']*)["\\']',html,re.I)
+              scripts=[]
+              for path in assets[:6]:
+                  url=urllib.parse.urljoin(base,path)
+                  scripts.append(urllib.request.urlopen(urllib.request.Request(url,headers={'Cache-Control':'no-cache'}),timeout=18).read().decode('utf-8','replace'))
+              bundle='\\n'.join(scripts)
+              print('LIVE_ORIGIN',urllib.parse.urlsplit(base).netloc)
+              print('LIVE_SCRIPT_ASSETS_FOUND',len(assets))
+              print('EARLY_APPCHECK_CODE_DEPLOYED','YES' if 'APP_CHECK_NOT_INITIALIZED' in bundle else 'NO')
+              print('SDK_DUMMY_TOKEN_GUARD_DEPLOYED','YES' if 'APP_CHECK_EMPTY_TOKEN' in bundle and 'RECAPTCHA_ERROR' in bundle else 'NO')
+          PY
+
+
   browser-appcheck-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 5
