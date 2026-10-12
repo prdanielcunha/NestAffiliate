@@ -21,6 +21,7 @@ for(const src of jsPaths){
 if(matches.size!==1)throw new Error('LIVE_WEB_APP_ID_NOT_UNIQUE_'+matches.size);
 const deployedAppId=[...matches][0];
 console.log('LIVE_PUBLISHED_FIREBASE_APP_ID_DETECTED',{count:matches.size,prefix:deployedAppId.split(':').slice(0,3).join(':')});
+console.log('PUBLISHED_WEB_APP_MATCHES_FIREBASE_MILLIONSNEST',deployedAppId==="1:555464791734:web:6f916a69f26e74b9767817");
 const browser=await chromium.launch({headless:true});
 try {
  const context=await browser.newContext({
