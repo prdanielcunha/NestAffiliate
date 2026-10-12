@@ -9,7 +9,7 @@ const bundle=fs.readFileSync('/tmp/nestaffiliate-appcheck-smoke.js','utf8');
 const htmlResponse=await fetch(target+'/');
 if(!htmlResponse.ok)throw new Error('LIVE_INDEX_FETCH_FAILED');
 const html=await htmlResponse.text();
-const jsPaths=[...html.matchAll(/<script\\b[^>]*src=[\"']([^\"']+\\.js(?:\\?[^\"']*)?)[\"']/gi)].map(m=>new URL(m[1],target).href);
+const jsPaths=[...html.matchAll(/<script\b[^>]*src=[\"']([^\"']+\.js(?:\?[^\"']*)?)[\"']/gi)].map(m=>new URL(m[1],target).href);
 if(jsPaths.length===0)throw new Error('NO_LIVE_SCRIPT_ASSET');
 const matches=new Set();
 for(const src of jsPaths){
