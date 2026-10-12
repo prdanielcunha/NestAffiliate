@@ -3,6 +3,21 @@ import {readFileSync} from 'node:fs';
 import {NestAiStageError,aiSupportDiagnostic,observedNestAiFetch,singleFlight,withNestAiStage} from '../../apps/web/src/lib/nestAiTransport';
 
 describe('NestAI production authentication and network regression',()=>{
+ it('performs App Check before starting the strategy/model timeout',()=>{
+  const source=readFileSync('apps/web/src/features/NestAiDraftReview.tsx','utf8');
+  const start=source.indexOf('async function requestSuggestions()');
+  const preflight=source.indexOf('await prepareNestAiSecurity();',start);
+  const strategy=source.indexOf('generateAffiliatePinStrategy({',start);
+  const fallback=source.indexOf('generateAffiliatePinCopy({',start);
+  expect(preflight).toBeGreaterThan(start);
+  expect(strategy).toBeGreaterThan(preflight);
+  expect(fallback).toBeGreaterThan(strategy);
+  const preflightSource=readFileSync('apps/web/src/services/nestAiClient.ts','utf8');
+  expect(preflightSource).toContain("withNestAiStage('app_check',20000,getNestAffiliateAppCheckToken)");
+  expect(preflightSource).toContain('getAppCheckToken: sharedAppCheckAttestation');
+  expect(preflightSource).toContain('export async function prepareNestAiSecurity()');
+  expect(source).toContain('withAiDeadline(requestSuggestions(),55000)');
+ });
  it('deduplicates concurrent App Check attestation including Hub and NestAI headers',async()=>{
   let started=0;
   let finish:((token:string)=>void)|undefined;
