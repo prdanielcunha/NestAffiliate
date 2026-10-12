@@ -62,3 +62,24 @@ jobs:
             except Exception as exc:
               print("SITE_PROBE_FAILED",type(exc).__name__,str(exc)[:140])
           PY
+
+
+  browser-appcheck-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install public SDK dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Bundle isolated App Check probe (NOT deployed)
+        run: pnpm dlx esbuild@0.25.12 apps/web/appcheck-live-smoke.js --bundle --platform=browser --format=esm --target=es2022 --outfile=/tmp/nestaffiliate-appcheck-smoke.js
+      - name: Verify live production App Check attestation
+        run: node scripts/check-live-appcheck.mjs
