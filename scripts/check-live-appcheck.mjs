@@ -32,7 +32,7 @@ try {
    return p && (p.status==='success'||p.status==='error')?p:null;
  },null,{timeout:45000});
  const result=await handle.jsonValue();
- console.log('LIVE_APPCHECK_SMOKE',JSON.stringify({status:result.status,code:result.code??null,elapsedMs:result.elapsedMs,consoleFlags:[...new Set(blocked)]}));
+ console.log('LIVE_APPCHECK_SMOKE',JSON.stringify({status:result.status,code:result.code??null,elapsedMs:result.elapsedMs,configSummary:result.configSummary??null,consoleFlags:[...new Set(blocked)]}));
  if(result.status!=='success')process.exitCode=1;
  await context.close();
 }finally{await browser.close();}
