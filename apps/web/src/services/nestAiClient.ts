@@ -1,7 +1,7 @@
 import { createNestAiClient, type Locale } from '@millionsnest/ai';
 import type { User } from 'firebase/auth';
 import { getNestAffiliateAppCheckToken } from '../lib/firebase';
-import { observedNestAiFetch,withNestAiStage } from '../lib/nestAiTransport';
+import { observedNestAiFetch,singleFlight,withNestAiStage } from '../lib/nestAiTransport';
 
 export type AffiliatePinCopy = {
   title: string;
@@ -32,12 +32,13 @@ function clientFor(input: {
   if(!byScope){byScope=new Map();clients.set(input.user,byScope);}
   const existing=byScope.get(key);
   if(existing)return existing;
+  const appCheckOnce=singleFlight(()=>withNestAiStage('app_check',20000,getNestAffiliateAppCheckToken));
   const client=createNestAiClient({
     appId: 'nestaffiliate',
     organizationId: input.organizationId,
     locale: localeOf(input.locale),
     getFirebaseIdToken: () => withNestAiStage('firebase_token',7000,()=>input.user.getIdToken()),
-    getAppCheckToken: () => withNestAiStage('app_check',9000,getNestAffiliateAppCheckToken),
+    getAppCheckToken: appCheckOnce,
     fetcher: observedNestAiFetch(fetch),
     baseUrl: 'https://ai.millionsnest.com/v1/',
     hubBaseUrl: 'https://www.millionsnest.com/',
