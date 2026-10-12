@@ -32,6 +32,7 @@ try {
  const page=await context.newPage();
  await page.addInitScript(value=>{window.__NESTAFFILIATE_PUBLISHED_APP_ID__=value;},deployedAppId);
  const blocked=[];
+ const safeConsoleHints=[];
  const authResponses=[];
  const authFailures=[];
  page.on('response',res=>{
@@ -55,6 +56,10 @@ try {
    if(message.type()==='error' && /Content Security Policy|Refused to load|recaptcha|app.?check/i.test(message.text())) {
      const txt=message.text();
      blocked.push(/Content Security Policy|Refused to load/i.test(txt)?'CSP_BLOCK':'RECAPTCHA_CONSOLE_ERROR');
+     // Only preapproved diagnostic words. Never echo raw console messages,
+     // cookies, credentials, URLs or user data.
+     const terms=txt.match(/appcheck\\/[a-z-]+|invalid|domain|sitekey|unauthorized|blocked|throttle|network|timeout|403|400|429|captcha|firebase/gi)??[];
+     safeConsoleHints.push(...terms.map(x=>x.toLowerCase()));
    }
  });
  await page.route('**/__nestaffiliate_appcheck_smoke.js',route=>route.fulfill({
@@ -83,7 +88,7 @@ try {
    statuses:authResponses.map(({service,status})=>({service,status})).slice(0,20),
    failures,requestFailures:authFailures.slice(0,10),
  }));
- console.log('LIVE_APPCHECK_SMOKE',JSON.stringify({status:result.status,code:result.code??null,elapsedMs:result.elapsedMs,configSummary:result.configSummary??null,consoleFlags:[...new Set(blocked)]}));
+ console.log('LIVE_APPCHECK_SMOKE',JSON.stringify({status:result.status,code:result.code??null,elapsedMs:result.elapsedMs,configSummary:result.configSummary??null,consoleFlags:[...new Set(blocked)],consoleHints:[...new Set(safeConsoleHints)].slice(0,15)}));
  if(result.status!=='success')process.exitCode=1;
  await context.close();
 }finally{await browser.close();}
