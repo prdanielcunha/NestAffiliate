@@ -83,3 +83,29 @@ jobs:
         run: pnpm dlx esbuild@0.25.12 apps/web/appcheck-live-smoke.js --bundle --platform=browser --format=esm --target=es2022 --outfile=/tmp/nestaffiliate-appcheck-smoke.js
       - name: Verify live production App Check attestation
         run: node scripts/check-live-appcheck.mjs
+
+
+  firebase-credential-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check existing admin credential availability (boolean only)
+        shell: bash
+        env:
+          FIREBASE_SERVICE_ACCOUNT_MILLIONSNEST: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_MILLIONSNEST }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          if [[ -n "$FIREBASE_SERVICE_ACCOUNT_MILLIONSNEST" || -n "$FIREBASE_SERVICE_ACCOUNT" || -n "$GOOGLE_APPLICATION_CREDENTIALS_JSON" || -n "$GCP_SA_KEY" ]]; then
+            echo "FIREBASE_SERVICE_ADMIN_CREDENTIAL_PRESENT=true"
+          else
+            echo "FIREBASE_SERVICE_ADMIN_CREDENTIAL_PRESENT=false"
+          fi
+          if [[ -n "$FIREBASE_TOKEN" ]]; then
+            echo "FIREBASE_CLI_TOKEN_PRESENT=true"
+          else
+            echo "FIREBASE_CLI_TOKEN_PRESENT=false"
+          fi
+          # Never print any secret or token.
