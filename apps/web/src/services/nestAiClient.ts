@@ -22,6 +22,18 @@ function localeOf(locale: 'pt-BR' | 'en' | 'es'): Locale {
 // A single SDK instance per Firebase session, organization and locale reuses
 // short-lived Hub authorization instead of performing two exchanges for every request.
 const clients=new WeakMap<User,Map<string,ReturnType<typeof createNestAiClient>>>();
+// Shared with both NestAI SDK headers and explicit preflight: request the
+// browser security attestation only once even across SDK clients.
+const sharedAppCheckAttestation=singleFlight(()=>
+  withNestAiStage('app_check',20000,getNestAffiliateAppCheckToken));
+
+/** Complete browser attestation BEFORE beginning an AI inference deadline.
+ * A failed App Check never triggers another provider request.
+ */
+export async function prepareNestAiSecurity():Promise<void>{
+ const token=await sharedAppCheckAttestation();
+ if(!token)throw new Error('NESTAI_APP_CHECK_EMPTY_TOKEN');
+}
 function clientFor(input: {
   user: User;
   organizationId: string;
@@ -32,13 +44,12 @@ function clientFor(input: {
   if(!byScope){byScope=new Map();clients.set(input.user,byScope);}
   const existing=byScope.get(key);
   if(existing)return existing;
-  const appCheckOnce=singleFlight(()=>withNestAiStage('app_check',20000,getNestAffiliateAppCheckToken));
   const client=createNestAiClient({
     appId: 'nestaffiliate',
     organizationId: input.organizationId,
     locale: localeOf(input.locale),
     getFirebaseIdToken: () => withNestAiStage('firebase_token',7000,()=>input.user.getIdToken()),
-    getAppCheckToken: appCheckOnce,
+    getAppCheckToken: sharedAppCheckAttestation,
     fetcher: observedNestAiFetch(fetch),
     baseUrl: 'https://ai.millionsnest.com/v1/',
     hubBaseUrl: 'https://www.millionsnest.com/',
