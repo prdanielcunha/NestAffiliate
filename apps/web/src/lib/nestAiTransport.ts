@@ -77,10 +77,16 @@ export function observedNestAiFetch(fetchImpl:typeof fetch):typeof fetch {
 export function aiSupportDiagnostic(error:unknown,requestId?:string):string{
  const e=error instanceof Error?error:new Error('UNKNOWN');
  const stage=e instanceof NestAiStageError?e.stage:
+    /APP_?CHECK|RECAPTCHA/i.test(e.message)?'app_check':
     /^SDK_HUB|HUB_/.test(e.message)?'hub_token':'nestai_request';
  const issue=e instanceof NestAiStageError?e.issue:
+    /RECAPTCHA_ERROR/i.test(e.message)?'RECAPTCHA':
+    /INITIAL_THROTTLE|THROTTLED/i.test(e.message)?'THROTTLED':
+    /EXCHANGE_REJECTED/i.test(e.message)?'EXCHANGE_REJECTED':
+    /EXCHANGE_NETWORK/i.test(e.message)?'EXCHANGE_NETWORK':
+    /INITIALIZATION_FAILED/i.test(e.message)?'INITIALIZATION':
     /TIMEOUT|ABORT/i.test(e.message)?'TIMEOUT':
-    /APP_CHECK|RECAPTCHA/i.test(e.message)?'APP_CHECK':
+    /APP_?CHECK|RECAPTCHA/i.test(e.message)?'APP_CHECK':
     /AUTH|401|403/i.test(e.message)?'AUTH':
     /RATE|QUOTA|429/i.test(e.message)?'RATE_LIMIT':
     /OUTPUT|JSON|SCHEMA/i.test(e.message)?'OUTPUT':
