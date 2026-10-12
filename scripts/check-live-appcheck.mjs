@@ -32,6 +32,25 @@ try {
  const page=await context.newPage();
  await page.addInitScript(value=>{window.__NESTAFFILIATE_PUBLISHED_APP_ID__=value;},deployedAppId);
  const blocked=[];
+ const authResponses=[];
+ const authFailures=[];
+ page.on('response',res=>{
+  try{
+   const u=new URL(res.url());
+   const host=u.hostname.toLowerCase();
+   if(host==='firebaseappcheck.googleapis.com')
+    authResponses.push({service:'appcheck_exchange',status:res.status(),response:res});
+   else if(host==='www.google.com'||host==='recaptcha.google.com'||host==='www.gstatic.com'||host==='www.recaptcha.net')
+    authResponses.push({service:host.includes('gstatic')?'recaptcha_assets':'recaptcha',status:res.status()});
+  }catch{/* ignore malformed diagnostic urls */}
+ });
+ page.on('requestfailed',req=>{
+  try{
+   const host=new URL(req.url()).hostname.toLowerCase();
+   if(host==='firebaseappcheck.googleapis.com'||host.includes('recaptcha')||host==='www.google.com'||host==='www.gstatic.com')
+    authFailures.push({service:host==='firebaseappcheck.googleapis.com'?'appcheck_exchange':'recaptcha',failureCode:String(req.failure()?.errorText??'NETWORK').split(' ')[0].slice(0,30)});
+  }catch{/* ignore diagnostic parsing errors */}
+ });
  page.on('console',message=>{
    if(message.type()==='error' && /Content Security Policy|Refused to load|recaptcha|app.?check/i.test(message.text())) {
      const txt=message.text();
@@ -50,6 +69,15 @@ try {
    return p && (p.status==='success'||p.status==='error')?p:null;
  },null,{timeout:45000});
  const result=await handle.jsonValue();
+ const failures=await Promise.all(authResponses.filter(x=>x.service==='appcheck_exchange'&&x.status>=400).map(async rec=>{
+   let errorStatus='UNKNOWN';
+   try{const body=await rec.response.json(); if(typeof body?.error?.status==='string'&&/^[A-Z_]{2,48}$/.test(body.error.status))errorStatus=body.error.status;}catch{}
+   return {service:rec.service,httpStatus:rec.status,errorStatus};
+ }));
+ console.log('LIVE_APPCHECK_NETWORK',JSON.stringify({
+   statuses:authResponses.map(({service,status})=>({service,status})).slice(0,20),
+   failures,requestFailures:authFailures.slice(0,10),
+ }));
  console.log('LIVE_APPCHECK_SMOKE',JSON.stringify({status:result.status,code:result.code??null,elapsedMs:result.elapsedMs,configSummary:result.configSummary??null,consoleFlags:[...new Set(blocked)]}));
  if(result.status!=='success')process.exitCode=1;
  await context.close();
