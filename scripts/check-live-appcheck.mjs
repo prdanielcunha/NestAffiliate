@@ -64,11 +64,16 @@ try {
  const response=await page.goto(target+'/',{waitUntil:'domcontentloaded',timeout:30000});
  if(!response || response.status()!==200)throw new Error('LIVE_SITE_UNAVAILABLE');
  await page.addScriptTag({type:'module',url:target+'/__nestaffiliate_appcheck_smoke.js'});
- const handle=await page.waitForFunction(()=>{
-   const p=window.__nestAffiliateLiveAppCheckSmoke;
-   return p && (p.status==='success'||p.status==='error')?p:null;
- },null,{timeout:45000});
- const result=await handle.jsonValue();
+ let result;
+ try{
+  const handle=await page.waitForFunction(()=>{
+    const p=window.__nestAffiliateLiveAppCheckSmoke;
+    return p && (p.status==='success'||p.status==='error')?p:null;
+  },null,{timeout:28000});
+  result=await handle.jsonValue();
+ }catch{
+  result={status:'timeout',code:'TOKEN_NOT_SETTLED_28S',elapsedMs:28000};
+ }
  const failures=await Promise.all(authResponses.filter(x=>x.service==='appcheck_exchange'&&x.status>=400).map(async rec=>{
    let errorStatus='UNKNOWN';
    try{const body=await rec.response.json(); if(typeof body?.error?.status==='string'&&/^[A-Z_]{2,48}$/.test(body.error.status))errorStatus=body.error.status;}catch{}
