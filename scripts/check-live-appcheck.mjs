@@ -4,6 +4,23 @@ import { chromium } from '@playwright/test';
 
 const target='https://nestaffiliate.millionsnest.com';
 const bundle=fs.readFileSync('/tmp/nestaffiliate-appcheck-smoke.js','utf8');
+// Firebase Hosting's reserved init.json does not necessarily include appId.
+// Extract the public web app identifier used by the ACTUALLY deployed bundle.
+const htmlResponse=await fetch(target+'/');
+if(!htmlResponse.ok)throw new Error('LIVE_INDEX_FETCH_FAILED');
+const html=await htmlResponse.text();
+const jsPaths=[...html.matchAll(/<script\\b[^>]*src=[\"']([^\"']+\\.js(?:\\?[^\"']*)?)[\"']/gi)].map(m=>new URL(m[1],target).href);
+if(jsPaths.length===0)throw new Error('NO_LIVE_SCRIPT_ASSET');
+const matches=new Set();
+for(const src of jsPaths){
+ const response=await fetch(src,{signal:AbortSignal.timeout(14000)});
+ if(!response.ok)throw new Error('LIVE_SCRIPT_UNAVAILABLE');
+ const script=await response.text();
+ for(const m of script.matchAll(/1:555464791734:web:[0-9a-zA-Z]+/g))matches.add(m[0]);
+}
+if(matches.size!==1)throw new Error('LIVE_WEB_APP_ID_NOT_UNIQUE_'+matches.size);
+const deployedAppId=[...matches][0];
+console.log('LIVE_PUBLISHED_FIREBASE_APP_ID_DETECTED',{count:matches.size,prefix:deployedAppId.split(':').slice(0,3).join(':')});
 const browser=await chromium.launch({headless:true});
 try {
  const context=await browser.newContext({
@@ -13,6 +30,7 @@ try {
   isMobile:true,hasTouch:true,
  });
  const page=await context.newPage();
+ await page.addInitScript(value=>{window.__NESTAFFILIATE_PUBLISHED_APP_ID__=value;},deployedAppId);
  const blocked=[];
  page.on('console',message=>{
    if(message.type()==='error' && /Content Security Policy|Refused to load|recaptcha|app.?check/i.test(message.text())) {
