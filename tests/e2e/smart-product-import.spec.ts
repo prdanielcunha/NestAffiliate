@@ -24,13 +24,16 @@ test('Smart Import keeps a declared affiliate URL and prepares Pin copy automati
   await smart.getByPlaceholder('Nome do produto').fill('Conjunto de panelas antiaderente 10 peças');
   await smart.getByRole('button',{name:/Salvar produto e preparar Pin/}).click();
   await expect(page).toHaveURL(/\/review\/campaign-/);
-  await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://meli.la/2GDhhKL');
+  await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
+  await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
+ await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://meli.la/2GDhhKL');
   await expect(page.getByText('NestScore pendente', {exact:false})).toBeVisible();
+  await page.getByRole('button',{name:'1 · Textos'}).click();
   await expect(page.getByRole('region',{name:'Próxima ação e textos do Pin'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Copiar título'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Copiar descrição'})).toBeVisible();
-  await expect(page.getByText(/Produto salvo · Textos locais disponíveis|NestAI personalizou esta campanha|Textos locais — NestAI não respondeu/)).toBeVisible();
-  await expect(page.locator('#review-copy-editor')).toBeVisible();
+  await page.getByRole('button',{name:'2 · Imagem'}).click();
+  await expect(page.locator('#review-images')).toBeVisible();
 });
 test('Smart Import defaults to ordinary link and never labels it as an affiliate URL', async ({page})=>{
   await page.goto('/radar');
@@ -62,6 +65,7 @@ test('Shopee canonical link resolves an exact official item and preserves offici
  await expect(smart.getByLabel('Não, é um link comum')).toBeChecked();
  await smart.getByRole('button',{name:/Salvar produto e preparar Pin/}).click();
  await expect(page).toHaveURL(/\/review\/campaign-/);
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://s.shopee.com.br/98765001');
  await expect(page.getByText('Organizador Giratório Multiuso Shopee').first()).toBeVisible();
 });
@@ -75,6 +79,7 @@ test('Opaque Shopee affiliate shortlink stays as a pending draft, never masquera
  await expect(smart.getByRole('region',{name:'Link preservado para revisão'})).toBeVisible();
  await smart.getByRole('button',{name:/Salvar link como rascunho/}).click();
  await expect(page).toHaveURL(/\/review\/campaign-/);
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://s.shopee.com.br/abc123');
  await expect(page.getByText(/identificação pendente/i).first()).toBeVisible();
 });
@@ -101,9 +106,7 @@ test('mobile review starts with copy, next action and collapsed detailed journey
  await expect(actions).toBeVisible();
  await expect(actions.getByRole('button',{name:'Copiar título'})).toBeVisible();
  await expect(actions.getByRole('button',{name:'Copiar descrição'})).toBeVisible();
- const journey=page.getByRole('region',{name:'Etapas para publicar seu Pin'});
- await expect(journey.locator('details')).not.toHaveAttribute('open');
- await actions.getByRole('link',{name:'NestAI (opcional)'}).click();
+ await page.getByRole('button',{name:/Criar textos com NestAI/}).click();
  await expect(page.getByRole('region',{name:'Criar textos com NestAI'})).toBeVisible();
  const waiting=page.locator('.nestai-nonblocking-status');
  // In mocked E2E auth, the Hub may reject immediately instead of waiting on
@@ -131,7 +134,9 @@ test('Shopee short share URL resolves through Hub while preserving affiliate att
  await smart.getByLabel('Sim, já é meu link afiliado').check();
  await smart.getByRole('button',{name:/Salvar produto e preparar Pin/}).click();
  await expect(page).toHaveURL(/\/review\/campaign-/);
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://s.shopee.com.br/ABC123');
+ await page.getByRole('button',{name:'1 · Textos'}).click();
  await expect(page.getByRole('region',{name:'Próxima ação e textos do Pin'})).toBeVisible();
  await expect(page.getByText(/Shopee: a marcação de afiliado é conferida na publicação/i)).toBeVisible();
 });
@@ -148,6 +153,7 @@ test('mobile visual concept and new direction NEVER change selected title or des
  await smart.getByPlaceholder('Nome do produto').fill('Jogo de panelas 10 peças');
  await smart.getByRole('button',{name:/Salvar produto e preparar Pin/}).click();
  await expect(page).toHaveURL(/\/review\/campaign-/);
+ await page.getByRole('button',{name:'2 · Imagem'}).click();
  const copy=page.locator('#review-copy-editor');
  await expect(copy.locator('.copy-option')).toHaveCount(6);
  const chosen=copy.locator('.copy-option.selected');
