@@ -7,7 +7,7 @@ import {inspectAffiliateAttestation,isMarketplaceAffiliateDestination,detectUnsu
 function loc(locale:string,pt:string,en:string,es:string){
  return locale==='pt-BR'?pt:locale==='es'?es:en;
 }
-export function GuidedReviewActions({campaign,editable,onUpdate}: {campaign:Campaign;editable:boolean;onUpdate:(campaign:Campaign)=>void}){
+export function GuidedReviewActions({campaign,editable,onUpdate,onStage,onAI}: {campaign:Campaign;editable:boolean;onUpdate:(campaign:Campaign)=>void;onStage?:(stage:'text'|'image'|'review')=>void;onAI?:()=>void}){
  const {locale}=useI18n();
  const [copied,setCopied]=useState<'title'|'description'|null>(null);
  const [copyError,setCopyError]=useState(false);
@@ -33,7 +33,7 @@ export function GuidedReviewActions({campaign,editable,onUpdate}: {campaign:Camp
   {name:loc(locale,'Escolher e copiar textos','Choose and copy text','Elegir y copiar textos'),
    done:copyReady,target:'#review-copy-editor'},
   {name:loc(locale,'Preparar imagem','Prepare image','Preparar imagen'),
-   done:hasImage,target:v.creativePack?'#review-images':'#review-creative'},
+   done:hasImage,target:'#review-images'},
   {name:loc(locale,'Revisar para publicar','Review before posting','Revisar publicación'),
    done:['PUBLICATION_READY','PUBLISHED'].includes(campaign.status),target:'#review-blockers'},
  ];
@@ -65,7 +65,7 @@ export function GuidedReviewActions({campaign,editable,onUpdate}: {campaign:Camp
    </div>
    {current.target==="#review-copy-editor"
     ?<button type="button" className="button primary guided-next-cta" onClick={openCopyEditor}>{current.name} →</button>
-    :<a className="button primary guided-next-cta" href={current.target}>{current.name} →</a>}
+    :<button type="button" className="button primary guided-next-cta" onClick={()=>onStage?.(current.target==='#review-images'?'image':'review')}>{current.name} →</button>}
   </div>
   {copyEditorOpen&&<InlinePinCopyChooser campaign={campaign} editable={editable} onUpdate={onUpdate}
      onClose={()=>setCopyEditorOpen(false)} onComplete={synced=>setCopyFeedback(synced?"synced":"local")}
@@ -79,13 +79,11 @@ export function GuidedReviewActions({campaign,editable,onUpdate}: {campaign:Camp
    'Shopee: a marcação de afiliado é conferida na publicação. Prepare os textos e a imagem agora.',
    'Shopee tagging is confirmed at publication. Prepare copy and image now.',
    'Shopee: la etiqueta se confirma al publicar. Prepara textos e imagen.')}</p>}
-  <nav className="guided-review-shortcuts" aria-label={loc(locale,'Ir para uma tarefa','Jump to a task','Ir a una tarea')}>
+  <nav className="guided-review-shortcuts" aria-label={loc(locale,'Ações para esta campanha','Campaign tasks','Acciones de campaña')}>
    <button type="button" onClick={openCopyEditor}>{loc(locale,'Escolher textos','Choose text','Elegir textos')}</button>
-   <a href="#review-ai">{loc(locale,'NestAI (opcional)','NestAI (optional)','NestAI (opcional)')}</a>
-   <a href="#review-product">{loc(locale,'Link','Affiliate link','Enlace')}</a>
-   <a href={v.creativePack?'#review-images':'#review-creative'}>{loc(locale,'Imagem','Image','Imagen')}</a>
-   <a href="#review-blockers">{loc(locale,'Aprovação','Approval','Aprobación')}</a>
-   <a href="#pin-preview">{loc(locale,'Prévia do Pin','Pin preview','Vista previa')}</a>
+   <button type="button" onClick={onAI}>{loc(locale,'Criar textos com NestAI (opcional)','AI text (optional)','Textos con IA (opcional)')}</button>
+   <button type="button" onClick={()=>onStage?.('image')}>{loc(locale,'Preparar imagem','Prepare image','Preparar imagen')}</button>
+   <button type="button" onClick={()=>onStage?.('review')}>{loc(locale,'Conferir link e aprovar','Check link & approve','Revisar enlace y aprobar')}</button>
   </nav>
   {unsafeCopy&&<div className="guided-copy-truth-warning" role="alert">
    <strong>{loc(locale,'Texto salvo precisa de correção antes de publicar','Saved copy needs correction before publishing','El texto guardado requiere corrección')}</strong>
@@ -114,6 +112,6 @@ export function GuidedReviewActions({campaign,editable,onUpdate}: {campaign:Camp
     'Não foi possível copiar automaticamente. Mantenha pressionado sobre o texto acima para selecionar e copiar.',
     'Automatic copy failed. Press and hold the text above to select and copy.',
     'No se pudo copiar. Mantén pulsado el texto para seleccionarlo.')}</p>}
-  <a className="guided-more-copy" href="#review-ai">{loc(locale,'Não gostou? Criar novos textos com NestAI →','Want better copy? Generate with NestAI →','¿Otros textos? Crear con NestAI →')}</a>
+  <button type="button" className="guided-more-copy" onClick={onAI}>{loc(locale,'Prefere IA? Criar outras sugestões com NestAI →','Want AI? Generate new suggestions with NestAI →','¿Prefieres IA? Generar textos con NestAI →')}</button>
  </section>;
 }
