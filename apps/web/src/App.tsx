@@ -2123,7 +2123,12 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       </section>
       <div className="pin-studio-stage" hidden={studioStage!=='text'}>
         <GuidedReviewActions campaign={activeCampaign} editable={editable} onUpdate={update}
-          onStage={setStudioStage} onAI={()=>setShowNestAI(true)}/>
+          onStage={setStudioStage} onAI={()=>setShowNestAI(true)}>
+          <div id="review-ai" hidden={!showNestAI}>
+            <NestAiDraftReview campaign={activeCampaign} editable={editable}
+              autoStart={false} onApply={applyNestAiCopy}/>
+          </div>
+        </GuidedReviewActions>
 
       {reviewLocation&&<div className="review-location-guide" role="status">
         <span>{locale==='pt-BR'?'Você está em':locale==='es'?'Estás en':'You are viewing'}: <strong>{
@@ -2158,10 +2163,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           {v.creativeIntelligence.origin==='nestai'&&<p>{locale==='pt-BR'?'Intenção provável de compra: ':locale==='es'?'Intención probable: ':'Likely buyer intent: '}{v.creativeIntelligence.buyerIntent} · {locale==='pt-BR'?'Público provável: ':locale==='es'?'Público probable: ':'Likely audience: '}{v.creativeIntelligence.audience}</p>}
           <small>{locale==='pt-BR'?'Sugestão editorial, não comprovação comercial. Revise textos e produto antes de aprovar.':locale==='es'?'Propuesta editorial. Revisa antes de aprobar.':'Editorial proposal. Review before approving.'}</small>
         </details>}
-        <div id="review-ai" hidden={!showNestAI}>
-          <NestAiDraftReview campaign={activeCampaign} editable={editable}
-            autoStart={false} onApply={applyNestAiCopy} />
-        </div>
+
         <div className="pin-studio-next">
           <button className="button primary" type="button" onClick={()=>setStudioStage('image')}>
             {locale==='pt-BR'?'Próximo: preparar a imagem →':locale==='es'?'Siguiente: preparar la imagen →':'Next: prepare your image →'}
