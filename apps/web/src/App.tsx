@@ -2121,7 +2121,8 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             <small>{t('source')}: {v.product.title.source} · {new Date(v.product.title.observedAt).toLocaleString(locale)}</small>
             <div className="affiliate-editor">
               <label>{campaign.marketplace === 'MELI' ? t('affiliateRequired') : t('affiliateOfficial')}</label>
-              <div className="affiliate-guided-help">
+              <details className="affiliate-guided-help">
+                <summary>{locale==='pt-BR'?'Como conferir o link de afiliado?':locale==='es'?'Cómo confirmar tu enlace de afiliado':'How to verify your affiliate link'}</summary>
                 <strong>{locale==='pt-BR'?'Etapa 2 · Seu link de comissão não vem automaticamente do Radar':locale==='es'?'Paso 2 · Tu enlace de afiliado no llega automáticamente':'Step 2 · The Radar does not automatically provide your commission link'}</strong>
                 {campaign.marketplace==='MELI' ? <ol>
                   <li>{locale==='pt-BR'?'Abra o anúncio original acima e confira se o produto realmente está disponível.':locale==='es'?'Abre el anuncio del producto y verifica la oferta.':'Open the exact listing above and confirm the product.'}</li>
@@ -2130,7 +2131,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
                 </ol> : <p>{locale==='pt-BR'?'Na Shopee, o produto encontrado não significa que seu link de comissão está pronto. Se usar um link, gere-o na sua conta do programa Shopee Afiliados para o anúncio exato e cole aqui. Na publicação pelo Pinterest, confirme também a marcação oficial do produto e sua elegibilidade; o NestAffiliate não comprova comissão automaticamente.':locale==='es'?'Verifica las reglas de afiliados y la etiqueta oficial de Pinterest.':'Follow Shopee affiliate eligibility and official Pinterest product-tagging rules.'}</p>}
                 {campaign.marketplace==='MELI'&&<a className="button secondary" href="https://www.mercadolivre.com.br/l/afiliados-portal-do-afiliado" target="_blank" rel="noopener noreferrer">{locale==='pt-BR'?'Abrir instruções oficiais do Mercado Livre ↗':locale==='es'?'Instrucciones oficiales ↗':'Open official affiliate guide ↗'}</a>}
                 <p className="muted">{locale==='pt-BR'?'A URL comum do anúncio ou um código de tracking interno não provam comissão. Só sua conta de afiliado pode gerar e confirmar a atribuição.':locale==='es'?'El enlace común y el tracking interno no garantizan comisión.':'A normal product URL and internal tracking code do not prove affiliate commission.'}</p>
-              </div>
+              </details>
               <div className="inline-editor">
                 <input
                   value={affiliateDraft}
