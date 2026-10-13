@@ -29,15 +29,15 @@ export function GuidedReviewActions({campaign,editable,onUpdate,onStage,onAI}: {
  const affiliateLink=v.product.affiliateUrl?.value;
  const hasSafeLink=isSafeAffiliateUrl(affiliateLink,v.product.marketplace);
  const steps=[
-  {name:shopee
-    ?loc(locale,'Marcar Shopee ao publicar','Tag Shopee when posting','Etiquetar Shopee al publicar')
-    :loc(locale,'Conferir link','Confirm affiliate link','Confirmar enlace'),
-   done:shopee||hasAffiliate,target:shopee?'#review-final':'#review-product'},
   {name:loc(locale,'Escolher e copiar textos','Choose and copy text','Elegir y copiar textos'),
    done:copyReady,target:'#review-copy-editor'},
   {name:loc(locale,'Preparar imagem','Prepare image','Preparar imagen'),
    done:hasImage,target:'#review-images'},
-  {name:loc(locale,'Revisar para publicar','Review before posting','Revisar publicación'),
+  {name:shopee
+    ?loc(locale,'Conferir marcação Shopee para publicar','Check Shopee tag before posting','Confirmar etiqueta Shopee')
+    :loc(locale,'Conferir link afiliado','Confirm affiliate link','Confirmar enlace afiliado'),
+   done:shopee||hasAffiliate,target:'#review-product'},
+  {name:loc(locale,'Conferir Pin e publicar','Review Pin and publish','Revisar Pin y publicar'),
    done:['PUBLICATION_READY','PUBLISHED'].includes(campaign.status),target:'#review-blockers'},
  ];
  const current=steps.find(s=>!s.done)??steps[steps.length-1]!;
