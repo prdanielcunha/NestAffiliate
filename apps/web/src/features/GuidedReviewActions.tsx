@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import type {Campaign} from '@nestaffiliate/core';
 import {useI18n} from '../lib/i18n-context';
-import {inspectAffiliateAttestation,isMarketplaceAffiliateDestination} from '@nestaffiliate/compliance';
+import {inspectAffiliateAttestation,isMarketplaceAffiliateDestination,detectUnsupportedPinClaims} from '@nestaffiliate/compliance';
 
 function loc(locale:string,pt:string,en:string,es:string){
  return locale==='pt-BR'?pt:locale==='es'?es:en;
@@ -17,14 +17,17 @@ export function GuidedReviewActions({campaign}: {campaign:Campaign}){
  // Shopee native tagging belongs at publication and must not prevent
  // users from preparing text/image or trap them in the first step.
  const hasImage=Boolean(v.creativeAsset?.productFidelityConfirmed && v.creativeAsset.rightsStatus!=='UNKNOWN');
- const copyReady=Boolean(v.narrative.pinterestTitle.trim()&&v.narrative.description.trim());
+ const titleRisk=detectUnsupportedPinClaims(v.narrative.pinterestTitle).length>0;
+ const descriptionRisks=detectUnsupportedPinClaims(v.narrative.description);
+ const unsafeCopy=titleRisk||descriptionRisks.length>0;
+ const copyReady=Boolean(v.narrative.pinterestTitle.trim()&&v.narrative.description.trim()&&!unsafeCopy);
  const steps=[
   {name:shopee
     ?loc(locale,'Marcar Shopee ao publicar','Tag Shopee when posting','Etiquetar Shopee al publicar')
     :loc(locale,'Conferir link','Confirm affiliate link','Confirmar enlace'),
    done:shopee||hasAffiliate,target:shopee?'#review-final':'#review-product'},
   {name:loc(locale,'Escolher e copiar textos','Choose and copy text','Elegir y copiar textos'),
-   done:copyReady&&v.creativeIntelligence?.origin==='nestai',target:'#review-ai'},
+   done:copyReady,target:'#review-copy-editor'},
   {name:loc(locale,'Preparar imagem','Prepare image','Preparar imagen'),
    done:hasImage,target:'#review-images'},
   {name:loc(locale,'Revisar para publicar','Review before posting','Revisar publicación'),
@@ -67,21 +70,29 @@ export function GuidedReviewActions({campaign}: {campaign:Campaign}){
    <a href="#review-product">{loc(locale,'Link','Affiliate link','Enlace')}</a>
    <a href="#review-images">{loc(locale,'Imagem','Image','Imagen')}</a>
    <a href="#review-blockers">{loc(locale,'Aprovação','Approval','Aprobación')}</a>
+   <a href="#pin-preview">{loc(locale,'Prévia do Pin','Pin preview','Vista previa')}</a>
   </nav>
+  {unsafeCopy&&<div className="guided-copy-truth-warning" role="alert">
+   <strong>{loc(locale,'Texto salvo precisa de correção antes de publicar','Saved copy needs correction before publishing','El texto guardado requiere corrección')}</strong>
+   <p>{loc(locale,'Encontramos promessas sobre o desempenho do produto que não foram comprovadas. O texto continua no histórico, mas não pode ser copiado para publicação até você escolher uma alternativa segura.','Unverified product performance claims were found. Choose a safe alternative before copying or publishing.','Encontramos afirmaciones sobre el producto sin verificar. Selecciona un texto seguro.')}</p>
+   <a href="#review-copy-editor">{loc(locale,'Escolher outros textos →','Choose another version →','Elegir otra opción →')}</a>
+  </div>}
   <div className="guided-copy-preview">
    <div className="guided-copy-field">
     <div><span>{loc(locale,'Título para o Pinterest','Pinterest title','Título de Pinterest')}</span>
      <button type="button" onClick={()=>void copy(v.narrative.pinterestTitle,'title')}
-      disabled={!v.narrative.pinterestTitle}>{copied==='title'?loc(locale,'Copiado!','Copied!','¡Copiado!'):loc(locale,'Copiar título','Copy title','Copiar título')}</button>
+      disabled={!v.narrative.pinterestTitle||titleRisk}>{copied==='title'?loc(locale,'Copiado!','Copied!','¡Copiado!'):loc(locale,'Copiar título','Copy title','Copiar título')}</button>
     </div>
-    <p>{v.narrative.pinterestTitle||'—'}</p>
+    <p>{titleRisk?loc(locale,'Título requer revisão.','Title requires review.','Título necesita revisión.'):v.narrative.pinterestTitle||'—'}</p>
    </div>
    <div className="guided-copy-field">
     <div><span>{loc(locale,'Descrição para o Pinterest','Pinterest description','Descripción de Pinterest')}</span>
      <button type="button" onClick={()=>void copy(v.narrative.description,'description')}
-      disabled={!v.narrative.description}>{copied==='description'?loc(locale,'Copiado!','Copied!','¡Copiado!'):loc(locale,'Copiar descrição','Copy description','Copiar descripción')}</button>
+      disabled={!v.narrative.description||descriptionRisks.length>0}>{copied==='description'?loc(locale,'Copiado!','Copied!','¡Copiado!'):loc(locale,'Copiar descrição','Copy description','Copiar descripción')}</button>
     </div>
-    <p>{v.narrative.description||'—'}</p>
+    <p>{descriptionRisks.length>0
+      ?loc(locale,'Esta descrição contém afirmações não comprovadas. Selecione uma alternativa segura na etapa Textos + IA.','Description blocked: select a verified alternative below.','Descripción bloqueada: selecciona otra opción.')
+      :v.narrative.description||'—'}</p>
    </div>
   </div>
   {copyError&&<p role="alert" className="guided-copy-error">{loc(locale,

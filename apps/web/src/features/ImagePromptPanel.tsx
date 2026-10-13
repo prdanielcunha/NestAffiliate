@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { PinterestCreativePack, ProductTruth } from '@nestaffiliate/core';
 import { isReferenceAiReady } from '@nestaffiliate/radar';
 import { FEATURE_FLAGS } from '@nestaffiliate/config';
+import { detectUnsupportedPinClaims } from '@nestaffiliate/compliance';
 import { translateImagePromptToPortuguese } from '@nestaffiliate/creative-engine';
 import { useI18n } from '../lib/i18n-context';
 import { ProductSourceActions } from './ProductSourceActions';
@@ -60,8 +61,9 @@ export function ImagePromptPanel({
   base.prompt,
  ]).join('\n'):base.prompt;
  const fullPrompt=extraInstructions.trim()?realPrompt+'\n\nUSER ART DIRECTION (do not override product identity, rights or image reference):\n'+extraInstructions.trim():realPrompt;
+ const unsafePrompt=detectUnsupportedPinClaims(fullPrompt).length>0;
  async function copyPrompt(openChat=false){
-   if(!ready)return;
+   if(!ready||unsafePrompt)return;
    setError('');
    try{
      // Opens synchronously on click to avoid popup blockers. No automatic attachment occurs.
@@ -102,7 +104,7 @@ export function ImagePromptPanel({
       onChange={e=>{setExtraInstructions(e.target.value);setCopied(false);}}/>
      <small>{locale==='pt-BR'?'Você pode colar instruções próprias. Elas serão acrescentadas ao prompt protegido; não substituem a referência real autorizada.':locale==='es'?'Puedes pegar tus propias instrucciones, sin eliminar la referencia autorizada.':'Paste your own instructions here. They are appended to the protected prompt; the real licensed reference remains mandatory.'}</small>
    </div>
-   <pre className="prompt-box image-prompt-box">{fullPrompt}</pre>
+   <details className="prompt-raw-details"><summary>{locale==='pt-BR'?'Ver prompt completo (opcional)':locale==='es'?'Ver prompt completo':'View full prompt (optional)'}</summary><pre className="prompt-box image-prompt-box">{fullPrompt}</pre></details>
    <div className="chatgpt-bridge-steps">
       <strong>{locale==='pt-BR'?'Como gerar com seu ChatGPT (sem API)':locale==='es'?'Cómo generar con tu ChatGPT (sin API)':'Use your ChatGPT without an API'}</strong>
       <ol><li>{locale==='pt-BR'?'Clique em “Copiar e abrir ChatGPT” e cole o prompt na conversa.':locale==='es'?'Copia y abre ChatGPT, luego pega el prompt.':'Copy the prompt and open ChatGPT; paste the prompt.'}</li>
@@ -111,9 +113,10 @@ export function ImagePromptPanel({
       <p>{locale==='pt-BR'?'Assinatura ChatGPT Pro e API são produtos separados: você não precisa inserir senha nem chave do ChatGPT aqui. Uma API para geração dentro do app exigiria backend seguro e cobrança separada.':locale==='es'?'La suscripción ChatGPT Pro no incluye API. Nunca ingreses tu contraseña ni clave aquí.':'ChatGPT Pro is separate from the API. Never enter your password or API key here.'}</p>
    </div>
    <div className="prompt-actions">
-     <button type="button" className="button primary" disabled={!ready} onClick={()=>void copyPrompt(true)}>{locale==='pt-BR'?'Copiar e abrir ChatGPT':locale==='es'?'Copiar y abrir ChatGPT':'Copy & open ChatGPT'}</button>
-     <button type="button" className="button secondary" disabled={!ready} onClick={()=>void copyPrompt()}>{copied?t('copied'):t('copyPrompt')}</button>
+     <button type="button" className="button primary" disabled={!ready||unsafePrompt} onClick={()=>void copyPrompt(true)}>{locale==='pt-BR'?'Copiar e abrir ChatGPT':locale==='es'?'Copiar y abrir ChatGPT':'Copy & open ChatGPT'}</button>
+     <button type="button" className="button secondary" disabled={!ready||unsafePrompt} onClick={()=>void copyPrompt()}>{copied?t('copied'):t('copyPrompt')}</button>
    </div>
+   {unsafePrompt&&<p className="field-error" role="alert">{locale==='pt-BR'?'O prompt desta versão contém uma alegação não comprovada. Gere outra direção ou atualize os textos antes de copiar.':'This prompt contains an unsupported product claim; choose another direction.'}</p>}
    {enabled&&!ready&&<p className="field-hint" role="status">{locale==='pt-BR'?'Envio à IA bloqueado: confirme direitos e escolha a referência visual exata.':locale==='es'?'Envío a IA bloqueado: confirme los derechos y seleccione la referencia exacta.':'AI upload blocked: confirm rights and select the exact visual reference.'}</p>}
    {error&&<p className="field-error" role="alert">{error}</p>}
  </div>;

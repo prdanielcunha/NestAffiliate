@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import type {CampaignVersion,PinterestCreativePack} from '@nestaffiliate/core';
 import {renderPin} from '@nestaffiliate/creative-engine';
 import {useI18n} from '../lib/i18n-context';
+import {detectUnsupportedPinClaims} from '@nestaffiliate/compliance';
 
 /** These templates are used for both the thumbnails and the final exported PNG. */
 export const V5_CONCEPT_TEMPLATES=['Problem → Solution','Room Inspiration','Editorial Light'] as const;
@@ -45,7 +46,9 @@ export function CreativeConceptPicker({pack,version,disabled,onSelect}:{
    <div className="concept-info">
     <span className="concept-index">{String(index+1).padStart(2,'0')}</span>
     <strong>{concept.title}</strong>
-    <p>{concept.rationale}</p>
+    <p>{detectUnsupportedPinClaims(concept.rationale).length>0
+      ?(pt?'Direção visual disponível após remover benefícios não confirmados.':es?'Revisa las afirmaciones comerciales de esta dirección.':'Review unverified product benefits in this direction.')
+      :concept.rationale}</p>
     <small>{t('creativeScore')}: {concept.score}/100 · {pt?'Render real · 2:3':es?'Render real · 2:3':'Real renderer · 2:3'}</small>
     <small>{pt?'A foto aparece apenas após autorização; não é uma imagem simulada.':es?'Foto solo con derechos confirmados.':'Photos appear only after rights confirmation.'}</small>
    </div>

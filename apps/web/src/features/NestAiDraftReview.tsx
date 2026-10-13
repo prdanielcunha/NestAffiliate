@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import type {Campaign} from '@nestaffiliate/core';
 import {validateCommercialClaims} from '@nestaffiliate/creative-engine';
+import {detectUnsupportedPinClaims} from '@nestaffiliate/compliance';
 import {useAuth} from '../lib/auth';
 import {useI18n} from '../lib/i18n-context';
 import {generateAffiliatePinCopy,generateAffiliatePinStrategy,prepareNestAiSecurity,type AffiliatePinCopy} from '../services/nestAiClient';
@@ -24,7 +25,8 @@ function sanitizeAiFallbackCopy(raw:AffiliatePinCopy):PinCopyDraft{
  const draft=sanitizePinCopyDraft(raw);
  if(draft.description.length<70||!/(?:afiliad|affiliate)/i.test(draft.description))
    throw new Error('AI_STRATEGY_INVALID_PARTIAL_COPY');
- if(validateCommercialClaims([draft.title,draft.description]).outcome==='BLOCK')
+ if(validateCommercialClaims([draft.title,draft.description]).outcome==='BLOCK'||
+    detectUnsupportedPinClaims(draft.title+' '+draft.description).length>0)
    throw new Error('AI_STRATEGY_UNSUPPORTED_CLAIM');
  return draft;
 }
@@ -121,12 +123,23 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
  },[currentCampaignId,autoStart,editable,user?.uid,organizationId]);
  useEffect(()=>()=>{operation.current+=1;},[currentCampaignId]);
  const titles=suggestion?.kind==='strategy'?suggestion.data.titles:suggestion?[suggestion.data.title]:[];
- const descriptions=suggestion?.kind==='strategy'?suggestion.data.descriptions:suggestion?[suggestion.data.description]:[];
+ // Current NestAI strategy response may still contain only 2 descriptions.
+ // Keep a clearly labelled, locally composed third choice without pretending
+ // the AI wrote it. Never use a previously saved, potentially unsafe option.
+ const localThird=pt
+  ?'Veja as fotos, a composição e as características informadas no anúncio oficial. Confira também o preço e as condições atualizadas antes de escolher. Conteúdo com link de afiliado.'
+  :es
+    ?'Consulta las fotos, el contenido del paquete y las características del anuncio oficial. Verifica el precio y las condiciones antes de elegir. Contenido con enlace de afiliado.'
+    :'View photos, included items and details on the original listing. Check the current price and conditions before choosing. Contains an affiliate link.';
+ const descriptions=suggestion?.kind==='strategy'
+  ?[...suggestion.data.descriptions,...(suggestion.data.descriptions.length<3?[localThird]:[])].slice(0,3)
+  :suggestion?[suggestion.data.description]:[];
+ const hasLocalThird=suggestion?.kind==='strategy' && suggestion.data.descriptions.length<3;
  return <section className="nestai-review-draft" aria-label={pt?'Criar textos com NestAI':es?'Crear textos con NestAI':'Create copy with NestAI'}>
   <div className="nestai-review-intro">
    <p className="eyebrow">NESTAI · {pt?'PERSONALIZAÇÃO OPCIONAL':es?'PERSONALIZACIÓN OPCIONAL':'OPTIONAL PERSONALIZATION'}</p>
    <h3>{pt?'Personalizar seus textos com IA':es?'Personalizar tus textos con IA':'Personalize copy with AI'}</h3>
-   <p>{pt?'Os textos locais do Pin já estão disponíveis abaixo. A IA pode sugerir novos textos, mas nada é substituído sem sua aprovação.'
+   <p>{pt?'Os textos locais do Pin já estão disponíveis abaixo. A IA sugere textos para sua revisão; promessas sobre o produto sem comprovação são rejeitadas.'
        :es?'Los textos locales ya están listos. La IA sugiere alternativas sin reemplazarlas hasta que apruebes.'
        :'Local Pin copy is ready below. AI can suggest alternatives, subject to your approval.'}</p>
   </div>
@@ -169,7 +182,7 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
     <strong>{suggestion.data.productType}</strong>
     <p><b>{pt?'Público provável: ':'Likely audience: '}</b>{suggestion.data.audience}</p>
     <p><b>{pt?'Intenção de compra: ':'Buyer intent: '}</b>{suggestion.data.buyerIntent}</p>
-    {suggestion.data.unknowns.length>0&&<small>{pt?'Não confirmado: ':'Unconfirmed: '}{suggestion.data.unknowns.join(' · ')}</small>}
+    {suggestion.data.unknowns.length>0&&<small>{pt?'Não confirmado: ':'Unconfirmed: '}{suggestion.data.unknowns.map(value=>locale==='pt-BR'?value.replace('No independent claim of product performance or sales','Desempenho e vendas não verificados').replace('Screenshot facts are unverified','Dados de imagem não verificados').replace('Affiliate commission not independently verified','Comissão de afiliado não verificada'):value).join(' · ')}</small>}
    </>}
    <div className="nestai-strategy-choices">
     <div><strong>{pt?'Escolha um título':'Choose a title'}</strong>
@@ -178,8 +191,9 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
      </label>)}
     </div>
     <div><strong>{pt?'Escolha uma descrição':'Choose a description'}</strong>
+     {hasLocalThird&&<small>{pt?'Duas opções da NestAI e uma alternativa local verificada pelas regras editoriais.':es?'Dos opciones de NestAI y una opción editorial local.':'Two NestAI options plus a local editorial alternative.'}</small>}
      {descriptions.map((text,i)=><label key={i} className="nestai-strategy-choice">
-      <input type="radio" name="nestai-description" checked={descriptionIndex===i} onChange={()=>setDescriptionIndex(i)}/>{text}
+      <input type="radio" name="nestai-description" checked={descriptionIndex===i} onChange={()=>setDescriptionIndex(i)}/><span>{text}{hasLocalThird&&i===2&&<em className="nestai-choice-source">{pt?'Alternativa local':es?'Alternativa local':'Local alternative'}</em>}</span>
      </label>)}
     </div>
    </div>

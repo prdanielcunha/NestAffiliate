@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
-import { maxDuplicateSimilarity, runPublishingGuard, inspectAffiliateAttestation, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
+import { maxDuplicateSimilarity, runPublishingGuard, detectUnsupportedPinClaims, inspectAffiliateAttestation, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
 import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
@@ -1870,7 +1870,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     product:v.product,
     disclosure:v.narrative.disclosure,
     destinationUrl:v.product.affiliateUrl?.value ?? v.product.url.value,
-    headline:v.narrative.headline,description:v.narrative.description,
+    headline:v.narrative.headline,pinterestTitle:v.narrative.pinterestTitle,description:v.narrative.description,
     creativeAsset:v.creativeAsset,
     requireAffiliateAttestation:Boolean(campaign.rankingContext?.v4ResearchDraft) || campaign.organizationId!=='demo-org',
     duplicateSimilarity:campaignDuplicateSimilarity(campaign,campaigns),
@@ -2002,7 +2002,15 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     }:versionedPack;
     const next=nextCampaignVersion(campaign,{
       narrative,
-      ...(nextPack?{creativePack:draft.strategy?overlayAiStrategy(nextPack,draft.strategy):nextPack}:{}),
+      ...(nextPack?{creativePack:draft.strategy?{
+        ...overlayAiStrategy(nextPack,draft.strategy),
+        copy:{...overlayAiStrategy(nextPack,draft.strategy).copy,
+          titles:[draft.title,...draft.strategy.titles.filter(x=>x!==draft.title)].slice(0,3),
+          descriptions:[draft.description,...draft.strategy.descriptions.filter(x=>x!==draft.description),
+           ...nextPack.copy.descriptions.filter(x=>detectUnsupportedPinClaims(x).length===0&&x!==draft.description)]
+           .filter((x,i,a)=>a.indexOf(x)===i).slice(0,3),
+        },
+      }:nextPack}:{}),
       creativeIntelligence:{
         origin:'nestai',
         copyMode:draft.strategy?'strategy':'single-copy',
@@ -2055,12 +2063,12 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           <h2>{locale==='pt-BR'?'Escolha os textos e prepare a imagem':locale==='es'?'Elige los textos y prepara la imagen':'Choose copy and prepare an image'}</h2>
           <p>{locale==='pt-BR'?'A IA propõe textos. Depois, gere ou importe uma imagem fiel ao produto. Tudo pode ser retomado sem perder a campanha.':locale==='es'?'La IA sugiere textos; luego prepara una imagen fiel al producto.':'AI suggests copy; then prepare a faithful product image. Your campaign remains saved.'}</p>
         </div>
-        {v.creativeIntelligence&&<div className="ai-intelligence-summary" role="status">
-          <strong>{v.creativeIntelligence.origin==='nestai'?(locale==='pt-BR'?v.creativeIntelligence.copyMode==='single-copy'?'NestAI gerou 1 título e 1 descrição': 'NestAI personalizou esta campanha':locale==='es'?'NestAI personalizó la campaña':'NestAI personalized this campaign'):!v.creativeIntelligence.aiAttempted?(locale==='pt-BR'?'Produto salvo · Textos locais disponíveis':locale==='es'?'Producto guardado · IA preparando opciones':'Product saved · AI preparing options'):(locale==='pt-BR'?'Textos locais — NestAI não respondeu':locale==='es'?'Textos locales — IA no disponible':'Local copy — NestAI unavailable')}</strong>
+        {v.creativeIntelligence&&<details className="ai-intelligence-summary">
+          <summary>{v.creativeIntelligence.origin==='nestai'?(locale==='pt-BR'?v.creativeIntelligence.copyMode==='single-copy'?'NestAI gerou 1 título e 1 descrição': 'NestAI personalizou esta campanha':locale==='es'?'NestAI personalizó la campaña':'NestAI personalized this campaign'):!v.creativeIntelligence.aiAttempted?(locale==='pt-BR'?'Produto salvo · Textos locais disponíveis':locale==='es'?'Producto guardado · IA preparando opciones':'Product saved · AI preparing options'):(locale==='pt-BR'?'Textos locais — NestAI não respondeu':locale==='es'?'Textos locales — IA no disponible':'Local copy — NestAI unavailable')}</summary>
           {v.creativeIntelligence.origin!=='nestai'&&v.creativeIntelligence.aiAttempted&&<p>{nestAiFailureLabel(v.creativeIntelligence.failureCode??'UNKNOWN',locale)} <code>{v.creativeIntelligence.failureCode??'UNKNOWN'}</code></p>}
           {v.creativeIntelligence.origin==='nestai'&&<p>{locale==='pt-BR'?'Intenção provável de compra: ':locale==='es'?'Intención probable: ':'Likely buyer intent: '}{v.creativeIntelligence.buyerIntent} · {locale==='pt-BR'?'Público provável: ':locale==='es'?'Público probable: ':'Likely audience: '}{v.creativeIntelligence.audience}</p>}
           <small>{locale==='pt-BR'?'Sugestão editorial, não comprovação comercial. Revise textos e produto antes de aprovar.':locale==='es'?'Propuesta editorial. Revisa antes de aprobar.':'Editorial proposal. Review before approving.'}</small>
-        </div>}
+        </details>}
         <div id="review-ai">
           <NestAiDraftReview campaign={activeCampaign} editable={editable}
             autoStart={Boolean(v.creativeIntelligence?.origin==='deterministic'&&v.creativeIntelligence.aiAttempted===false)}
@@ -2077,7 +2085,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         <div className="edit-preview-actions"><button className="button secondary" onClick={()=>setPendingEdit(null)}>{locale==='pt-BR'?'Cancelar':locale==='es'?'Cancelar':'Cancel'}</button>
         <button className="button primary" onClick={confirmEdit}>{locale==='pt-BR'?'Aplicar alteração':locale==='es'?'Aplicar cambio':'Apply change'}</button></div>
       </section>}
-      <div className="review-grid">
+      <div className="review-grid" id="pin-preview">
         <PinPreview campaign={pendingEdit?.ok?{...activeCampaign,currentVersion:{...v,...pendingEdit.changes}}:activeCampaign} />
         <section className="decision-panel">
           <div className="review-header">
@@ -2112,7 +2120,8 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             <small>{t('source')}: {v.product.title.source} · {new Date(v.product.title.observedAt).toLocaleString(locale)}</small>
             <div className="affiliate-editor">
               <label>{campaign.marketplace === 'MELI' ? t('affiliateRequired') : t('affiliateOfficial')}</label>
-              <div className="affiliate-guided-help">
+              <details className="affiliate-guided-help">
+                <summary>{locale==='pt-BR'?'Como conferir o link de afiliado?':locale==='es'?'Cómo confirmar tu enlace de afiliado':'How to verify your affiliate link'}</summary>
                 <strong>{locale==='pt-BR'?'Etapa 2 · Seu link de comissão não vem automaticamente do Radar':locale==='es'?'Paso 2 · Tu enlace de afiliado no llega automáticamente':'Step 2 · The Radar does not automatically provide your commission link'}</strong>
                 {campaign.marketplace==='MELI' ? <ol>
                   <li>{locale==='pt-BR'?'Abra o anúncio original acima e confira se o produto realmente está disponível.':locale==='es'?'Abre el anuncio del producto y verifica la oferta.':'Open the exact listing above and confirm the product.'}</li>
@@ -2121,7 +2130,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
                 </ol> : <p>{locale==='pt-BR'?'Na Shopee, o produto encontrado não significa que seu link de comissão está pronto. Se usar um link, gere-o na sua conta do programa Shopee Afiliados para o anúncio exato e cole aqui. Na publicação pelo Pinterest, confirme também a marcação oficial do produto e sua elegibilidade; o NestAffiliate não comprova comissão automaticamente.':locale==='es'?'Verifica las reglas de afiliados y la etiqueta oficial de Pinterest.':'Follow Shopee affiliate eligibility and official Pinterest product-tagging rules.'}</p>}
                 {campaign.marketplace==='MELI'&&<a className="button secondary" href="https://www.mercadolivre.com.br/l/afiliados-portal-do-afiliado" target="_blank" rel="noopener noreferrer">{locale==='pt-BR'?'Abrir instruções oficiais do Mercado Livre ↗':locale==='es'?'Instrucciones oficiales ↗':'Open official affiliate guide ↗'}</a>}
                 <p className="muted">{locale==='pt-BR'?'A URL comum do anúncio ou um código de tracking interno não provam comissão. Só sua conta de afiliado pode gerar e confirmar a atribuição.':locale==='es'?'El enlace común y el tracking interno no garantizan comisión.':'A normal product URL and internal tracking code do not prove affiliate commission.'}</p>
-              </div>
+              </details>
               <div className="inline-editor">
                 <input
                   value={affiliateDraft}
@@ -2432,7 +2441,7 @@ function Publish({
   const hasFrequencyPolicy=preferences.maxPublications24h!==null || preferences.minGapMinutes!==null;
   const guard = runPublishingGuard({
     product: v.product, disclosure: v.narrative.disclosure, destinationUrl: destination,
-    headline: v.narrative.headline, description: v.narrative.description,
+    headline: v.narrative.headline, pinterestTitle: v.narrative.pinterestTitle, description: v.narrative.description,
     creativeAsset:v.creativeAsset,
     requireAffiliateAttestation:Boolean(activeCampaign.rankingContext?.v4ResearchDraft) || activeCampaign.organizationId!=='demo-org',
     duplicateSimilarity:campaignDuplicateSimilarity(activeCampaign,campaigns),
@@ -2449,7 +2458,7 @@ function Publish({
     campaignId: activeCampaign.id, version: v.version, filename: campaignFilename(v), width: 1000, height: 1500,
     title: v.narrative.pinterestTitle, description: v.narrative.description, disclosure: v.narrative.disclosure,
     destinationUrl: destination, boardName: v.boardName,
-    topics: v.creativePack?.copy.keywords.slice(0,10) ?? [v.keyword, 'casa organizada', 'ideias para casa'],
+    topics: v.creativePack?.copy.keywords.filter(x=>detectUnsupportedPinClaims(x).length===0).slice(0,10) ?? [v.keyword, 'casa organizada', 'ideias para casa'],
     altText: v.narrative.altText,
     trackingCode: activeCampaign.rankingContext?.trackingCode,
     compliance: guard.outcome,

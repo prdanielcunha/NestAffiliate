@@ -106,6 +106,9 @@ test('Review can prepare a full Pinterest Creative Pack and blocks approval unti
 
   await expect(page.getByRole('heading', { name: 'Seu Creative Pack está pronto.' })).toBeVisible();
   await expect(page.locator('.concept-card')).toHaveCount(3);
+  // New progressive disclosure: keep the full-page review short on mobile.
+  await expect(page.locator('.creative-image-method')).toHaveCount(3);
+  await page.locator('.creative-image-method').first().locator('summary').first().click();
   await expect(page.getByText('PROMPT DE IMAGEM')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copiar e abrir ChatGPT' })).toBeVisible();
   await expect(page.getByText('1000 × 1500', { exact: true })).toBeVisible();
@@ -148,6 +151,7 @@ test('custom ChatGPT image prompt preserves mandatory source rules in visible fi
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
  await page.getByRole('button',{name:'Preparar Pin',exact:true}).click();
+ await page.locator('.creative-image-method').first().locator('summary').first().click();
  await page.getByLabel('Suas instruções extras para a IA (opcional)').fill('Luz natural suave, manter forma e cor da referência.');
  const prompt=page.locator('.image-prompt-box');
  await expect(prompt).toContainText('Luz natural suave');
@@ -178,6 +182,7 @@ test('Review explains affiliate link source and image workflow without claiming 
  await guide.locator('summary').click();
  await expect(guide.getByText('Conferir link',{exact:true}).first()).toBeVisible();
  await expect(guide.getByText('Imagem com ChatGPT')).toBeVisible();
+ await page.locator('.affiliate-guided-help summary').click();
  await expect(page.getByText(/Seu link de comissão não vem automaticamente do Radar/)).toBeVisible();
  await expect(page.getByRole('link',{name:/Abrir instruções oficiais do Mercado Livre/})).toHaveAttribute('href',/mercadolivre.com.br\/l\/afiliados-portal-do-afiliado/);
  await expect(page.locator('.pin-preview-provisional')).toContainText(/não é o Pin final/i);
