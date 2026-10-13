@@ -22,6 +22,7 @@ export function ImagePromptPanel({
  const [copied,setCopied]=useState(false);
  const [extraInstructions,setExtraInstructions]=useState('');
  const [error,setError]=useState('');
+ const [manualCopy,setManualCopy]=useState(false);
  const concept=pack.imageConcepts.find(item=>item.id===pack.recommendedConceptId)??pack.imageConcepts[0];
  const base=useMemo(()=>{
    if(!concept)return null;
@@ -74,8 +75,7 @@ export function ImagePromptPanel({
    'Use a realistic, calm home or lifestyle scene, natural light, professional commercial photography.',
    'Do not invent products, materials, features, performance, claims, discounts, logos, or embedded text.',
    'Keep negative space for a later title overlay, applied inside NestAffiliate.',
- ] .join('\\n') : fullPrompt;
- const [manualCopy,setManualCopy]=useState(false);
+ ].join('\n') : fullPrompt;
  async function copyPrompt(){
    setError('');
    setManualCopy(false);
