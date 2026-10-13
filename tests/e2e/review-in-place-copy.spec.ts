@@ -18,6 +18,12 @@ test('review copy button opens choices in place without anchor teleport',async({
   await picker.locator('input[name="inline-pin-title"]').first().check();
   await picker.locator('input[name="inline-pin-description"]').first().check();
   await picker.getByRole('button',{name:'Aplicar título e descrição'}).click();
+  // Do not collapse a long selector: the browser would re-anchor the page
+  // and reproduce the disorientation after clicking Apply.
+  await expect(picker).toBeVisible();
+  await expect(picker.getByText('Textos aplicados à campanha')).toBeVisible();
+  await expect(picker.getByRole('button',{name:'Copiar descrição'})).toBeEnabled();
+  await picker.getByRole('button',{name:'Concluir e fechar'}).click();
   await expect(picker).toHaveCount(0);
   await expect(block).toContainText(/Textos escolhidos e aplicados|Texto aplicado, mas a sincronização/);
   await expect(block.getByRole('button',{name:'Copiar descrição'})).toBeEnabled();
