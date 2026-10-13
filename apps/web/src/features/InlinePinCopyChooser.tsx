@@ -39,12 +39,14 @@ function neutralOptions(campaign:Campaign,locale:string){
   };
 }
 
-export function InlinePinCopyChooser({campaign,editable,onUpdate,onClose,onComplete}:{
+export function InlinePinCopyChooser({campaign,editable,onUpdate,onClose,onComplete,onCopyTitle,onCopyDescription}:{
   campaign:Campaign;
   editable:boolean;
   onUpdate:(campaign:Campaign)=>void;
   onClose:()=>void;
   onComplete:(synced:boolean)=>void;
+  onCopyTitle:(title:string)=>void;
+  onCopyDescription:(description:string)=>void;
 }){
   const {locale}=useI18n();
   const v=campaign.currentVersion;
@@ -52,6 +54,7 @@ export function InlinePinCopyChooser({campaign,editable,onUpdate,onClose,onCompl
   const [description,setDescription]=useState(v.narrative.description);
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState(false);
+  const [applied,setApplied]=useState(false);
   useEffect(()=>{
     setTitle(v.narrative.pinterestTitle);
     setDescription(v.narrative.description);
@@ -94,10 +97,12 @@ export function InlinePinCopyChooser({campaign,editable,onUpdate,onClose,onCompl
         if(!db)throw new Error('FIRESTORE_UNAVAILABLE');
         await savePinterestCreativePack(db,campaign.organizationId,nextPack);
       }
+      setApplied(true);
       onComplete(true);
     } catch {
       // Never report cloud synchronization as successful after a failed write.
       setError(true);
+      setApplied(true);
       onComplete(false);
     } finally {
       setSaving(false);
@@ -115,23 +120,29 @@ export function InlinePinCopyChooser({campaign,editable,onUpdate,onClose,onCompl
     <div className="inline-copy-columns">
       <fieldset><legend>{txt(locale,'Título do Pin','Pin title','Título del Pin')}</legend>
         {choices.titles.map((item,index)=><label className={title===item?'inline-copy-option selected':'inline-copy-option'} key={index}>
-          <input type="radio" name="inline-pin-title" checked={title===item} onChange={()=>setTitle(item)} disabled={!editable||saving}/>
+          <input type="radio" name="inline-pin-title" checked={title===item} onChange={()=>{setTitle(item);setApplied(false);}} disabled={!editable||saving}/>
           <span>{item}</span>
         </label>)}
       </fieldset>
       <fieldset><legend>{txt(locale,'Descrição do Pin','Pin description','Descripción del Pin')}</legend>
         {choices.descriptions.map((item,index)=><label className={description===item?'inline-copy-option selected':'inline-copy-option'} key={index}>
-          <input type="radio" name="inline-pin-description" checked={description===item} onChange={()=>setDescription(item)} disabled={!editable||saving}/>
+          <input type="radio" name="inline-pin-description" checked={description===item} onChange={()=>{setDescription(item);setApplied(false);}} disabled={!editable||saving}/>
           <span>{item}</span>
         </label>)}
       </fieldset>
     </div>
     {(!titleOkay||!descOkay)&&<p className="inline-copy-hint" role="status">{txt(locale,'O texto antigo tem afirmações que precisam de revisão. Selecione uma alternativa segura acima.','The previous copy has unverified claims. Choose safe alternatives above.','El texto anterior tiene afirmaciones sin verificar. Elige alternativas seguras.')}</p>}
     {error&&<p role="alert" className="field-error">{txt(locale,'Textos aplicados nesta sessão, mas o Creative Pack não foi sincronizado. Confira a conexão antes de publicar.','Copy applied locally but Creative Pack sync failed. Check connectivity before publishing.','Textos aplicados localmente, pero falló la sincronización.')}</p>}
+    {applied&&<div className="inline-copy-applied" role="status">
+      <strong>{txt(locale,'Textos aplicados à campanha','Copy applied to campaign','Textos aplicados a la campaña')}</strong>
+      <p>{txt(locale,'Pode copiar agora. Quando terminar, feche esta etapa para continuar.','Copy them now. Close this step when you are ready to continue.','Cópialos ahora y cierra esta etapa cuando quieras continuar.')}</p>
+      <div><button type="button" className="button secondary" onClick={()=>onCopyTitle(title)}>{txt(locale,'Copiar título','Copy title','Copiar título')}</button>
+      <button type="button" className="button secondary" onClick={()=>onCopyDescription(description)}>{txt(locale,'Copiar descrição','Copy description','Copiar descripción')}</button></div>
+    </div>}
     <div className="inline-copy-footer">
       <button className="button secondary" type="button" onClick={onClose} disabled={saving}>{txt(locale,'Voltar sem alterar','Cancel changes','Cancelar cambios')}</button>
-      <button className="button primary" type="button" onClick={()=>void apply()} disabled={!valid}>
-        {saving?txt(locale,'Salvando…','Saving…','Guardando…'):txt(locale,'Aplicar título e descrição','Apply title and description','Aplicar título y descripción')}
+      <button className="button primary" type="button" onClick={()=>void apply()} disabled={!valid||applied}>
+        {saving?txt(locale,'Salvando…','Saving…','Guardando…'):applied?txt(locale,'Textos aplicados ✓','Copy applied ✓','Textos aplicados ✓'):txt(locale,'Aplicar título e descrição','Apply title and description','Aplicar título y descripción')}
       </button>
     </div>
   </section>;
