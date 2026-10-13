@@ -7,6 +7,7 @@ import {
   compactPinText,
 } from '@nestaffiliate/creative-engine';
 import { db } from '../lib/firebase';
+import { detectUnsupportedPinClaims } from '@nestaffiliate/compliance';
 import { useI18n } from '../lib/i18n-context';
 import { savePinterestCreativePack } from '../services/creativePackRepository';
 import { AIImageImport } from './AIImageImport';
@@ -64,13 +65,25 @@ export function PinterestCreativePackPanel({
   const [saveError,setSaveError]=useState(false);
   const [reference,setReference]=useState<ReferencePreview|null>(null);
   const pack=campaign.currentVersion.creativePack;
-  const copyOptions=pack?.copy.descriptions.length && pack.copy.descriptions.length>=3
-    ? pack.copy.descriptions
-    : pack ? [...new Set([...pack.copy.descriptions,...buildPinterestCreativePack({
-      organizationId:campaign.organizationId,campaignId:campaign.id,
-      campaignVersion:campaign.currentVersion.version,product:campaign.currentVersion.product,
-      keyword:campaign.currentVersion.keyword,boardName:campaign.currentVersion.boardName,locale,
-    }).copy.descriptions])].slice(0,3) : [];
+  // Saved campaigns may contain old, unverified AI claims. Keep that version
+  // in history but never offer the risky copy as an actionable choice.
+  const safe=(text:string)=>detectUnsupportedPinClaims(text).length===0;
+  const requiresLocalAlternatives=Boolean(pack && (
+    pack.copy.descriptions.length<3 || pack.copy.titles.length<3 ||
+    pack.copy.descriptions.some(text=>!safe(text)) ||
+    pack.copy.titles.some(text=>!safe(text))
+  ));
+  const localAlternatives=requiresLocalAlternatives?buildPinterestCreativePack({
+    organizationId:campaign.organizationId,campaignId:campaign.id,
+    campaignVersion:campaign.currentVersion.version,product:campaign.currentVersion.product,
+    keyword:campaign.currentVersion.keyword,boardName:campaign.currentVersion.boardName,locale,
+  }):null;
+  const titleOptions=pack?[...new Set([
+    ...pack.copy.titles.filter(safe),...(localAlternatives?.copy.titles??[]).filter(safe)
+  ])].slice(0,3):[];
+  const copyOptions=pack?[...new Set([
+    ...pack.copy.descriptions.filter(safe),...(localAlternatives?.copy.descriptions??[]).filter(safe)
+  ])].slice(0,3):[];
 
   async function persist(nextPack:PinterestCreativePack){
     try{
@@ -126,7 +139,7 @@ export function PinterestCreativePackPanel({
   }
 
   function selectTitle(title:string){
-    if(!pack || !editable || saving || title===campaign.currentVersion.narrative.pinterestTitle) return;
+    if(!pack || !editable || saving || !safe(title) || title===campaign.currentVersion.narrative.pinterestTitle) return;
     const nextVersion=campaign.currentVersion.version+1;
     const nextPack=versionPinterestCreativePack(pack,nextVersion);
     const narrative={...campaign.currentVersion.narrative,pinterestTitle:title,headline:compactPinText(title,57)};
@@ -137,7 +150,7 @@ export function PinterestCreativePackPanel({
   }
 
   function selectDescription(description:string){
-    if(!pack || !editable || saving || description===campaign.currentVersion.narrative.description) return;
+    if(!pack || !editable || saving || !safe(description) || description===campaign.currentVersion.narrative.description) return;
     const nextVersion=campaign.currentVersion.version+1;
     const nextPack={...versionPinterestCreativePack(pack,nextVersion),copy:{...pack.copy,descriptions:copyOptions}};
     const narrative={...campaign.currentVersion.narrative,description};
@@ -227,11 +240,12 @@ export function PinterestCreativePackPanel({
     </details>
 
     <div className="pack-section" id="review-copy-editor">
-      <p className="eyebrow">{t('copy')}</p>
+      <details className="pack-copy-details" open={campaign.currentVersion.creativeIntelligence?.origin!=='nestai'}>
+       <summary><strong>{locale==='pt-BR'?'Revisar e trocar textos do Pin':locale==='es'?'Revisar textos del Pin':'Review Pin copy'}</strong><span>{locale==='pt-BR'?'3 títulos e 3 descrições · escolha sem perder histórico':locale==='es'?'3 títulos y 3 descripciones':'3 titles and 3 descriptions'}</span></summary>
       <div className="copy-option-grid">
         <div>
-          <h3>{t('pinTitles')} ({pack.copy.titles.length})</h3>
-          {pack.copy.titles.map((title)=><button
+          <h3>{t('pinTitles')} ({titleOptions.length})</h3>
+          {titleOptions.map((title)=><button
             type="button"
             key={title}
             disabled={!editable || saving}
@@ -250,6 +264,7 @@ export function PinterestCreativePackPanel({
           >{description}</button>)}
         </div>
       </div>
+      </details>
     </div>
 
     <div className="pack-section">
@@ -266,28 +281,43 @@ export function PinterestCreativePackPanel({
       <CreativeConceptPicker pack={pack} version={campaign.currentVersion} disabled={!editable || saving} onSelect={selectConcept} />
     </div>
 
-    <div className="pack-section" id="review-images">
-      <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true} />
+    <div className="pack-section image-methods" id="review-images">
+      <div className="section-heading">
+        <div><p className="eyebrow">{locale==='pt-BR'?'ETAPA 4 · IMAGEM':locale==='es'?'PASO 4 · IMAGEN':'STEP 4 · IMAGE'}</p>
+         <h3>{locale==='pt-BR'?'Como deseja preparar seu Pin?':locale==='es'?'¿Cómo crear la imagen?':'How would you like to prepare your Pin?'}</h3>
+         <p>{locale==='pt-BR'?'Escolha um caminho. Os outros ficam guardados para quando precisar.':'Choose one path. Others remain available.'}</p>
+        </div>
+      </div>
+      <details className="creative-image-method">
+        <summary><strong>{locale==='pt-BR'?'Gerar imagem com ChatGPT':locale==='es'?'Crear con ChatGPT':'Create with ChatGPT'}</strong>
+          <span>{locale==='pt-BR'?'Usar foto autorizada, copiar o prompt e importar o resultado':locale==='es'?'Foto autorizada, prompt y resultado':'Authorized photo, prompt and import'}</span></summary>
+        <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true} />
+      </details>
+      <details className="creative-image-method">
+        <summary><strong>{locale==='pt-BR'?'Compor imagem sem IA':locale==='es'?'Componer sin IA':'Compose without AI'}</strong>
+          <span>{locale==='pt-BR'?'Foto licenciada e editor local 1000 × 1500':locale==='es'?'Foto autorizada y composición local':'Authorized photo and local compositor'}</span></summary>
+        <LocalPinComposer campaign={campaign} pack={pack} reference={reference}
+          disabled={!editable} onImported={importAsset}/>
+      </details>
+      <details className="creative-image-method">
+        <summary><strong>{locale==='pt-BR'?'Importar imagem pronta':locale==='es'?'Importar imagen':'Import a finished image'}</strong>
+          <span>{locale==='pt-BR'?'Envie, confira fidelidade e salve a versão final':locale==='es'?'Importa y comprueba el producto':'Upload, verify and save'}</span></summary>
+        <AIImageImport
+          organizationId={campaign.organizationId}
+          campaignId={campaign.id}
+          pack={pack}
+          product={campaign.currentVersion.product}
+          reference={reference}
+          referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true}
+          disabled={!editable}
+          onImported={importAsset}
+        />
+      </details>
     </div>
 
-    <div className="pack-section">
-      <LocalPinComposer campaign={campaign} pack={pack} reference={reference}
-        disabled={!editable} onImported={importAsset}/>
-    </div>
-    <div className="pack-section">
-      <AIImageImport
-        organizationId={campaign.organizationId}
-        campaignId={campaign.id}
-        pack={pack}
-        product={campaign.currentVersion.product}
-        reference={reference}
-        referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true}
-        disabled={!editable}
-        onImported={importAsset}
-      />
-    </div>
-
-    <div className="pack-section pack-analysis">
+    <details className="pack-technical-details">
+      <summary>{locale==='pt-BR'?'Dados avançados · SEO e regras de fidelidade':locale==='es'?'Datos avanzados · SEO y verificación':'Advanced details · SEO and product rules'}</summary>
+      <div className="pack-section pack-analysis">
       <div>
         <p className="eyebrow">{t('analysis')}</p>
         <h3>{t('whyThisDirection')}</h3>
@@ -305,6 +335,7 @@ export function PinterestCreativePackPanel({
         <ul>{pack.truthConstraints.map((item)=><li key={item}>{item}</li>)}</ul>
       </div>
     </div>
+    </details>
 
     <footer className="creative-pack-footer">
       <span>{t('publicationReadiness')}: {hasImage?t('finalImageReady'):t('generateAndImportImage')}</span>
