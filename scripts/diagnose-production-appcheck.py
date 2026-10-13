@@ -56,5 +56,6 @@ for origin in ("https://nestaffiliate.millionsnest.com/", "https://mn-nestaffili
         print("EARLY_APPCHECK_CODE_IN_LIVE_BUNDLE","APP_CHECK_NOT_INITIALIZED" in js)
         print("SDK_ERROR_TOKEN_GUARD_IN_LIVE_BUNDLE","INITIAL_THROTTLE" in js and "RECAPTCHA_ERROR" in js)
         print("LIVE_E2E_PLACEHOLDER_FLAG","e2e-app-check-token" in js)
+        print("DEPLOYED_FIREBASE_12X_STRINGS",sorted(set(re.findall(r"12\\.[0-9]{1,2}\\.[0-9]{1,2}",js)))[:12])
     except Exception as exc:
         print("PROBE_FAILED",urllib.parse.urlsplit(origin).hostname,type(exc).__name__,str(exc)[:130])
