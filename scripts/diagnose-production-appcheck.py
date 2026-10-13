@@ -34,6 +34,19 @@ for origin in ("https://nestaffiliate.millionsnest.com/", "https://mn-nestaffili
         print("ENTRY_FILES",len(entry),"TOTAL_JS",len(blobs))
         print("EXPECTED_RECAPTCHA_KEY_PRESENT",expected_site_key in keys)
         print("OTHER_RECAPTCHA_KEY_COUNT",len(keys-{expected_site_key}))
+        for public_site_key in sorted(keys):
+            at=js.find(public_site_key)
+            before=js[max(0,at-180):at]
+            after=js[at+len(public_site_key):at+len(public_site_key)+180]
+            near=before+after
+            print("RECAPTCHA_SITE_KEY_SOURCE",{
+                "key_prefix":public_site_key[:9],
+                "key_suffix":public_site_key[-5:],
+                "is_expected_key":public_site_key==expected_site_key,
+                "near_enterprise_provider":bool(re.search(r"enterprise|ReCaptchaEnterpriseProvider",near,re.I)),
+                "near_firebase_auth":bool(re.search(r"auth|recaptchaVerifier|password",near,re.I)),
+                "context_fingerprint":__import__('hashlib').sha256(near.encode()).hexdigest()[:12],
+            })
         print("EXPECTED_FIREBASE_WEB_APP_PRESENT",expected_app in apps)
         print("OTHER_FIREBASE_APP_COUNT",len(apps-{expected_app}))
         print("EARLY_APPCHECK_CODE_IN_LIVE_BUNDLE","APP_CHECK_NOT_INITIALIZED" in js)
