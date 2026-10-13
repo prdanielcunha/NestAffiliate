@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
-import { maxDuplicateSimilarity, runPublishingGuard, inspectAffiliateAttestation, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
+import { maxDuplicateSimilarity, runPublishingGuard, detectUnsupportedPinClaims, inspectAffiliateAttestation, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
 import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
@@ -1870,7 +1870,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     product:v.product,
     disclosure:v.narrative.disclosure,
     destinationUrl:v.product.affiliateUrl?.value ?? v.product.url.value,
-    headline:v.narrative.headline,description:v.narrative.description,
+    headline:v.narrative.headline,pinterestTitle:v.narrative.pinterestTitle,description:v.narrative.description,
     creativeAsset:v.creativeAsset,
     requireAffiliateAttestation:Boolean(campaign.rankingContext?.v4ResearchDraft) || campaign.organizationId!=='demo-org',
     duplicateSimilarity:campaignDuplicateSimilarity(campaign,campaigns),
@@ -2002,7 +2002,15 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     }:versionedPack;
     const next=nextCampaignVersion(campaign,{
       narrative,
-      ...(nextPack?{creativePack:draft.strategy?overlayAiStrategy(nextPack,draft.strategy):nextPack}:{}),
+      ...(nextPack?{creativePack:draft.strategy?{
+        ...overlayAiStrategy(nextPack,draft.strategy),
+        copy:{...overlayAiStrategy(nextPack,draft.strategy).copy,
+          titles:[draft.title,...draft.strategy.titles.filter(x=>x!==draft.title)].slice(0,3),
+          descriptions:[draft.description,...draft.strategy.descriptions.filter(x=>x!==draft.description),
+           ...nextPack.copy.descriptions.filter(x=>detectUnsupportedPinClaims(x).length===0&&x!==draft.description)]
+           .filter((x,i,a)=>a.indexOf(x)===i).slice(0,3),
+        },
+      }:nextPack}:{}),
       creativeIntelligence:{
         origin:'nestai',
         copyMode:draft.strategy?'strategy':'single-copy',
@@ -2433,7 +2441,7 @@ function Publish({
   const hasFrequencyPolicy=preferences.maxPublications24h!==null || preferences.minGapMinutes!==null;
   const guard = runPublishingGuard({
     product: v.product, disclosure: v.narrative.disclosure, destinationUrl: destination,
-    headline: v.narrative.headline, description: v.narrative.description,
+    headline: v.narrative.headline, pinterestTitle: v.narrative.pinterestTitle, description: v.narrative.description,
     creativeAsset:v.creativeAsset,
     requireAffiliateAttestation:Boolean(activeCampaign.rankingContext?.v4ResearchDraft) || activeCampaign.organizationId!=='demo-org',
     duplicateSimilarity:campaignDuplicateSimilarity(activeCampaign,campaigns),
@@ -2450,7 +2458,7 @@ function Publish({
     campaignId: activeCampaign.id, version: v.version, filename: campaignFilename(v), width: 1000, height: 1500,
     title: v.narrative.pinterestTitle, description: v.narrative.description, disclosure: v.narrative.disclosure,
     destinationUrl: destination, boardName: v.boardName,
-    topics: v.creativePack?.copy.keywords.slice(0,10) ?? [v.keyword, 'casa organizada', 'ideias para casa'],
+    topics: v.creativePack?.copy.keywords.filter(x=>detectUnsupportedPinClaims(x).length===0).slice(0,10) ?? [v.keyword, 'casa organizada', 'ideias para casa'],
     altText: v.narrative.altText,
     trackingCode: activeCampaign.rankingContext?.trackingCode,
     compliance: guard.outcome,
