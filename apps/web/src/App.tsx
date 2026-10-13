@@ -1890,6 +1890,8 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   const [swapOptions, setSwapOptions] = useState<ProductTruth[]>([]);
   const [swapLoading, setSwapLoading] = useState(false);
   const [approvalAttempted,setApprovalAttempted]=useState(false);
+  const [studioStage,setStudioStage]=useState<'text'|'image'|'review'>('text');
+  const [showNestAI,setShowNestAI]=useState(false);
   const [reviewLocation,setReviewLocation]=useState<string|null>(null);
   const approvingRef = useRef(false);
 
@@ -2103,7 +2105,26 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         setReviewLocation(hash);
       }
     }}>
-      <GuidedReviewActions campaign={activeCampaign} editable={editable} onUpdate={update}/>
+      <section className="pin-studio-steps" aria-label={locale==='pt-BR'?'Criar Pin passo a passo':'Create Pin step by step'}>
+        <p className="eyebrow">PINTEREST · {campaign.marketplace==='SHOPEE'?'SHOPEE':'MERCADO LIVRE'}</p>
+        <h1>{locale==='pt-BR'?'Vamos criar seu Pin, passo a passo.':locale==='es'?'Vamos a crear tu Pin paso a paso.':'Create your Pin, one step at a time.'}</h1>
+        <p>{locale==='pt-BR'?'Escolha textos, prepare a imagem e confira a publicação. Você não precisa procurar botões em uma página enorme.':locale==='es'?'Textos, imagen y revisión. Sin buscar botones en una página larga.':'Choose copy, prepare your image and review. No hunting through a long page.'}</p>
+        <nav className="pin-studio-tabs">
+         {([
+          ['text',locale==='pt-BR'?'1 · Textos':locale==='es'?'1 · Textos':'1 · Copy'],
+          ['image',locale==='pt-BR'?'2 · Imagem':locale==='es'?'2 · Imagen':'2 · Image'],
+          ['review',locale==='pt-BR'?'3 · Conferir e publicar':locale==='es'?'3 · Revisar y publicar':'3 · Review & publish'],
+         ] as const).map(([stage,label])=><button key={stage} type="button"
+          className={studioStage===stage?'active':''} aria-current={studioStage===stage?'step':undefined}
+          onClick={()=>{setStudioStage(stage);setReviewLocation(null);}}>
+            {label}
+          </button>)}
+        </nav>
+      </section>
+      <div className="pin-studio-stage" hidden={studioStage!=='text'}>
+        <GuidedReviewActions campaign={activeCampaign} editable={editable} onUpdate={update}
+          onStage={setStudioStage} onAI={()=>setShowNestAI(true)}/>
+
       {reviewLocation&&<div className="review-location-guide" role="status">
         <span>{locale==='pt-BR'?'Você está em':locale==='es'?'Estás en':'You are viewing'}: <strong>{
           ({'#review-product':locale==='pt-BR'?'Link e produto':'Link & product',
@@ -2125,12 +2146,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         <button type="button" className="review-location-dismiss" onClick={()=>setReviewLocation(null)}
           aria-label={locale==='pt-BR'?'Fechar orientação':'Dismiss navigation hint'}>×</button>
       </div>}
-      <CampaignJourney campaign={activeCampaign} />
       <div id="review-creative" className="review-creative-stage">
-        <div className="review-stage-heading">
-          <p className="eyebrow">{locale==='pt-BR'?'ETAPAS 3 E 4 · CRIATIVO':locale==='es'?'PASOS 3 Y 4 · CREATIVO':'STEPS 3 AND 4 · CREATIVE'}</p>
-          <h2>{locale==='pt-BR'?'Escolha os textos e prepare a imagem':locale==='es'?'Elige los textos y prepara la imagen':'Choose copy and prepare an image'}</h2>
-          <p>{locale==='pt-BR'?'A IA propõe textos. Depois, gere ou importe uma imagem fiel ao produto. Tudo pode ser retomado sem perder a campanha.':locale==='es'?'La IA sugiere textos; luego prepara una imagen fiel al producto.':'AI suggests copy; then prepare a faithful product image. Your campaign remains saved.'}</p>
+        <div className="review-stage-heading" hidden={!showNestAI}>
+          <p className="eyebrow">{locale==='pt-BR'?'OPCIONAL · NESTAI':locale==='es'?'OPCIONAL · NESTAI':'OPTIONAL · NESTAI'}</p>
+          <h2>{locale==='pt-BR'?'Prefere criar textos com IA?':locale==='es'?'¿Prefieres textos con IA?':'Prefer AI-generated copy?'}</h2>
+          <p>{locale==='pt-BR'?'Esta etapa é opcional. Você já pode escolher e copiar alternativas sem IA.':'AI is optional. Local copy can be selected and copied without AI.'}</p>
         </div>
         {v.creativeIntelligence&&<details className="ai-intelligence-summary">
           <summary>{v.creativeIntelligence.origin==='nestai'?(locale==='pt-BR'?v.creativeIntelligence.copyMode==='single-copy'?'NestAI gerou 1 título e 1 descrição': 'NestAI personalizou esta campanha':locale==='es'?'NestAI personalizó la campaña':'NestAI personalized this campaign'):!v.creativeIntelligence.aiAttempted?(locale==='pt-BR'?'Produto salvo · Textos locais disponíveis':locale==='es'?'Producto guardado · IA preparando opciones':'Product saved · AI preparing options'):(locale==='pt-BR'?'Textos locais — NestAI não respondeu':locale==='es'?'Textos locales — IA no disponible':'Local copy — NestAI unavailable')}</summary>
@@ -2138,14 +2158,34 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           {v.creativeIntelligence.origin==='nestai'&&<p>{locale==='pt-BR'?'Intenção provável de compra: ':locale==='es'?'Intención probable: ':'Likely buyer intent: '}{v.creativeIntelligence.buyerIntent} · {locale==='pt-BR'?'Público provável: ':locale==='es'?'Público probable: ':'Likely audience: '}{v.creativeIntelligence.audience}</p>}
           <small>{locale==='pt-BR'?'Sugestão editorial, não comprovação comercial. Revise textos e produto antes de aprovar.':locale==='es'?'Propuesta editorial. Revisa antes de aprobar.':'Editorial proposal. Review before approving.'}</small>
         </details>}
-        <div id="review-ai">
+        <div id="review-ai" hidden={!showNestAI}>
           <NestAiDraftReview campaign={activeCampaign} editable={editable}
-            autoStart={Boolean(v.creativeIntelligence?.origin==='deterministic'&&v.creativeIntelligence.aiAttempted===false)}
-            onApply={applyNestAiCopy} />
+            autoStart={false} onApply={applyNestAiCopy} />
         </div>
-        <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
+        <div className="pin-studio-next">
+          <button className="button primary" type="button" onClick={()=>setStudioStage('image')}>
+            {locale==='pt-BR'?'Próximo: preparar a imagem →':locale==='es'?'Siguiente: preparar la imagen →':'Next: prepare your image →'}
+          </button>
+        </div>
       </div>
-      {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <ReelKitPanel campaign={activeCampaign} />}
+      </div>
+      <div className="pin-studio-stage" hidden={studioStage!=='image'}>
+        <section className="pin-image-steps" aria-label={locale==='pt-BR'?'Como criar imagem':'How to prepare the image'}>
+          <p className="eyebrow">{locale==='pt-BR'?'ETAPA 2 · IMAGEM DO PIN':locale==='es'?'PASO 2 · IMAGEN':'STEP 2 · PIN IMAGE'}</p>
+          <h2>{locale==='pt-BR'?'Crie a imagem com o ChatGPT':locale==='es'?'Crea la imagen con ChatGPT':'Create the image in ChatGPT'}</h2>
+          <p>{locale==='pt-BR'?'O NestAffiliate prepara o prompt em inglês. Copie, abra o ChatGPT e anexe lá a foto original do produto. Depois volte e importe aqui só a imagem FINAL gerada. Não precisa enviar a mesma foto duas vezes.':locale==='es'?'NestAffiliate prepara el prompt. Adjunta la foto original en ChatGPT e importa aquí solo la imagen FINAL.':'NestAffiliate prepares the English prompt. Attach the real product photo in ChatGPT, then import only the FINAL generated result here.'}</p>
+          <ol><li>{locale==='pt-BR'?'Copie o prompt em inglês.':'Copy the English prompt.'}</li>
+           <li>{locale==='pt-BR'?'Abra ChatGPT e anexe a foto original autorizada lá.':'Open ChatGPT and attach your authorized product photo there.'}</li>
+           <li>{locale==='pt-BR'?'Baixe a imagem gerada, volte e importe o resultado final.':'Download the resulting image and import the final result here.'}</li></ol>
+        </section>
+        <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
+        <div className="pin-studio-next"><button type="button" className="button primary" onClick={()=>setStudioStage('review')}>
+          {locale==='pt-BR'?'Próximo: conferir link e Pin →':locale==='es'?'Siguiente: revisar Pin y enlace →':'Next: review Pin and link →'}
+        </button></div>
+        {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <details className="pin-advanced-reel"><summary>{locale==='pt-BR'?'Opcional: criar Reel também':'Optional: create a Reel'}</summary><ReelKitPanel campaign={activeCampaign}/></details>}
+      </div>
+      <div className="pin-studio-stage" hidden={studioStage!=='review'}>
+        <details className="pin-expert-journey"><summary>{locale==='pt-BR'?'Ver jornada detalhada e etapas anteriores':'View detailed steps'}</summary><CampaignJourney campaign={activeCampaign}/></details>
       {editError && <div className="notice edit-feedback" role="alert">{editError}</div>}
       {pendingEdit?.ok && <section className="edit-preview" aria-label="Prévia da alteração">
         <div><p className="eyebrow">{locale==='pt-BR'?'PRÉVIA · NÃO SALVO':locale==='es'?'VISTA PREVIA · NO GUARDADO':'PREVIEW · NOT SAVED'}</p>
@@ -2334,6 +2374,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         <span className="spark">✦</span>
         <input id="ai-edit" disabled={!editable} value={command} onChange={(e) => { setCommand(e.target.value);setEditError('');setPendingEdit(null); }} onKeyDown={(e) => e.key === 'Enter' && previewEdit(command)} placeholder={editable ? t('askChange') : t('readOnly')} />
         <button disabled={!editable} onClick={() => previewEdit(command)}>{locale==='pt-BR'?'Prévia':locale==='es'?'Vista previa':'Preview'}</button>
+      </div>
       </div>
     </div>
   );
