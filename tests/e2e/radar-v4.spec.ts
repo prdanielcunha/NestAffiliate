@@ -28,6 +28,10 @@ test.describe('Radar 4.0 opt-in design and gates',()=>{
   test('V4 Today diagnostics work across PT/EN/ES at narrow mobile width',async({page})=>{
     await page.setViewportSize({width:360,height:800});
     await page.goto('/');
+    // Premium Home keeps technical evidence available but collapsed by default.
+    const disclosure=page.locator('.home-research-disclosure');
+    await expect(disclosure).toBeVisible();
+    await disclosure.locator('summary').click();
     const panel=page.locator('.today-research-section');
     await expect(panel).toBeVisible();
     await expect(panel).toContainText('O que a última pesquisa realmente encontrou');
