@@ -118,6 +118,7 @@ test('Review can prepare a full Pinterest Creative Pack and blocks approval unti
   await expect(page.getByRole('link', { name: /Abrir ChatGPT/ })).toBeVisible();
   await expect(page.getByText('1000 × 1500', { exact: true })).toBeVisible();
 
+  await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
   await page.getByRole('button', { name: /Ver \d+ pendência\(s\) para aprovar/ }).click();
   await expect(page.getByRole('heading',{name:/Ainda faltam algumas coisas antes de aprovar/})).toBeVisible();
   await expect(page.locator('.approval-blocker-alert')).toContainText('A aprovação ainda não foi realizada');
@@ -174,7 +175,9 @@ test('Approval with incomplete creative shows actionable blockers and preserves 
  await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await page.locator('.pin-expert-journey>summary').click();
  await expect(page.getByRole('region',{name:'Etapas para publicar seu Pin'})).toBeVisible();
+ await page.getByRole('button',{name:'1 · Textos'}).click();
  await expect(page.getByRole('region',{name:'Próxima ação e textos do Pin'})).toBeVisible();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await expect(page.getByRole('region',{name:'Etapas para publicar seu Pin'}).locator('summary')).toContainText('Ver todas as etapas');
  await page.getByRole('button',{name:'2 · Imagem'}).click();
  await page.getByRole('button',{name:'Preparar Pin',exact:true}).click();
