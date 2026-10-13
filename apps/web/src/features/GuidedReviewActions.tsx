@@ -33,7 +33,7 @@ export function GuidedReviewActions({campaign,editable,onUpdate}: {campaign:Camp
   {name:loc(locale,'Escolher e copiar textos','Choose and copy text','Elegir y copiar textos'),
    done:copyReady,target:'#review-copy-editor'},
   {name:loc(locale,'Preparar imagem','Prepare image','Preparar imagen'),
-   done:hasImage,target:'#review-images'},
+   done:hasImage,target:v.creativePack?'#review-images':'#review-creative'},
   {name:loc(locale,'Revisar para publicar','Review before posting','Revisar publicación'),
    done:['PUBLICATION_READY','PUBLISHED'].includes(campaign.status),target:'#review-blockers'},
  ];
@@ -82,7 +82,7 @@ export function GuidedReviewActions({campaign,editable,onUpdate}: {campaign:Camp
    <button type="button" onClick={openCopyEditor}>{loc(locale,'Escolher textos','Choose text','Elegir textos')}</button>
    <a href="#review-ai">{loc(locale,'NestAI (opcional)','NestAI (optional)','NestAI (opcional)')}</a>
    <a href="#review-product">{loc(locale,'Link','Affiliate link','Enlace')}</a>
-   <a href="#review-images">{loc(locale,'Imagem','Image','Imagen')}</a>
+   <a href={v.creativePack?'#review-images':'#review-creative'}>{loc(locale,'Imagem','Image','Imagen')}</a>
    <a href="#review-blockers">{loc(locale,'Aprovação','Approval','Aprobación')}</a>
    <a href="#pin-preview">{loc(locale,'Prévia do Pin','Pin preview','Vista previa')}</a>
   </nav>
