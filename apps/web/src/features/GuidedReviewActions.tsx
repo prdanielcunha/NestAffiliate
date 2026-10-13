@@ -10,7 +10,7 @@ function loc(locale:string,pt:string,en:string,es:string){
 }
 export function GuidedReviewActions({campaign,editable,onUpdate,onStage,onAI}: {campaign:Campaign;editable:boolean;onUpdate:(campaign:Campaign)=>void;onStage?:(stage:'text'|'image'|'review')=>void;onAI?:()=>void}){
  const {locale}=useI18n();
- const [copied,setCopied]=useState<'title'|'description'|null>(null);
+ const [copied,setCopied]=useState<'title'|'description'|'link'|null>(null);
  const [copyError,setCopyError]=useState(false);
  const [copyEditorOpen,setCopyEditorOpen]=useState(false);
  const [copyFeedback,setCopyFeedback]=useState<'synced'|'local'|null>(null);
@@ -41,7 +41,7 @@ export function GuidedReviewActions({campaign,editable,onUpdate,onStage,onAI}: {
    done:['PUBLICATION_READY','PUBLISHED'].includes(campaign.status),target:'#review-blockers'},
  ];
  const current=steps.find(s=>!s.done)??steps[steps.length-1]!;
- async function copy(text:string,which:'title'|'description'){
+ async function copy(text:string,which:'title'|'description'|'link'){
   setCopyError(false);
   try{
    await navigator.clipboard.writeText(text);
@@ -112,7 +112,7 @@ export function GuidedReviewActions({campaign,editable,onUpdate,onStage,onAI}: {
    </div>
     <div className="guided-copy-field guided-copy-link">
      <div><span>{loc(locale,'Link afiliado','Affiliate link','Enlace de afiliado')}</span>
-       {hasSafeLink&&<button type="button" onClick={()=>void copy(affiliateLink!,'description')}>{loc(locale,'Copiar link','Copy link','Copiar enlace')}</button>}
+       {hasSafeLink&&<button type="button" onClick={()=>void copy(affiliateLink!,'link')}>{copied==='link'?loc(locale,'Copiado!','Copied!','¡Copiado!'):loc(locale,'Copiar link','Copy link','Copiar enlace')}</button>}
      </div>
      {hasSafeLink?<p>{affiliateLink}</p>:<p>{loc(locale,
        'O link de comissão ainda não foi confirmado. Confira na etapa 3; o link comum do anúncio não garante comissão.',
