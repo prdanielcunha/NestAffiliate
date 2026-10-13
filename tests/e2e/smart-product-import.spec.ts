@@ -68,6 +68,12 @@ test('Shopee canonical link resolves an exact official item and preserves offici
  await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://s.shopee.com.br/98765001');
  await expect(page.getByText('Organizador Giratório Multiuso Shopee').first()).toBeVisible();
+ await page.getByRole('button',{name:'2 · Imagem'}).click();
+ await expect(page.locator('.pin-image-steps')).toBeVisible();
+ await expect(page.locator('.image-prompt-panel')).toBeVisible();
+ await expect(page.locator('.image-prompt-panel').getByRole('button',{name:/Copiar prompt em inglês/})).toBeEnabled();
+ await expect(page.locator('.image-prompt-panel').getByRole('link',{name:/Abrir ChatGPT/})).toHaveAttribute('href','https://chatgpt.com/');
+ await expect(page.getByText(/somente a imagem FINAL/i).first()).toBeVisible();
 });
 
 test('Opaque Shopee affiliate shortlink stays as a pending draft, never masquerades as a verified product',async({page})=>{
