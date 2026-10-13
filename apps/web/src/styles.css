@@ -1106,3 +1106,95 @@ html {scroll-behavior:smooth}
  .pinterest-creative-pack .concept-grid-v5 .concept-visual{min-height:280px}
  .pinterest-creative-pack .copy-option{font-size:14px;min-height:48px;line-height:1.55}
 }
+
+
+/* Review 5.1 — clearer hierarchy, safer copy, progressive disclosure. */
+.review-page { max-width:1120px; margin-inline:auto; }
+#pin-preview { scroll-margin-top:92px; }
+.guided-copy-truth-warning {
+  padding:16px 18px; border-radius:15px; border:1px solid var(--warning);
+  background:var(--surface2); color:var(--text);
+}
+.guided-copy-truth-warning strong { display:block; font-size:15px; line-height:1.45; }
+.guided-copy-truth-warning p { color:var(--muted); font-size:14px; line-height:1.55; margin:7px 0 10px; }
+.guided-copy-truth-warning a { color:var(--accent); font-weight:750; text-decoration:underline; text-underline-offset:3px; }
+.guided-review-actions .guided-copy-field button:disabled { opacity:.5; cursor:not-allowed; }
+.ai-intelligence-summary { margin-block:14px; }
+.ai-intelligence-summary summary { padding:2px 0; cursor:pointer; font-size:14px; font-weight:750; line-height:1.55; }
+.ai-intelligence-summary[open] summary { margin-bottom:9px; }
+.nestai-choice-source { display:block; margin-top:7px; color:var(--accent); font-style:normal; font-weight:650; font-size:12px; }
+.nestai-draft-preview { padding:clamp(16px,2.5vw,24px); }
+.nestai-strategy-choice {
+  align-items:flex-start; min-height:48px; padding:13px 14px; border:1px solid var(--border);
+  background:var(--surface2); border-radius:13px; cursor:pointer; font-weight:500!important;
+  color:var(--text)!important; font-size:14px!important; line-height:1.55;
+}
+.nestai-strategy-choice:has(input:checked) { border-color:var(--accent); background:var(--accent-soft); }
+.nestai-strategy-choice:focus-within { outline:2px solid var(--accent); outline-offset:2px; }
+.nestai-strategy-choice input { width:18px; height:18px; margin-top:2px; }
+.nestai-strategy-choices>div>small { margin:0 0 8px; line-height:1.5; font-size:12px; }
+.nestai-review-draft { gap:16px; }
+.nestai-review-intro p { font-size:14px; line-height:1.65; max-width:760px; }
+.nestai-review-safety { font-size:12px; }
+.pinterest-creative-pack .pack-copy-details>summary,
+.pinterest-creative-pack .creative-image-method>summary {
+  cursor:pointer; list-style:revert; padding:15px 17px;
+  display:flex; flex-direction:column; gap:5px;
+  color:var(--text); background:var(--surface2);
+  border:1px solid var(--border); border-radius:14px;
+}
+.pack-copy-details>summary strong, .creative-image-method>summary strong {
+  font-size:16px; font-weight:750; letter-spacing:-.015em;
+}
+.pack-copy-details>summary span, .creative-image-method>summary span {
+  font-size:13px; color:var(--muted); line-height:1.5;
+}
+.pack-copy-details[open]>summary, .creative-image-method[open]>summary {
+  border-color:var(--accent); border-bottom-left-radius:0; border-bottom-right-radius:0;
+}
+.pack-copy-details>.copy-option-grid { padding:18px 2px 5px; }
+.image-methods { display:grid; gap:12px; }
+.image-methods>.section-heading { margin-bottom:5px; }
+.creative-image-method { min-width:0; }
+.creative-image-method>summary:hover,.pack-copy-details>summary:hover { border-color:var(--accent); }
+.creative-image-method>div { min-width:0; }
+.creative-image-method .image-prompt-panel,
+.creative-image-method .local-pin-composer,
+.creative-image-method .ai-image-import {
+  border:1px solid var(--border); border-top:0;
+  border-radius:0 0 14px 14px;
+}
+.pack-technical-details { border-top:1px solid var(--border); }
+.pack-technical-details>summary {
+  cursor:pointer; color:var(--muted); font-size:14px;
+  font-weight:700; padding:17px 24px; line-height:1.55;
+}
+.pack-technical-details .pack-analysis { border-top:1px solid var(--border); }
+.pack-technical-details .pack-analysis p,
+.pack-technical-details .pack-analysis li { font-size:13px; line-height:1.65; }
+:root[data-theme="light"] .guided-review-actions {
+  background:linear-gradient(145deg,#f5f9f1,#fff);
+  border-color:var(--border-strong);
+}
+:root[data-theme="light"] .guided-copy-field { background:#fff; }
+:root[data-theme="light"] .guided-copy-field button { color:var(--text); background:var(--surface2); }
+@media(max-width:720px) {
+  .review-page { width:100%; }
+  .guided-review-actions,.nestai-review-draft { border-radius:16px; }
+  .guided-review-actions .guided-copy-field p { font-size:14px; line-height:1.6; }
+  .guided-review-shortcuts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .guided-review-shortcuts a { min-height:44px; display:grid; place-items:center; }
+  .nestai-strategy-choices { gap:13px; margin:9px 0; }
+  .nestai-strategy-choice { font-size:14px!important; }
+  .pinterest-creative-pack .pack-copy-details>summary,
+  .pinterest-creative-pack .creative-image-method>summary { padding:15px 13px; }
+  .pack-technical-details>summary { padding:17px 15px; }
+  .pinterest-creative-pack .copy-option { font-size:14px; line-height:1.65; padding:15px; }
+  .image-methods { padding:16px!important; }
+  .pack-copy-details>.copy-option-grid { padding:13px 0 3px; }
+  .content { padding-bottom:calc(128px + env(safe-area-inset-bottom,0px))!important; }
+}
+@media(prefers-reduced-motion:reduce) {
+  html { scroll-behavior:auto; }
+  .button,.concept-card,.copy-option { transition:none!important; }
+}
