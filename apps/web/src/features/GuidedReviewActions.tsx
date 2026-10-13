@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useState, type ReactNode} from 'react';
 import {InlinePinCopyChooser} from './InlinePinCopyChooser';
 import type {Campaign} from '@nestaffiliate/core';
 import {useI18n} from '../lib/i18n-context';
@@ -8,7 +8,7 @@ import {isSafeAffiliateUrl} from '@nestaffiliate/radar';
 function loc(locale:string,pt:string,en:string,es:string){
  return locale==='pt-BR'?pt:locale==='es'?es:en;
 }
-export function GuidedReviewActions({campaign,editable,onUpdate,onStage,onAI}: {campaign:Campaign;editable:boolean;onUpdate:(campaign:Campaign)=>void;onStage?:(stage:'text'|'image'|'review')=>void;onAI?:()=>void}){
+export function GuidedReviewActions({campaign,editable,onUpdate,onStage,onAI,children}: {campaign:Campaign;editable:boolean;onUpdate:(campaign:Campaign)=>void;onStage?:(stage:'text'|'image'|'review')=>void;onAI?:()=>void;children?:ReactNode}){
  const {locale}=useI18n();
  const [copied,setCopied]=useState<'title'|'description'|'link'|null>(null);
  const [copyError,setCopyError]=useState(false);
@@ -88,6 +88,7 @@ export function GuidedReviewActions({campaign,editable,onUpdate,onStage,onAI}: {
    <button type="button" onClick={()=>onStage?.('image')}>{loc(locale,'Preparar imagem','Prepare image','Preparar imagen')}</button>
    <button type="button" onClick={()=>onStage?.('review')}>{loc(locale,'Conferir link e aprovar','Check link & approve','Revisar enlace y aprobar')}</button>
   </nav>
+  {children}
   {unsafeCopy&&<div className="guided-copy-truth-warning" role="alert">
    <strong>{loc(locale,'Texto salvo precisa de correção antes de publicar','Saved copy needs correction before publishing','El texto guardado requiere corrección')}</strong>
    <p>{loc(locale,'Encontramos promessas sobre o desempenho do produto que não foram comprovadas. O texto continua no histórico, mas não pode ser copiado para publicação até você escolher uma alternativa segura.','Unverified product performance claims were found. Choose a safe alternative before copying or publishing.','Encontramos afirmaciones sobre el producto sin verificar. Selecciona un texto seguro.')}</p>
