@@ -1,5 +1,6 @@
 import type { ProductTruth, PinterestCreativePack } from '@nestaffiliate/core';
 import { validateCommercialClaims, compactPinText } from '@nestaffiliate/creative-engine';
+import { detectUnsupportedPinClaims } from '@nestaffiliate/compliance';
 
 export interface ProductAiStrategy {
   productType:string;
@@ -10,7 +11,7 @@ export interface ProductAiStrategy {
   unknowns:string[];
   angles:[string,string,string];
   titles:[string,string,string];
-  descriptions:[string,string];
+  descriptions:[string,string] | [string,string,string];
   keywords:string[];
   recommendedBoard:string;
   headline:string;
@@ -44,7 +45,8 @@ export function validateProductAiStrategy(raw:unknown,product:ProductTruth,obser
     return v.map(x=>(x as string).replace(/\s+/g,' ').trim()) as string[];
   }
   const titles=array('titles',3,3,100);
-  const descriptions=array('descriptions',2,2,500);
+  // Compatible with the current NestAI task (2) and the upgraded 3-copy task.
+  const descriptions=array('descriptions',2,3,500);
   const angles=array('angles',3,3,140);
   const keywords=array('keywords',5,10,90);
   const factsUsed=array('factsUsed',0,8,160);
@@ -58,7 +60,8 @@ export function validateProductAiStrategy(raw:unknown,product:ProductTruth,obser
   const cta=string('cta',4,60);
   if(!unique(titles)||!unique(descriptions)||!unique(angles))throw new Error('AI_STRATEGY_REPEATED');
   const text=[...titles,...descriptions,headline].join(' ');
-  if(generic.test(text)||suspect.test(text)||validateCommercialClaims([text]).outcome==='BLOCK')
+  if(generic.test(text)||suspect.test(text)||validateCommercialClaims([text]).outcome==='BLOCK'||
+     detectUnsupportedPinClaims([...titles,...descriptions,...angles,...keywords,...factsUsed].join(' ')).length>0)
     throw new Error('AI_STRATEGY_UNSUPPORTED_CLAIM');
   const reference=normalize([product.title.value,...observations].join(' '));
   const allFacts=[...titles,...descriptions,headline,...factsUsed].join(' ');
@@ -78,7 +81,7 @@ export function validateProductAiStrategy(raw:unknown,product:ProductTruth,obser
   // No inferred "facts" are used to change the source-of-truth product fields.
   return {productType,buyerIntent,audience,positioning,factsUsed,unknowns,
     angles:angles as [string,string,string],titles:titles as [string,string,string],
-    descriptions:descriptions as [string,string],keywords,
+    descriptions:descriptions as [string,string] | [string,string,string],keywords,
     recommendedBoard,headline:compactPinText(headline,57),cta};
 }
 export function overlayAiStrategy(pack:PinterestCreativePack,s:ProductAiStrategy):PinterestCreativePack{
@@ -86,7 +89,7 @@ export function overlayAiStrategy(pack:PinterestCreativePack,s:ProductAiStrategy
   return {
     ...pack,
     copy:{
-      ...pack.copy,titles:s.titles,descriptions:[...s.descriptions,...pack.copy.descriptions.slice(2)].slice(0,3),
+      ...pack.copy,titles:s.titles,descriptions:[...new Set([...s.descriptions,...pack.copy.descriptions.filter(value=>detectUnsupportedPinClaims(value).length===0)])].slice(0,3),
       headline:s.headline,
       cta:s.cta,
       primaryKeyword:s.keywords[0]!,
