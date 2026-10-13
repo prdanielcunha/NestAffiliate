@@ -2066,7 +2066,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     recordDecision('EDITED',next,'NestAI copy suggestion reviewed');
     setSaved(true);
     setApprovalAttempted(false);
-    window.requestAnimationFrame(()=>document.getElementById('review-creative')?.scrollIntoView({behavior:'smooth',block:'start'}));
+    // Keep the user's viewport: applying an AI suggestion must not teleport the page.
   }
 
   function approve() {
@@ -2075,6 +2075,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
     // campaign from the active queue or require the user to guess what went wrong.
     if(missingSteps.length>0 || approvalGuard.outcome==='BLOCK'){
       setApprovalAttempted(true);
+      setReviewLocation('#review-blockers');
       window.requestAnimationFrame(()=>document.getElementById('review-blockers')?.scrollIntoView({behavior:'smooth',block:'center'}));
       return;
     }
