@@ -93,7 +93,7 @@ jobs:
             echo "VITE_FIREBASE_MESSAGING_SENDER_ID=$(jq -r '.messagingSenderId' <<<"$CONFIG")"
             echo "VITE_FIREBASE_APP_ID=$(jq -r '.appId' <<<"$CONFIG")"
             echo "VITE_APP_URL=https://$LIVE_DOMAIN"
-            echo "VITE_HUB_URL=https://$LIVE_DOMAIN"
+            echo "VITE_HUB_URL=https://www.millionsnest.com"
             echo "VITE_PINTEREST_PROFILE_URL=https://br.pinterest.com/achadosdonest/"
             echo "VITE_DEMO_DATA_ENABLED=false"
             echo "VITE_E2E_MOCK_AUTH=false"
@@ -121,6 +121,34 @@ jobs:
             echo "VITE_OPENAI_EDIT_ENABLED=false"
             echo "VITE_INTERNATIONAL_ENABLED=false"
           } >> "$GITHUB_ENV"
+
+      - name: Audit registered Firebase App Check provider (read-only, no secret output)
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          APP_ID="$VITE_FIREBASE_APP_ID"
+          test -n "$APP_ID"
+          HTTP_CODE="$(curl --silent --show-error --max-time 20 \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            --output /tmp/nestaffiliate-appcheck-public-config.json \
+            --write-out '%{http_code}' \
+            "https://firebaseappcheck.googleapis.com/v1/projects/555464791734/apps/$APP_ID/recaptchaEnterpriseConfig" || true)"
+          echo "REGISTERED_APPCHECK_CONFIG_HTTP_STATUS=$HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ]; then
+            CONFIG_KEY="$(jq -r '.siteKey // empty' /tmp/nestaffiliate-appcheck-public-config.json)"
+            if [ "$CONFIG_KEY" = "6LcpY-EtAAAAAElqBbIL_K7nAkm2wpuF6fbhsggG" ]; then
+              echo "REGISTERED_APPCHECK_ENTERPRISE_KEY_MATCH=true"
+            else
+              echo "REGISTERED_APPCHECK_ENTERPRISE_KEY_MATCH=false"
+            fi
+            jq -r '"REGISTERED_APPCHECK_TOKEN_TTL=" + (.tokenTtl // "default")' /tmp/nestaffiliate-appcheck-public-config.json
+            jq -r '"REGISTERED_APPCHECK_SCORE_THRESHOLD=" + ((.riskAnalysis.minValidScore // "default")|tostring)' /tmp/nestaffiliate-appcheck-public-config.json
+          else
+            echo "REGISTERED_APPCHECK_ADMIN_READ_UNAVAILABLE=true"
+          fi
+          rm -f /tmp/nestaffiliate-appcheck-public-config.json
+          # Audit never changes provider settings or prints bearer/recaptcha secrets.
 
       - name: Build production assets
         run: pnpm build
