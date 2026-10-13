@@ -106,6 +106,9 @@ test('Review can prepare a full Pinterest Creative Pack and blocks approval unti
 
   await expect(page.getByRole('heading', { name: 'Seu Creative Pack está pronto.' })).toBeVisible();
   await expect(page.locator('.concept-card')).toHaveCount(3);
+  // New progressive disclosure: keep the full-page review short on mobile.
+  await expect(page.locator('.creative-image-method')).toHaveCount(3);
+  await page.locator('.creative-image-method').first().locator('summary').click();
   await expect(page.getByText('PROMPT DE IMAGEM')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copiar e abrir ChatGPT' })).toBeVisible();
   await expect(page.getByText('1000 × 1500', { exact: true })).toBeVisible();
