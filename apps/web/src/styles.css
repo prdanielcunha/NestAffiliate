@@ -1198,3 +1198,18 @@ html {scroll-behavior:smooth}
   html { scroll-behavior:auto; }
   .button,.concept-card,.copy-option { transition:none!important; }
 }
+
+/* Keep instructions short until explicitly requested. */
+.affiliate-guided-help { display:block; }
+.affiliate-guided-help>summary {
+  cursor:pointer; font-size:14px; font-weight:750; line-height:1.55;
+  padding:2px 0; color:var(--text);
+}
+.affiliate-guided-help[open]>summary { margin-bottom:12px; color:var(--accent); }
+.affiliate-guided-help>strong { display:block; margin-bottom:9px; }
+.prompt-raw-details { margin:14px 0; min-width:0; }
+.prompt-raw-details>summary {
+  cursor:pointer; color:var(--muted); font-weight:700; font-size:14px;
+  padding:12px 0; min-height:44px;
+}
+.prompt-raw-details .image-prompt-box { max-width:100%; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
