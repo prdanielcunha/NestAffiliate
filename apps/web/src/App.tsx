@@ -1890,6 +1890,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   const [swapOptions, setSwapOptions] = useState<ProductTruth[]>([]);
   const [swapLoading, setSwapLoading] = useState(false);
   const [approvalAttempted,setApprovalAttempted]=useState(false);
+  const [reviewLocation,setReviewLocation]=useState<string|null>(null);
   const approvingRef = useRef(false);
 
   useEffect(() => {
@@ -2091,8 +2092,38 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   }
 
   return (
-    <div className="review-page">
-      <GuidedReviewActions campaign={activeCampaign} />
+    <div className="review-page" onClickCapture={event=>{
+      const target=event.target;
+      if(!(target instanceof Element))return;
+      const anchor=target.closest('a[href^="#"]');
+      const hash=anchor?.getAttribute('href')??'';
+      if(['#review-product','#review-ai','#review-images','#review-copy-editor',
+          '#review-blockers','#review-final','#review-creative','#pin-preview'].includes(hash)){
+        setReviewLocation(hash);
+      }
+    }}>
+      <GuidedReviewActions campaign={activeCampaign} editable={editable} onUpdate={update}/>
+      {reviewLocation&&<div className="review-location-guide" role="status">
+        <span>{locale==='pt-BR'?'Você está em':locale==='es'?'Estás en':'You are viewing'}: <strong>{
+          ({'#review-product':locale==='pt-BR'?'Link e produto':'Link & product',
+            '#review-ai':'NestAI',
+            '#review-images':locale==='pt-BR'?'Imagem':'Image',
+            '#review-copy-editor':locale==='pt-BR'?'Textos avançados':'Advanced copy',
+            '#review-blockers':locale==='pt-BR'?'Conferência final':'Final review',
+            '#review-final':locale==='pt-BR'?'Aprovação':'Approval',
+            '#review-creative':locale==='pt-BR'?'Criação':'Creative',
+            '#pin-preview':locale==='pt-BR'?'Prévia do Pin':'Pin preview'} as Record<string,string>)[reviewLocation]
+        }</strong></span>
+        <button type="button" className="review-location-return" onClick={()=>{
+          setReviewLocation(null);
+          document.getElementById('review-next-action')?.scrollIntoView({
+            behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',
+            block:'start',
+          });
+        }}>{locale==='pt-BR'?'Voltar às ações ↑':locale==='es'?'Volver a las acciones ↑':'Back to next action ↑'}</button>
+        <button type="button" className="review-location-dismiss" onClick={()=>setReviewLocation(null)}
+          aria-label={locale==='pt-BR'?'Fechar orientação':'Dismiss navigation hint'}>×</button>
+      </div>}
       <CampaignJourney campaign={activeCampaign} />
       <div id="review-creative" className="review-creative-stage">
         <div className="review-stage-heading">
