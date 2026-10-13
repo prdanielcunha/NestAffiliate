@@ -51,6 +51,6 @@ test.describe('Radar 4.0 opt-in design and gates',()=>{
     await expect(page).toHaveURL(/\/review\/campaign-/);
     await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
     await expect(page.getByRole('link',{name:'Abrir anúncio original'})).toBeVisible();
-    await expect(page.getByText('RIGHTS UNKNOWN')).toBeVisible();
+    await expect(page.getByRole('region',{name:'Origem do produto'}).getByText('RIGHTS UNKNOWN')).toBeVisible();
   });
 });
