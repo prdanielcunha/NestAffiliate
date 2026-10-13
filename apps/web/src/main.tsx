@@ -6,6 +6,7 @@ import { App } from './App';
 import { PublicLegalPage } from './features/PublicLegalPage';
 import { MercadoLivreOAuthCallback } from './features/MercadoLivreOAuthCallback';
 import './styles.css';
+import './premium-experience.css';
 
 const publicLegalRoutes = {
   '/privacy': 'privacy',
