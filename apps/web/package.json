@@ -16,7 +16,7 @@
     "@nestaffiliate/creative-engine": "workspace:*",
     "@nestaffiliate/integrations": "workspace:*",
     "@nestaffiliate/scoring": "workspace:*",
-    "firebase": "^12.3.0",
+    "firebase": "12.19.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.1",
