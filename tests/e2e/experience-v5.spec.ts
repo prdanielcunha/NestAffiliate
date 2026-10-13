@@ -13,6 +13,7 @@ test('Radar problem-first research requires an intentional human search',async({
 test('Creative concepts have three different visual layouts and preserve 2:3 preview',async({page})=>{
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'2 · Imagem'}).click();
  await page.getByRole('button',{name:'Preparar Pin',exact:true}).click();
  await expect(page.locator('.concept-visual')).toHaveCount(3);
  for(let n=0;n<3;n++)await expect(page.locator('.concept-visual-'+n)).toBeVisible();
