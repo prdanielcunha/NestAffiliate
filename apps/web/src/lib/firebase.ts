@@ -67,7 +67,7 @@ export function normalizeAppCheckFailure(error:unknown):Error{
 }
 
 export function validatedAppCheckTokenResult(result:{
-  token:string;error?:{code?:string;customData?:{httpStatus?:number|string}}|null;
+  token:string;error?:unknown;
 }):string{
   if(result.error)throw normalizeAppCheckFailure(result.error);
   if(!result.token || typeof result.token!=='string')throw new Error('APP_CHECK_EMPTY_TOKEN');
