@@ -7,6 +7,7 @@ import {generateAffiliatePinCopy,generateAffiliatePinStrategy,prepareNestAiSecur
 import type {ProductAiStrategy} from '../lib/aiProductStrategy';
 import {classifyNestAiFailure,type NestAiFailureCode} from '../lib/nestAiFailure';
 import {aiSupportDiagnostic,NestAiStageError} from '../lib/nestAiTransport';
+import {beginAppCheckProbe} from '../lib/appCheckProbe';
 
 export type PinCopyDraft={title:string;description:string;tags:string[];strategy?:ProductAiStrategy};
 /** Validate even partial model output; no publishing or product fact mutation. */
@@ -89,20 +90,26 @@ export function NestAiDraftReview({campaign,editable,onApply,autoStart=false}:{
  function begin(){
   if(!editable||!user||!organizationId||busy)return;
   const id=++operation.current;
+  const stopProbe=beginAppCheckProbe();
   dismissedRef.current=false;setDismissed(false);
   setBusy(true);setSuggestion(null);setError(null);setErrorDetails('');setSaved(false);
   void withAiDeadline(requestSuggestions(),55000)
    .then(data=>{
+    stopProbe();
     if(operation.current!==id||dismissedRef.current)return;
     setSuggestion(data);setTitleIndex(0);setDescriptionIndex(0);
    })
    .catch(reason=>{
+    const safeProbe=stopProbe();
     if(operation.current!==id||dismissedRef.current)return;
-    setError(classifyNestAiFailure(reason));
+    const failure=classifyNestAiFailure(reason);
+    setError(failure);
     const data=reason as {supportTrace?:unknown};
-    setErrorDetails(typeof data?.supportTrace==='string'?data.supportTrace:aiSupportDiagnostic(reason));
+    const trace=typeof data?.supportTrace==='string'?data.supportTrace:aiSupportDiagnostic(reason);
+    // Only emit browser-side categories if attestation failed. Never a raw URL/token.
+    setErrorDetails(failure==='APP_CHECK'?trace+' · '+safeProbe:trace);
    })
-   .finally(()=>{if(operation.current===id)setBusy(false);});
+   .finally(()=>{stopProbe();if(operation.current===id)setBusy(false);});
  }
  useEffect(()=>{
   if(!autoStart||!editable||!user||!organizationId||
