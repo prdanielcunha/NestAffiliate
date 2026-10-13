@@ -510,3 +510,13 @@ button, a { touch-action:manipulation; }
  .guided-review-shortcuts {grid-template-columns:repeat(2,minmax(0,1fr));}
 }
 @media(prefers-reduced-motion:reduce){.pin-studio-stage{animation:none;}}
+
+/* The image workspace must not start with unrelated text-editing controls. */
+.pin-studio-stage .pinterest-creative-pack>.copy-refresh-bar {display:none!important;}
+.pin-studio-stage .pack-copy-details {margin-top:10px;}
+.pin-studio-stage .pinterest-creative-pack>.pack-section:has(.pack-copy-details) {
+ background:transparent;
+}
+.pin-studio-stage .pinterest-creative-pack>.pack-section:has(.pack-copy-details) .copy-option-grid {
+ max-height:470px;overflow-y:auto;
+}
