@@ -34,6 +34,10 @@ for origin in ("https://nestaffiliate.millionsnest.com/", "https://mn-nestaffili
         print("ENTRY_FILES",len(entry),"TOTAL_JS",len(blobs))
         print("EXPECTED_RECAPTCHA_KEY_PRESENT",expected_site_key in keys)
         print("OTHER_RECAPTCHA_KEY_COUNT",len(keys-{expected_site_key}))
+        for i,bundle_part in enumerate(blobs):
+            found=set(re.findall(r"6L[A-Za-z0-9_-]{25,100}",bundle_part))
+            if found:
+                print("KEYS_BY_JS_CHUNK",i,[(key[:9],key[-5:],len(key),key==expected_site_key) for key in sorted(found)])
         for public_site_key in sorted(keys):
             at=js.find(public_site_key)
             before=js[max(0,at-180):at]
