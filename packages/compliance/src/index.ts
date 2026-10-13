@@ -16,6 +16,7 @@ export interface GuardInput {
   disclosure: string;
   destinationUrl: string;
   headline: string;
+  pinterestTitle?: string;
   description: string;
   creativeAsset?: CreativeAsset;
   duplicateSimilarity?: number;
@@ -286,7 +287,7 @@ export function runPublishingGuard(input: GuardInput): GuardResult {
     'Natureza afiliada precisa estar clara.',
   );
 
-  const text = `${input.headline} ${input.description}`;
+  const text = `${input.headline} ${input.pinterestTitle??''} ${input.description}`;
   const unsupportedClaims=detectUnsupportedPinClaims(text);
   const blockedClaims=forbiddenClaimPatterns.some((pattern)=>pattern.test(text)) || unsupportedClaims.length>0;
   push(
