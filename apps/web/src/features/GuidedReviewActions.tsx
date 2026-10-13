@@ -68,7 +68,8 @@ export function GuidedReviewActions({campaign,editable,onUpdate}: {campaign:Camp
     :<a className="button primary guided-next-cta" href={current.target}>{current.name} →</a>}
   </div>
   {copyEditorOpen&&<InlinePinCopyChooser campaign={campaign} editable={editable} onUpdate={onUpdate}
-     onClose={()=>setCopyEditorOpen(false)} onComplete={synced=>{setCopyFeedback(synced?"synced":"local");setCopyEditorOpen(false);}}/>}
+     onClose={()=>setCopyEditorOpen(false)} onComplete={synced=>setCopyFeedback(synced?"synced":"local")}
+     onCopyTitle={text=>void copy(text,"title")} onCopyDescription={text=>void copy(text,"description")}/>}
   {copyFeedback&&<p className={copyFeedback==="local"?"guided-copy-sync-warning":"guided-copy-complete"} role="status">
     {copyFeedback==="synced"
      ?loc(locale,"Textos escolhidos e aplicados. Agora copie os campos abaixo ou continue para a imagem.","Selected copy applied. Copy the fields below or continue to the image.","Textos aplicados. Copia los campos o continúa con la imagen.")
