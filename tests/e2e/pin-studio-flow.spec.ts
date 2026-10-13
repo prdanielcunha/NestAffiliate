@@ -37,3 +37,24 @@ test('NestAI is a deliberate optional choice, never an automatic required step',
   await expect(page.getByRole('button',{name:/Tentar personalização com NestAI/})).toBeEnabled();
   await expect(page.locator('.pin-studio-tabs button.active')).toContainText('Textos');
 });
+
+test('Safari denied clipboard still offers a selectable English image prompt',async({page})=>{
+  await page.goto('/');
+  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+  await page.getByRole('button',{name:'2 · Imagem'}).click();
+  if(await page.getByRole('button',{name:'Preparar Pin',exact:true}).count()){
+    await page.getByRole('button',{name:'Preparar Pin',exact:true}).click();
+  }
+  await page.evaluate(()=>{
+    Object.defineProperty(navigator,'clipboard',{configurable:true,value:{
+      writeText:async()=>{throw new Error('clipboard denied');},
+    }});
+    document.execCommand=()=>false;
+  });
+  const panel=page.locator('.image-prompt-panel');
+  await panel.getByRole('button',{name:/Copiar prompt em inglês/}).click();
+  const field=panel.locator('#manual-image-prompt');
+  await expect(field).toBeVisible();
+  await expect(field).toHaveValue(/Pinterest/);
+  await expect(panel.getByRole('link',{name:/Abrir ChatGPT/})).toHaveAttribute('target','_blank');
+});
