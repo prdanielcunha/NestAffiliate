@@ -42,6 +42,7 @@ import { listMarketSignals, saveMarketSignals } from './services/marketSignalRep
 import { searchMercadoLivreBroker, searchMercadoLivreBrokerDetailed } from './services/mercadoLivreBroker';
 import { getShopeeApiStatus, searchShopeeBroker, searchShopeeBrokerDetailed } from './services/shopeeBroker';
 import { NextBestAction } from './features/NextBestAction';
+import { PremiumHomeHero, PremiumHomeJourney } from './features/PremiumHomeHero';
 import { ReelKitPanel } from './features/ReelKitPanel';
 import { FacebookShopeeGuide } from './features/FacebookShopeeGuide';
 import { RevenueTruthPanel } from './features/RevenueTruthPanel';
@@ -682,20 +683,55 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
     t('queueStable');
   return (
     <div className="page today-page">
-      <section className="hero">
-        <p className="eyebrow">{t('today').toUpperCase()}</p>
-        <h1>{FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? t('r3HomeTitle') : t('workedForYou')}</h1>
-        <p className="hero-sub">{FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? t('r3HomeSubtitle') : t('heroSub')}</p>
-        {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? <NextBestAction campaigns={campaigns} schedules={schedules} agentReport={agentReport} /> : <>
-        <div className="stat-row">
-          <Stat value={String(productCount)} label={t('productsInCampaigns')} />
-          <Stat value={String(campaigns.length)} label={t('opportunitiesSaved')} />
-          <Stat value={String(ready.length)} label={t('ready')} />
-        </div>
-        <NavLink to={ready[0] ? `/review/${ready[0].id}` : '/radar'} className="button primary hero-cta">
-          {ready.length ? t('reviewCount',{n:ready.length}) : t('findOpportunities')}
-        </NavLink></>}
+      <PremiumHomeHero counts={{
+        products:productCount,
+        campaigns:campaigns.length,
+        waiting:campaigns.filter(item=>item.status==='READY'||item.status==='BLOCKED').length,
+        published:campaigns.filter(item=>item.status==='PUBLISHED').length,
+      }}>
+        <NextBestAction campaigns={campaigns} schedules={schedules} agentReport={agentReport}/>
+      </PremiumHomeHero>
+      <section className="section">
+        <div className="section-heading"><h2>{t('needsYou')}</h2><span>{ready.length ? '~2 min' : t('allDone')}</span></div>
+        {ready.length ? (
+          <div className="campaign-grid">
+            {ready.slice(0,3).map((campaign) => <CampaignCard key={campaign.id} campaign={campaign} />)}
+          </div>
+        ) : <Empty title={t('nothingNeeds')} body={t('nothingNeedsBody')} />}
       </section>
+      <PremiumHomeJourney />
+      {(due.length > 0 || upcoming.length > 0) && (
+        <section className="section">
+          {due.length > 0 && <>
+            <div className="section-heading"><h2>{t('duePublications')}</h2><span>{due.length}</span></div>
+            <div className="schedule-list">
+              {due.map((schedule)=> {
+                const campaign=campaigns.find((item)=>item.id===schedule.campaignId);
+                if(!campaign) return null;
+                return <NavLink className="schedule-card due" key={schedule.id} to={`/publish/${schedule.campaignId}`}>
+                  <div><strong>{campaign.currentVersion.keyword}</strong><span>{new Date(schedule.scheduledFor).toLocaleString(locale)}</span></div>
+                  <b>{t('openPublisher')} →</b>
+                </NavLink>;
+              })}
+            </div>
+          </>}
+          {upcoming.length > 0 && <>
+            <div className="section-heading schedule-upcoming-heading"><h2>{t('upcomingPublications')}</h2><span>{upcoming.length}</span></div>
+            <div className="schedule-list">
+              {upcoming.map((schedule)=>{
+                const campaign=campaigns.find((item)=>item.id===schedule.campaignId);
+                if(!campaign) return null;
+                return <NavLink className="schedule-card" key={schedule.id} to={`/publish/${schedule.campaignId}`}>
+                  <div><strong>{campaign.currentVersion.keyword}</strong><span>{new Date(schedule.scheduledFor).toLocaleString(locale)}</span></div>
+                  <b>{t('scheduled')}</b>
+                </NavLink>;
+              })}
+            </div>
+          </>}
+        </section>
+      )}
+      <details className="home-research-disclosure">
+        <summary><span>${locale==='pt-BR'?'INTELIGÊNCIA DE MERCADO':locale==='es'?'INTELIGENCIA DE MERCADO':'MARKET INTELLIGENCE'}</span><strong>${locale==='pt-BR'?'Ver pesquisa e fontes verificáveis':locale==='es'?'Ver investigación y fuentes':'View research and source evidence'}</strong><small>${locale==='pt-BR'?'Dados técnicos sob demanda · Sem promessas de vendas':locale==='es'?'Datos técnicos bajo demanda':'Technical evidence on demand'}</small></summary>
       {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && <section className="today-research-section" aria-label={locale==='pt-BR'?'Evidências do Radar 4.0':locale==='es'?'Evidencia del Radar 4.0':'Radar 4.0 evidence'}>
         <div className="today-research-top">
           <div>
@@ -728,44 +764,11 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
           <p className="today-research-footnote">{locale==='pt-BR'?'Pesquisa concluída':locale==='es'?'Investigación completada':'Research completed'}: {new Date(latestResearch.finishedAt).toLocaleString(locale)} · {latestResearch.runId}</p>
         </>}
       </section>}
-      <section className="section">
-        <div className="section-heading"><h2>{t('needsYou')}</h2><span>{ready.length ? '~2 min' : t('allDone')}</span></div>
-        {ready.length ? (
-          <div className="campaign-grid">
-            {ready.slice(0,3).map((campaign) => <CampaignCard key={campaign.id} campaign={campaign} />)}
-          </div>
-        ) : <Empty title={t('nothingNeeds')} body={t('nothingNeedsBody')} />}
-      </section>
-      {(due.length > 0 || upcoming.length > 0) && (
-        <section className="section">
-          {due.length > 0 && <>
-            <div className="section-heading"><h2>{t('duePublications')}</h2><span>{due.length}</span></div>
-            <div className="schedule-list">
-              {due.map((schedule)=> {
-                const campaign=campaigns.find((item)=>item.id===schedule.campaignId);
-                if(!campaign) return null;
-                return <NavLink className="schedule-card due" key={schedule.id} to={`/publish/${schedule.campaignId}`}>
-                  <div><strong>{campaign.currentVersion.keyword}</strong><span>{new Date(schedule.scheduledFor).toLocaleString(locale)}</span></div>
-                  <b>{t('openPublisher')} →</b>
-                </NavLink>;
-              })}
-            </div>
-          </>}
-          {upcoming.length > 0 && <>
-            <div className="section-heading schedule-upcoming-heading"><h2>{t('upcomingPublications')}</h2><span>{upcoming.length}</span></div>
-            <div className="schedule-list">
-              {upcoming.map((schedule)=>{
-                const campaign=campaigns.find((item)=>item.id===schedule.campaignId);
-                if(!campaign) return null;
-                return <NavLink className="schedule-card" key={schedule.id} to={`/publish/${schedule.campaignId}`}>
-                  <div><strong>{campaign.currentVersion.keyword}</strong><span>{new Date(schedule.scheduledFor).toLocaleString(locale)}</span></div>
-                  <b>{t('scheduled')}</b>
-                </NavLink>;
-              })}
-            </div>
-          </>}
-        </section>
-      )}
+      </details>
+      <details className="home-operation-disclosure">
+        <summary><span className="eyebrow">${locale==='pt-BR'?'OPERAÇÃO E CUSTOS':locale==='es'?'OPERACIÓN Y COSTOS':'OPERATIONS AND COSTS'}</span>
+          <strong>${locale==='pt-BR'?'Acompanhe a atividade do agente':locale==='es'?'Consulta la actividad del agente':'View agent activity'}</strong>
+          <small>${agentHealthLabel} · ${FEATURE_FLAGS.PAID_SERVICES_DISABLED?'APIs pagas OFF':'Custos monitorados'}</small></summary>
       <section className="two-col">
         <div className="surface">
           <p className="eyebrow">{t('whileAway')}</p>
@@ -805,6 +808,7 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
           <p className="muted">{t('paidServicesBlocked')} · {locale==='pt-BR'?'Infraestrutura sujeita às cotas do Firebase.':locale==='es'?'La infraestructura está sujeta a cuotas de Firebase.':'Infrastructure is subject to Firebase quotas.'}</p>
         </div>
       </section>
+      </details>
     </div>
   );
 }
