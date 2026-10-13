@@ -85,3 +85,9 @@ jobs:
           VITE_NESTAI_OPPORTUNITY_ENRICHMENT_ENABLED: 'false'
           VITE_PAID_SERVICES_DISABLED: 'true'
         run: pnpm exec playwright test --grep 'Revenue 3'
+
+      - name: Install WebKit for iPhone review UX
+        run: pnpm exec playwright install --with-deps webkit
+
+      - name: Safari-like iPhone review journey
+        run: pnpm exec playwright test --config=playwright.safari.config.ts
