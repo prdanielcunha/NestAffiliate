@@ -2326,7 +2326,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
               ? (locale==='pt-BR'?'Ainda faltam algumas coisas antes de aprovar':locale==='es'?'Faltan pasos antes de aprobar':'A few steps remain before approval')
               : (locale==='pt-BR'?'Tudo conferido. Pode avançar para publicar.':locale==='es'?'Listo para continuar':'Ready to proceed')}</h3>
             {missingSteps.length>0 && <ol className="review-blocker-list">{missingSteps.map(item=><li key={item.key}>
-               <span>{item.message}</span><a href={item.target}>{locale==='pt-BR'?'Resolver esta etapa →':locale==='es'?'Resolver paso →':'Fix this step →'}</a>
+               <span>{item.message}</span><button type="button" className="review-blocker-go" onClick={()=>{
+                setStudioStage(item.key.includes('claims')||item.key.includes('disclosure')?'text':
+                  item.target==='#review-product'||item.target==='#review-final'?'review':'image');
+                setReviewLocation(null);
+              }}>{locale==='pt-BR'?'Ir para a etapa correta →':locale==='es'?'Ir a la etapa correspondiente →':'Go to the right step →'}</button>
             </li>)}</ol>}
             <p className="review-approval-explain">{locale==='pt-BR'?'Aprovar significa: a imagem e os dados foram revisados. O próximo destino é o pacote de publicação, não uma postagem automática.':locale==='es'?'Aprobar abre el paquete de publicación. No publica automáticamente.':'Approval opens the posting package; it does not automatically publish.'}</p>
             {approvalAttempted && missingSteps.length>0 && <p className="notice danger approval-blocker-alert" role="alert" tabIndex={-1}>{locale==='pt-BR'?'A aprovação ainda não foi realizada. Selecione “Resolver esta etapa” acima para continuar; sua campanha continua salva e editável.':locale==='es'?'No se aprobó. Resuelve los pasos pendientes; la campaña sigue editable.':'Approval did not happen. Resolve the steps above; the campaign is saved and remains editable.'}</p>}
