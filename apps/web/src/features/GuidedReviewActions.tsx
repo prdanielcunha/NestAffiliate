@@ -3,6 +3,7 @@ import {InlinePinCopyChooser} from './InlinePinCopyChooser';
 import type {Campaign} from '@nestaffiliate/core';
 import {useI18n} from '../lib/i18n-context';
 import {inspectAffiliateAttestation,isMarketplaceAffiliateDestination,detectUnsupportedPinClaims} from '@nestaffiliate/compliance';
+import {isSafeAffiliateUrl} from '@nestaffiliate/radar';
 
 function loc(locale:string,pt:string,en:string,es:string){
  return locale==='pt-BR'?pt:locale==='es'?es:en;
@@ -25,6 +26,8 @@ export function GuidedReviewActions({campaign,editable,onUpdate,onStage,onAI}: {
  const descriptionRisks=detectUnsupportedPinClaims(v.narrative.description);
  const unsafeCopy=titleRisk||descriptionRisks.length>0;
  const copyReady=Boolean(v.narrative.pinterestTitle.trim()&&v.narrative.description.trim()&&!unsafeCopy);
+ const affiliateLink=v.product.affiliateUrl?.value;
+ const hasSafeLink=isSafeAffiliateUrl(affiliateLink,v.product.marketplace);
  const steps=[
   {name:shopee
     ?loc(locale,'Marcar Shopee ao publicar','Tag Shopee when posting','Etiquetar Shopee al publicar')
@@ -107,6 +110,16 @@ export function GuidedReviewActions({campaign,editable,onUpdate,onStage,onAI}: {
       ?loc(locale,'Esta descrição contém afirmações não comprovadas. Selecione uma alternativa segura na etapa Textos + IA.','Description blocked: select a verified alternative below.','Descripción bloqueada: selecciona otra opción.')
       :v.narrative.description||'—'}</p>
    </div>
+    <div className="guided-copy-field guided-copy-link">
+     <div><span>{loc(locale,'Link afiliado','Affiliate link','Enlace de afiliado')}</span>
+       {hasSafeLink&&<button type="button" onClick={()=>void copy(affiliateLink!,'description')}>{loc(locale,'Copiar link','Copy link','Copiar enlace')}</button>}
+     </div>
+     {hasSafeLink?<p>{affiliateLink}</p>:<p>{loc(locale,
+       'O link de comissão ainda não foi confirmado. Confira na etapa 3; o link comum do anúncio não garante comissão.',
+       'Affiliate link not confirmed. Review in step 3; the normal listing URL does not prove commission.',
+       'Enlace de afiliado sin confirmar. Verifícalo en el paso 3.')}</p>}
+     {!hasSafeLink&&<button type="button" className="guided-more-copy" onClick={()=>onStage?.('review')}>{loc(locale,'Conferir link na etapa 3 →','Verify link in step 3 →','Verificar enlace en paso 3 →')}</button>}
+    </div>
   </div>
   {copyError&&<p role="alert" className="guided-copy-error">{loc(locale,
     'Não foi possível copiar automaticamente. Mantenha pressionado sobre o texto acima para selecionar e copiar.',
