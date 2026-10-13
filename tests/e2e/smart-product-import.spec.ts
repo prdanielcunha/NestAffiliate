@@ -103,7 +103,7 @@ test('mobile review starts with copy, next action and collapsed detailed journey
  await expect(actions.getByRole('button',{name:'Copiar descrição'})).toBeVisible();
  const journey=page.getByRole('region',{name:'Etapas para publicar seu Pin'});
  await expect(journey.locator('details')).not.toHaveAttribute('open');
- await actions.getByRole('link',{name:'Textos + IA'}).click();
+ await actions.getByRole('link',{name:'NestAI (opcional)'}).click();
  await expect(page.getByRole('region',{name:'Criar textos com NestAI'})).toBeVisible();
  const waiting=page.locator('.nestai-nonblocking-status');
  // In mocked E2E auth, the Hub may reject immediately instead of waiting on
