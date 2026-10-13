@@ -56,7 +56,7 @@ test('Smart Import preserves an unresolved meli.la affiliate link without claimi
  await expect(page).toHaveURL(/\/review\/campaign-/);
  await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://meli.la/2GDhhKL');
- await expect(page.getByText(/produto ainda não identificado|identificação pendente/i).first()).toBeVisible();
+ await expect(page.locator('#review-product').getByText(/produto ainda não identificado|identificação pendente/i).first()).toBeVisible();
 });
 
 test('Shopee canonical link resolves an exact official item and preserves official affiliate offer',async({page})=>{
