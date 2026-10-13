@@ -3,6 +3,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth';
 import type { Role } from '@nestaffiliate/core';
 import { auth, db, firebaseReady, googleProvider } from './firebase';
+import {workspaceCandidates,hasNestAffiliateEntitlement} from './workspaceCandidates';
 
 type State = 'loading' | 'signed-out' | 'ready' | 'denied';
 
@@ -59,41 +60,33 @@ async function resolveWorkspace(user: User): Promise<{ organizationId: string; r
   if (!db) return null;
   const profileSnap = await getDoc(doc(db, 'users', user.uid));
   if (!profileSnap.exists()) return null;
-  const profile = profileSnap.data() as Record<string, any>;
-  const organizationId =
-    profile.activeOrganizationId ??
-    profile.organizationId ??
-    profile.primaryOrganizationId ??
-    profile.defaultOrganizationId ??
-    (Array.isArray(profile.organizations) ? profile.organizations[0] : null);
-  if (!organizationId || typeof organizationId !== 'string') return null;
+  const profile = profileSnap.data() as Record<string, unknown>;
+  const privileged = globalRoles.has(String(profile.systemRole ?? profile.globalRole ?? '').toLowerCase());
 
-  const organizationSnap = await getDoc(doc(db, 'organizations', organizationId));
-  if (!organizationSnap.exists()) return null;
+  // The first (active) org can be ineligible while another *already linked*
+  // org has access. Check each candidate against its own actual entitlements
+  // and authenticated member record; never infer access from a mere org ID.
+  for (const organizationId of workspaceCandidates(profile)) {
+    try {
+      const orgSnap = await getDoc(doc(db, 'organizations', organizationId));
+      if (!orgSnap.exists()) continue;
+      if (privileged) return { organizationId, role: 'owner' };
 
-  const systemRole = String(profile.systemRole ?? profile.globalRole ?? '').toLowerCase();
-  if (globalRoles.has(systemRole)) return { organizationId, role: 'owner' };
-
-  const organization = organizationSnap.data() as Record<string, any>;
-  const nestAffiliateAccess = organization.apps?.nestaffiliate;
-  const entitlementActive =
-    nestAffiliateAccess === true ||
-    ['active', 'trialing'].includes(String(nestAffiliateAccess?.status ?? '').toLowerCase()) ||
-    nestAffiliateAccess?.enabled === true;
-  if (!entitlementActive) return null;
-
-  const nested = await getDoc(doc(db, 'organizations', organizationId, 'members', user.uid));
-  if (nested.exists()) {
-    const data = nested.data();
-    const status = String(data.status ?? 'active').toLowerCase();
-    if (!['active', 'ativo'].includes(status)) return null;
-    const role = String(data.role ?? data.organizationRole ?? 'viewer').toLowerCase();
-    if (['owner', 'admin', 'editor', 'viewer'].includes(role)) {
-      return { organizationId, role: role as Role };
+      if (!hasNestAffiliateEntitlement(orgSnap.data() as Record<string, unknown>)) continue;
+      const membership = await getDoc(doc(db,'organizations',organizationId,'members',user.uid));
+      if (!membership.exists()) continue;
+      const member=membership.data();
+      if (!['active','ativo'].includes(String(member.status??'active').toLowerCase())) continue;
+      const role=String(member.role??member.organizationRole??'viewer').toLowerCase();
+      if (['owner','admin','editor','viewer'].includes(role))
+        return {organizationId,role:role as Role};
+      return {organizationId,role:'viewer'};
+    } catch {
+      // A stale/restricted organization must not block a different entitled
+      // organization. Access always fails closed if none is authorized.
+      continue;
     }
-    return { organizationId, role: 'viewer' };
   }
-
   return null;
 }
 
