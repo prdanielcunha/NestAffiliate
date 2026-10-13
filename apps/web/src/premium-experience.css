@@ -435,3 +435,78 @@ button, a { touch-action:manipulation; }
  .inline-copy-applied>div {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
  .inline-copy-applied .button {white-space:normal;font-size:12px;padding:9px;}
 }
+
+/* PIN STUDIO 7.0: one visible task at a time, no long-page teleport. */
+.pin-studio-stage[hidden],#review-ai[hidden],.review-stage-heading[hidden] {display:none!important;}
+.pin-studio-steps {
+  display:grid;gap:12px;position:relative;padding:clamp(20px,3vw,32px);
+  border-radius:24px;background:var(--surface);border:1px solid var(--border-strong);
+  margin-bottom:16px;
+}
+.pin-studio-steps h1 {font-size:clamp(25px,3.3vw,38px);line-height:1.14;letter-spacing:-.055em;margin:0;}
+.pin-studio-steps>p:not(.eyebrow) {font-size:14px;line-height:1.7;color:var(--muted);margin:0;max-width:700px;}
+.pin-studio-tabs {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:8px;}
+.pin-studio-tabs button {
+ min-height:52px;border-radius:14px;padding:12px 15px;cursor:pointer;
+ border:1px solid var(--border-strong);background:var(--surface2);
+ color:var(--text);font-size:13px;font-weight:800;line-height:1.3;
+ text-align:center;
+}
+.pin-studio-tabs button.active {background:var(--accent-soft);border-color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent);}
+.pin-studio-tabs button:hover {border-color:var(--accent);}
+.pin-studio-stage {min-width:0;animation:studio-enter .15s ease-out;}
+.pin-studio-stage .guided-review-actions {margin-bottom:14px;}
+.pin-studio-stage .review-creative-stage {margin-bottom:14px;}
+.pin-studio-next {display:flex;justify-content:flex-end;gap:8px;margin:15px 0 21px;}
+.pin-studio-next .button {min-height:48px;}
+.pin-image-steps {
+ border:1px solid var(--border-strong);border-radius:19px;padding:20px;
+ background:var(--accent-soft);margin-bottom:13px;
+}
+.pin-image-steps h2 {font-size:clamp(21px,2.8vw,30px);line-height:1.2;letter-spacing:-.04em;margin:8px 0;}
+.pin-image-steps p {font-size:14px;line-height:1.7;color:var(--text);margin:0 0 10px;}
+.pin-image-steps ol {padding-left:23px;display:grid;gap:7px;color:var(--text);font-size:13px;line-height:1.6;margin:12px 0 0;}
+.pin-studio-stage .pinterest-creative-pack .image-methods {border-bottom:1px solid var(--border);}
+.pin-studio-stage .pinterest-creative-pack .creative-image-method[open] {box-shadow:0 6px 24px rgba(0,0,0,.06);}
+.pin-studio-stage .copy-refresh-bar,.pin-studio-stage .pack-advanced-details {margin-top:12px;}
+.pin-studio-stage .prompt-actions {display:flex;flex-wrap:wrap;gap:9px;}
+.pin-studio-stage .prompt-actions .button {min-height:50px;}
+.pin-studio-stage .prompt-bridge-notice {
+ color:var(--text);font-size:14px;line-height:1.7;
+ background:var(--accent-soft);border:1px solid var(--border-strong);border-radius:13px;padding:14px;
+}
+.prompt-optional-reference {padding:13px;border:1px solid var(--border);border-radius:14px;}
+.prompt-optional-reference summary {cursor:pointer;font-size:13px;font-weight:750;}
+.prompt-optional-reference p {font-size:13px;color:var(--muted);line-height:1.6;}
+.prompt-manual-copy {display:grid;gap:8px;}
+.prompt-manual-copy label {font-size:13px;font-weight:750;color:var(--text);}
+.prompt-manual-copy textarea {
+ width:100%;border-radius:13px;min-height:140px;
+ padding:12px;border:1px solid var(--accent);
+ background:var(--surface2);color:var(--text);font-size:13px;line-height:1.5;
+}
+.pin-expert-journey,.pin-advanced-reel {
+ border:1px solid var(--border);border-radius:15px;padding:14px 16px;background:var(--surface2);margin-bottom:14px;
+}
+.pin-expert-journey>summary,.pin-advanced-reel>summary {cursor:pointer;font-size:13px;font-weight:750;}
+.guided-more-copy {
+ cursor:pointer;border:0;background:transparent;text-align:left;padding:5px 0;
+}
+.pin-studio-stage .review-grid {min-width:0;}
+@keyframes studio-enter {from{opacity:.7}to{opacity:1}}
+@media(max-width:720px){
+ .pin-studio-steps {border-radius:19px;padding:16px 14px;gap:10px;}
+ .pin-studio-steps h1 {font-size:25px;}
+ .pin-studio-steps>p:not(.eyebrow) {font-size:13px;}
+ .pin-studio-tabs {gap:5px;}
+ .pin-studio-tabs button {min-height:52px;padding:11px 5px;font-size:11px;border-radius:11px;}
+ .pin-image-steps {padding:15px;border-radius:17px;}
+ .pin-image-steps h2 {font-size:22px;}
+ .pin-studio-next {display:grid;grid-template-columns:1fr;margin-bottom:20px;}
+ .pin-studio-next .button {width:100%;white-space:normal;}
+ .pin-studio-stage .prompt-actions {display:grid;grid-template-columns:1fr;}
+ .pin-studio-stage .prompt-actions .button {width:100%;text-align:center;}
+ .pin-studio-stage .image-methods {padding:14px!important;}
+ .guided-review-shortcuts {grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media(prefers-reduced-motion:reduce){.pin-studio-stage{animation:none;}}
