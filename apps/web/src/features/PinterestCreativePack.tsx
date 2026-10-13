@@ -327,7 +327,7 @@ export function PinterestCreativePackPanel({
       <div>
         <p className="eyebrow">SEO</p>
         <h3>{t('keywords')}</h3>
-        <div className="keyword-cloud">{pack.copy.keywords.map((keyword)=><span key={keyword}>{keyword}</span>)}</div>
+        <div className="keyword-cloud">{pack.copy.keywords.filter(safe).map((keyword)=><span key={keyword}>{keyword}</span>)}</div>
       </div>
       <div>
         <p className="eyebrow">PRODUCT TRUTH</p>
