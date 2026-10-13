@@ -43,6 +43,24 @@ const forbiddenClaimPatterns = [
   /100%\s+garant/i,
 ];
 
+/**
+ * High-confidence, unverified performance or health promises. Product titles,
+ * OCR and AI output are not independent performance evidence; leave such claims
+ * out until a separate, verifiable source contract is implemented.
+ * This check also protects older saved campaigns at publication time.
+ */
+export function detectUnsupportedPinClaims(value: string): string[] {
+  const rules: Array<[string, RegExp]> = [
+    ['Preparo sem óleo não comprovado', /\\b(?:cozinh\\w*\\s+sem\\s+[óo]leo|sem\\s+(?:a\\s+)?necessidade\\s+de\\s+[óo]leo|dispensa\\s+(?:o\\s+)?[óo]leo)\\b/i],
+    ['Benefício de saúde não comprovado', /\\b(?:refei[cç][oõ]es?|alimentos|preparo|comida|cozinh\\w*)[^.!?]{0,65}\\bsaud[aá]ve(?:is|l)\\b/i],
+    ['Desempenho térmico não comprovado', /\\b(?:calor\\s+(?:de\\s+)?(?:maneira\\s+)?uniforme|(?:mant[eé]m|mantendo|distribui)\\s+(?:o\\s+)?calor|aquecimento\\s+uniforme)\\b/i],
+    ['Ergonomia não comprovada', /\\b(?:design\\s+ergon[oô]mico|ergon[oô]mic\\w*\\s+(?:garante|proporciona)|garante\\s+conforto)\\b/i],
+    ['Resistência ou durabilidade não comprovada', /\\b(?:leves?\\s*,?\\s*mas\\s+resistentes?|(?:extra|muito)\\s+resistentes?|durabilidade\\s+(?:garantida|superior)|anti[- ]?risco)\\b/i],
+    ['Economia de tempo ou limpeza não comprovada', /\\b(?:economiz\\w*\\s+(?:seu\\s+)?tempo|facilit\\w*\\s+a\\s+limpeza|f[aá]cil\\s+de\\s+limpar|limpeza\\s+sem\\s+esfor[cç]o)\\b/i],
+  ];
+  return rules.filter(([, pattern])=>pattern.test(value)).map(([reason])=>reason);
+}
+
 function worst(outcomes: ComplianceOutcome[]): ComplianceOutcome {
   if (outcomes.includes('BLOCK')) return 'BLOCK';
   if (outcomes.includes('WARN')) return 'WARN';
@@ -268,10 +286,14 @@ export function runPublishingGuard(input: GuardInput): GuardResult {
   );
 
   const text = `${input.headline} ${input.description}`;
+  const unsupportedClaims=detectUnsupportedPinClaims(text);
+  const blockedClaims=forbiddenClaimPatterns.some((pattern)=>pattern.test(text)) || unsupportedClaims.length>0;
   push(
     'claims',
-    forbiddenClaimPatterns.some((pattern) => pattern.test(text)) ? 'BLOCK' : 'PASS',
-    'Claims comerciais revisados.',
+    blockedClaims ? 'BLOCK' : 'PASS',
+    blockedClaims
+      ? 'Remova afirmações não comprovadas antes de publicar: '+(unsupportedClaims.join('; ') || 'alegação promocional ou absoluta')+'.'
+      : 'Sem promessas de desempenho não comprovadas identificadas.',
   );
 
   const similarity = input.duplicateSimilarity ?? 0;
