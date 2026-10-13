@@ -1407,7 +1407,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       },
       history: [],
     };
-    if(autoPrepare && product.title.source!=='link-only-pending'){
+    // Every identified Radar product receives usable copy and image prompts.
+    // This does NOT certify the product, commission or image rights.
+    if(product.title.source!=='link-only-pending'){
       // Deterministic zero-cost Pinterest package (titles, descriptions, boards,
       // three angles and prompts). A truthful finished image still requires an
       // authorized product reference / user confirmation in the review stage.
@@ -1832,9 +1834,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               <div className="opportunity-actions">
                 <ProductSourceActions product={product} compact />
                 <button className="button secondary" onClick={()=>prepareAffiliate(opportunity)}>{t('affiliatePrep')}</button>
-                <button className="button primary" disabled={!editable || (!FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED && Boolean(assessment && assessment.track!=='VALIDATED'))} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED && v4ById[opportunity.id]?.status!=='READY_NOW'
- ? (locale==='pt-BR'?'Criar rascunho de pesquisa':'Create research draft')
- : assessment && assessment.track!=='VALIDATED' ? t('r3ReviewFirst') : (locale==='pt-BR'?'Escolher produto e preparar Pin →':locale==='es'?'Elegir producto y preparar Pin →':'Choose product and prepare Pin →')}</button>
+                <button className="button primary" disabled={!editable} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{locale==='pt-BR'?'Criar Pin com este produto →':locale==='es'?'Crear Pin con este producto →':'Create Pin with this product →'}</button>
               </div>
             </div>
           </article>
