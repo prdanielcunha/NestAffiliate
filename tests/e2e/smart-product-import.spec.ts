@@ -54,6 +54,7 @@ test('Smart Import preserves an unresolved meli.la affiliate link without claimi
  await expect(page).toHaveURL(/\/radar/);
  await smart.getByRole('button',{name:/Salvar link como rascunho/}).click();
  await expect(page).toHaveURL(/\/review\/campaign-/);
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://meli.la/2GDhhKL');
  await expect(page.getByText(/produto ainda não identificado|identificação pendente/i).first()).toBeVisible();
 });
@@ -67,7 +68,7 @@ test('Shopee canonical link resolves an exact official item and preserves offici
  await expect(page).toHaveURL(/\/review\/campaign-/);
  await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://s.shopee.com.br/98765001');
- await expect(page.getByText('Organizador Giratório Multiuso Shopee').first()).toBeVisible();
+ await expect(page.locator('#review-product').getByText('Organizador Giratório Multiuso Shopee').first()).toBeVisible();
  await page.getByRole('button',{name:'2 · Imagem'}).click();
  await expect(page.locator('.pin-image-steps')).toBeVisible();
  await expect(page.locator('.image-prompt-panel')).toBeVisible();
@@ -87,7 +88,7 @@ test('Opaque Shopee affiliate shortlink stays as a pending draft, never masquera
  await expect(page).toHaveURL(/\/review\/campaign-/);
  await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await expect(page.getByRole('textbox',{name:'Link afiliado'})).toHaveValue('https://s.shopee.com.br/abc123');
- await expect(page.getByText(/identificação pendente/i).first()).toBeVisible();
+ await expect(page.locator('#review-product').getByText(/identificação pendente/i).first()).toBeVisible();
 });
 
 test('mobile review starts with copy, next action and collapsed detailed journey, without blocking on NestAI',async({page})=>{
