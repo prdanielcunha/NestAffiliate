@@ -140,7 +140,7 @@ export function InlinePinCopyChooser({campaign,editable,onUpdate,onClose,onCompl
       <button type="button" className="button secondary" onClick={()=>onCopyDescription(description)}>{txt(locale,'Copiar descrição','Copy description','Copiar descripción')}</button></div>
     </div>}
     <div className="inline-copy-footer">
-      <button className="button secondary" type="button" onClick={onClose} disabled={saving}>{txt(locale,'Voltar sem alterar','Cancel changes','Cancelar cambios')}</button>
+      <button className="button secondary" type="button" onClick={onClose} disabled={saving}>{applied?txt(locale,'Concluir e fechar','Done, close','Finalizar y cerrar'):txt(locale,'Voltar sem alterar','Cancel changes','Cancelar cambios')}</button>
       <button className="button primary" type="button" onClick={()=>void apply()} disabled={!valid||applied}>
         {saving?txt(locale,'Salvando…','Saving…','Guardando…'):applied?txt(locale,'Textos aplicados ✓','Copy applied ✓','Textos aplicados ✓'):txt(locale,'Aplicar título e descrição','Apply title and description','Aplicar título y descripción')}
       </button>
