@@ -32,12 +32,9 @@ test('review copy button opens choices in place without anchor teleport',async({
 test('review image shortcut gives explicit location and return action',async({page})=>{
   await page.goto('/');
   await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
-  const shortcuts=page.getByRole('navigation',{name:'Ir para uma tarefa'});
-  await shortcuts.getByRole('link',{name:'Imagem',exact:true}).click();
-  const guide=page.locator('.review-location-guide');
-  await expect(guide).toBeVisible();
-  await expect(guide).toContainText(/Você está em:/);
-  await guide.getByRole('button',{name:/Voltar às ações/i}).click();
-  await expect(guide).toHaveCount(0);
+  await page.getByRole('button',{name:'2 · Imagem'}).click();
+  await expect(page.locator('.pin-image-steps')).toBeVisible();
+  await expect(page.locator('.pin-studio-tabs button.active')).toContainText('Imagem');
+  await page.getByRole('button',{name:'1 · Textos'}).click();
   await expect(page.locator('#review-next-action')).toBeInViewport();
 });

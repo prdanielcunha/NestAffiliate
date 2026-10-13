@@ -227,6 +227,40 @@ export function PinterestCreativePackPanel({
       </div>
     </header>
 
+    <div className="pack-section image-methods" id="review-images">
+      <div className="section-heading">
+        <div><p className="eyebrow">{locale==='pt-BR'?'ETAPA 2 · IMAGEM':locale==='es'?'PASO 2 · IMAGEN':'STEP 2 · IMAGE'}</p>
+         <h3>{locale==='pt-BR'?'Como deseja preparar seu Pin?':locale==='es'?'¿Cómo crear la imagen?':'How would you like to prepare your Pin?'}</h3>
+         <p>{locale==='pt-BR'?'Primeiro copie o prompt e abra o ChatGPT. Depois importe o resultado final aqui. Compor sem IA é uma alternativa.':'Copy the prompt, create the image externally, then import the final result here.'}</p>
+        </div>
+      </div>
+      <details className="creative-image-method" open>
+        <summary><strong>{locale==='pt-BR'?'1. Copiar prompt e abrir ChatGPT':locale==='es'?'Crear con ChatGPT' : '1. Copy prompt and open ChatGPT'}</strong>
+          <span>{locale==='pt-BR'?'A foto ORIGINAL é anexada diretamente no ChatGPT, não aqui':locale==='es'?'Foto autorizada, prompt y resultado':'Authorized photo, prompt and import'}</span></summary>
+        <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true} />
+      </details>
+      <details className="creative-image-method">
+        <summary><strong>{locale==='pt-BR'?'Compor imagem sem IA':locale==='es'?'Componer sin IA':'Compose without AI'}</strong>
+          <span>{locale==='pt-BR'?'Foto licenciada e editor local 1000 × 1500':locale==='es'?'Foto autorizada y composición local':'Authorized photo and local compositor'}</span></summary>
+        <LocalPinComposer campaign={campaign} pack={pack} reference={reference}
+          disabled={!editable} onImported={importAsset}/>
+      </details>
+      <details className="creative-image-method" open>
+        <summary><strong>{locale==='pt-BR'?'2. Importar imagem final gerada':locale==='es'?'Importar imagen' : '2. Import the final generated image'}</strong>
+          <span>{locale==='pt-BR'?'Aqui você envia SOMENTE a imagem FINAL criada no ChatGPT':locale==='es'?'Importa y comprueba el producto':'Upload, verify and save'}</span></summary>
+        <AIImageImport
+          organizationId={campaign.organizationId}
+          campaignId={campaign.id}
+          pack={pack}
+          product={campaign.currentVersion.product}
+          reference={reference}
+          referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true}
+          disabled={!editable}
+          onImported={importAsset}
+        />
+      </details>
+    </div>
+
     {saveError&&<div className="notice danger" role="alert">{locale==='pt-BR'?'Não foi possível sincronizar o Creative Pack. Suas opções continuam na tela.':'Creative Pack sync failed; current copy remains on screen.'}<button type="button" className="button secondary" disabled={saving} onClick={()=>{setSaving(true);void persist(pack);}}>{locale==='pt-BR'?'Tentar salvar novamente':'Retry save'}</button></div>}
     <details className="pack-advanced-details"><summary>{locale==='pt-BR'?'Ver dados, qualidade e SEO':locale==='es'?'Ver datos, calidad y SEO':'View data, quality and SEO'}</summary>
     <div className="pack-summary-grid">
@@ -279,40 +313,6 @@ export function PinterestCreativePackPanel({
       <p className="field-hint" role="note">{locale==='pt-BR'?'Escolher um visual muda apenas a composição e o prompt da imagem; seus títulos e descrições continuam iguais.':locale==='es'?'Cambiar el diseño no modifica los títulos ni las descripciones.':'Choosing a visual changes only the image direction, never the selected copy.'}</p>
       <p className="field-hint">{locale==='pt-BR'?'No celular, deslize para comparar os três estilos.':'Swipe to compare all three visual styles on mobile.'}</p>
       <CreativeConceptPicker pack={pack} version={campaign.currentVersion} disabled={!editable || saving} onSelect={selectConcept} />
-    </div>
-
-    <div className="pack-section image-methods" id="review-images">
-      <div className="section-heading">
-        <div><p className="eyebrow">{locale==='pt-BR'?'ETAPA 4 · IMAGEM':locale==='es'?'PASO 4 · IMAGEN':'STEP 4 · IMAGE'}</p>
-         <h3>{locale==='pt-BR'?'Como deseja preparar seu Pin?':locale==='es'?'¿Cómo crear la imagen?':'How would you like to prepare your Pin?'}</h3>
-         <p>{locale==='pt-BR'?'Escolha um caminho. Os outros ficam guardados para quando precisar.':'Choose one path. Others remain available.'}</p>
-        </div>
-      </div>
-      <details className="creative-image-method">
-        <summary><strong>{locale==='pt-BR'?'Gerar imagem com ChatGPT':locale==='es'?'Crear con ChatGPT':'Create with ChatGPT'}</strong>
-          <span>{locale==='pt-BR'?'Usar foto autorizada, copiar o prompt e importar o resultado':locale==='es'?'Foto autorizada, prompt y resultado':'Authorized photo, prompt and import'}</span></summary>
-        <ImagePromptPanel key={campaign.currentVersion.product.externalId} pack={pack} product={campaign.currentVersion.product} reference={reference} onReferenceChange={setReference} referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true} />
-      </details>
-      <details className="creative-image-method">
-        <summary><strong>{locale==='pt-BR'?'Compor imagem sem IA':locale==='es'?'Componer sin IA':'Compose without AI'}</strong>
-          <span>{locale==='pt-BR'?'Foto licenciada e editor local 1000 × 1500':locale==='es'?'Foto autorizada y composición local':'Authorized photo and local compositor'}</span></summary>
-        <LocalPinComposer campaign={campaign} pack={pack} reference={reference}
-          disabled={!editable} onImported={importAsset}/>
-      </details>
-      <details className="creative-image-method">
-        <summary><strong>{locale==='pt-BR'?'Importar imagem pronta':locale==='es'?'Importar imagen':'Import a finished image'}</strong>
-          <span>{locale==='pt-BR'?'Envie, confira fidelidade e salve a versão final':locale==='es'?'Importa y comprueba el producto':'Upload, verify and save'}</span></summary>
-        <AIImageImport
-          organizationId={campaign.organizationId}
-          campaignId={campaign.id}
-          pack={pack}
-          product={campaign.currentVersion.product}
-          reference={reference}
-          referenceLockRequired={campaign.rankingContext?.v4ResearchDraft===true}
-          disabled={!editable}
-          onImported={importAsset}
-        />
-      </details>
     </div>
 
     <details className="pack-technical-details">

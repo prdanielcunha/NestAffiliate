@@ -247,11 +247,11 @@ export function AIImageImport({
         <p>{t('importGeneratedImageBody')}</p>
       </div>
       <div className="import-result-row">
-        <button className="button" type="button" disabled={disabled || busy || !user || v4} onClick={()=>void generateWithNestAi()}>
+        {!v4&&<button className="button secondary" type="button" disabled={disabled || busy || !user} onClick={()=>void generateWithNestAi()}>
           {busy?t('generatingWithNestAi'):t('generateWithNestAi')}
-        </button>
+        </button>}
         <button className="button secondary" type="button" disabled={disabled || busy} onClick={()=>inputRef.current?.click()}>
-          {prepared?t('replaceImage'):t('selectImage')}
+          {prepared?t('replaceImage'):(locale==='pt-BR'?'Selecionar imagem FINAL':locale==='es'?'Seleccionar imagen FINAL':'Select FINAL image')}
         </button>
       </div>
       <input
@@ -279,7 +279,9 @@ export function AIImageImport({
 
     {error && <p className="field-error">{error}</p>}
 
-    {v4&&<p className="field-hint">{locale==='pt-BR'?'3. Importe a imagem FINAL, não a foto original. Confira lado a lado antes de aprovar. NestAI não recebe a foto e fica desabilitado neste modo.':locale==='es'?'3. Importe la imagen FINAL, no la fotografía de referencia. Compare ambas antes de aprobar. NestAI está desactivado en este modo.':'3. Import the FINAL generated image, not the original reference. Compare them side by side before approval. NestAI is disabled in this mode.'}</p>}
+    <p className="field-hint" role="note">{locale==='pt-BR'
+      ?'Envie AQUI somente a imagem final que você baixou do ChatGPT. A imagem original é anexada no ChatGPT. Para anúncios sem comprovação, será necessária também uma referência autorizada para comparar antes da aprovação.'
+      :locale==='es'?'Sube aquí solo la imagen final. La foto original se adjunta en ChatGPT; puede requerirse referencia para la revisión.':'Upload only the final generated image here. Attach the original in ChatGPT; a verified reference may be needed for final review.'}</p>
     {prepared && <div className="image-import-preview">
       <div>
         <img src={prepared.previewUrl} alt={t('generatedImagePreview')} />

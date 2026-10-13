@@ -47,9 +47,10 @@ test.describe('Radar 4.0 opt-in design and gates',()=>{
     await page.goto('/radar');
     await page.getByRole('button',{name:'Mercado Livre',exact:true}).click();
     await page.getByRole('button',{name:'Analisar produtos'}).click();
-    await page.getByRole('button',{name:'Criar rascunho de pesquisa'}).first().click();
+    await page.getByRole('button',{name:'Criar Pin com este produto →'}).first().click();
     await expect(page).toHaveURL(/\/review\/campaign-/);
+    await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
     await expect(page.getByRole('link',{name:'Abrir anúncio original'})).toBeVisible();
-    await expect(page.getByText('RIGHTS UNKNOWN')).toBeVisible();
+    await expect(page.getByRole('region',{name:'Origem do produto'}).getByText('RIGHTS UNKNOWN')).toBeVisible();
   });
 });
