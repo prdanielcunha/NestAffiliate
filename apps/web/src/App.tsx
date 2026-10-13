@@ -700,14 +700,30 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
     t('queueStable');
   return (
     <div className="page today-page">
-      <PremiumHomeHero counts={{
-        products:productCount,
-        campaigns:campaigns.length,
-        waiting:campaigns.filter(item=>item.status==='READY'||item.status==='BLOCKED').length,
-        published:campaigns.filter(item=>item.status==='PUBLISHED').length,
-      }}>
-        <NextBestAction campaigns={campaigns} schedules={schedules} agentReport={agentReport}/>
-      </PremiumHomeHero>
+      {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? (
+        <PremiumHomeHero counts={{
+          products:productCount,
+          campaigns:campaigns.length,
+          waiting:campaigns.filter(item=>item.status==='READY'||item.status==='BLOCKED').length,
+          published:campaigns.filter(item=>item.status==='PUBLISHED').length,
+        }}>
+          <NextBestAction campaigns={campaigns} schedules={schedules} agentReport={agentReport}/>
+        </PremiumHomeHero>
+      ) : (
+        <section className="hero">
+          <p className="eyebrow">{t('today').toUpperCase()}</p>
+          <h1>{t('workedForYou')}</h1>
+          <p className="hero-sub">{t('heroSub')}</p>
+          <div className="stat-row">
+            <Stat value={String(productCount)} label={t('productsInCampaigns')}/>
+            <Stat value={String(campaigns.length)} label={t('opportunitiesSaved')}/>
+            <Stat value={String(ready.length)} label={t('ready')}/>
+          </div>
+          <NavLink to={ready[0]?'/review/'+ready[0].id:'/radar'} className="button primary hero-cta">
+            {ready.length?t('reviewCount',{n:ready.length}):t('findOpportunities')}
+          </NavLink>
+        </section>
+      )}
       <section className="section">
         <div className="section-heading"><h2>{t('needsYou')}</h2><span>{ready.length ? '~2 min' : t('allDone')}</span></div>
         {ready.length ? (
