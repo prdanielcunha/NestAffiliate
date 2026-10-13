@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Premium Home — evidence-first UX',()=>{
+test.describe('Revenue 3 Premium Home — evidence-first UX',()=>{
   test.skip(process.env.VITE_REVENUE_RADAR_3_ENABLED!=='true','Premium Home requires Revenue 3 flag');
 
   test('keeps the next action and real campaign counts visible',async({page})=>{
