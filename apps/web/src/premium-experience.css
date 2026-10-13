@@ -422,3 +422,16 @@ button, a { touch-action:manipulation; }
   .review-location-guide span {flex:1 0 calc(100% - 60px);}
   .review-location-guide .review-location-return {flex:1;}
 }
+
+.inline-copy-applied {
+  padding:15px 16px;border:1px solid var(--border-strong);border-radius:14px;
+  background:var(--accent-soft);display:grid;gap:7px;
+}
+.inline-copy-applied strong {color:var(--text);font-size:14px;}
+.inline-copy-applied p {font-size:13px;line-height:1.6;color:var(--muted);margin:0;}
+.inline-copy-applied>div {display:flex;flex-wrap:wrap;gap:9px;}
+.inline-copy-applied .button {min-height:44px;}
+@media(max-width:720px){
+ .inline-copy-applied>div {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+ .inline-copy-applied .button {white-space:normal;font-size:12px;padding:9px;}
+}
