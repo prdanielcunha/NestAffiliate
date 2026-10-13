@@ -748,7 +748,7 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
         </section>
       )}
       <details className="home-research-disclosure">
-        <summary><span>${locale==='pt-BR'?'INTELIGÊNCIA DE MERCADO':locale==='es'?'INTELIGENCIA DE MERCADO':'MARKET INTELLIGENCE'}</span><strong>${locale==='pt-BR'?'Ver pesquisa e fontes verificáveis':locale==='es'?'Ver investigación y fuentes':'View research and source evidence'}</strong><small>${locale==='pt-BR'?'Dados técnicos sob demanda · Sem promessas de vendas':locale==='es'?'Datos técnicos bajo demanda':'Technical evidence on demand'}</small></summary>
+        <summary><span>{locale==='pt-BR'?'INTELIGÊNCIA DE MERCADO':locale==='es'?'INTELIGENCIA DE MERCADO':'MARKET INTELLIGENCE'}</span><strong>{locale==='pt-BR'?'Ver pesquisa e fontes verificáveis':locale==='es'?'Ver investigación y fuentes':'View research and source evidence'}</strong><small>{locale==='pt-BR'?'Dados técnicos sob demanda · Sem promessas de vendas':locale==='es'?'Datos técnicos bajo demanda':'Technical evidence on demand'}</small></summary>
       {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && <section className="today-research-section" aria-label={locale==='pt-BR'?'Evidências do Radar 4.0':locale==='es'?'Evidencia del Radar 4.0':'Radar 4.0 evidence'}>
         <div className="today-research-top">
           <div>
@@ -783,9 +783,9 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
       </section>}
       </details>
       <details className="home-operation-disclosure">
-        <summary><span className="eyebrow">${locale==='pt-BR'?'OPERAÇÃO E CUSTOS':locale==='es'?'OPERACIÓN Y COSTOS':'OPERATIONS AND COSTS'}</span>
-          <strong>${locale==='pt-BR'?'Acompanhe a atividade do agente':locale==='es'?'Consulta la actividad del agente':'View agent activity'}</strong>
-          <small>${agentHealthLabel} · ${FEATURE_FLAGS.PAID_SERVICES_DISABLED?'APIs pagas OFF':'Custos monitorados'}</small></summary>
+        <summary><span className="eyebrow">{locale==='pt-BR'?'OPERAÇÃO E CUSTOS':locale==='es'?'OPERACIÓN Y COSTOS':'OPERATIONS AND COSTS'}</span>
+          <strong>{locale==='pt-BR'?'Acompanhe a atividade do agente':locale==='es'?'Consulta la actividad del agente':'View agent activity'}</strong>
+          <small>{agentHealthLabel} · {FEATURE_FLAGS.PAID_SERVICES_DISABLED?'APIs pagas OFF':'Custos monitorados'}</small></summary>
       <section className="two-col">
         <div className="surface">
           <p className="eyebrow">{t('whileAway')}</p>
