@@ -15,6 +15,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  live-runtime-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read only - public deployed Firebase web identity and Enterprise key
+        run: python3 scripts/diagnose-production-appcheck.py
   validate:
     runs-on: ubuntu-latest
     steps:
