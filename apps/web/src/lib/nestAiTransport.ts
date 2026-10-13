@@ -76,6 +76,22 @@ export function observedNestAiFetch(fetchImpl:typeof fetch):typeof fetch {
 /** Safe to display or paste into support; no URL, JWT, product title or provider payload. */
 export function aiSupportDiagnostic(error:unknown,requestId?:string):string{
  const e=error instanceof Error?error:new Error('UNKNOWN');
+ // Only normalized client-side App Check codes may flow to support UI.
+ // The original FirebaseError can carry sensitive URL/body text and is dropped.
+ const normalized=e.message.match(/^APP_CHECK_([A-Z_]+?)(?:_HTTP_([4-5][0-9]{2}))?$/);
+ if(normalized){
+   const category=normalized[1]??'SDK_UNKNOWN';
+   const aliases:Record<string,string>={
+     RECAPTCHA_ERROR:'RECAPTCHA',
+     INITIAL_THROTTLE:'THROTTLED',
+     THROTTLED:'THROTTLED',
+     EXCHANGE_REJECTED:'EXCHANGE_REJECTED',
+     EXCHANGE_NETWORK:'EXCHANGE_NETWORK',
+     INITIALIZATION_FAILED:'INITIALIZATION',
+   };
+   const safe=aliases[category]??category;
+   return 'app_check / '+safe+(normalized[2]?' · http='+normalized[2]:'');
+ }
  const stage=e instanceof NestAiStageError?e.stage:
     /APP_?CHECK|RECAPTCHA/i.test(e.message)?'app_check':
     /^SDK_HUB|HUB_/.test(e.message)?'hub_token':'nestai_request';
