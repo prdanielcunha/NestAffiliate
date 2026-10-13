@@ -5,6 +5,7 @@ test('Today → Review → edit → approve → guided publish', async ({ page }
   await expect(page.getByRole('heading', { name: 'NestAffiliate trabalhou por você.' })).toBeVisible();
 
   await page.getByRole('link', { name: /Revisar 3 campanhas/i }).click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
   await expect(page.getByText('PIN PREVIEW')).toBeVisible();
   await expect(page.locator('.score-badge')).toBeVisible();
 
@@ -38,6 +39,7 @@ test('mobile exposes the four primary destinations', async ({ page }, testInfo) 
 test('creative preview preserves Pinterest 2:3 output contract', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: /Revisar 3 campanhas/i }).click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
   const canvas=page.locator('canvas.pin-canvas');
   await expect(canvas).toBeVisible();
   await expect(canvas).toHaveAttribute('width','1000');
@@ -72,6 +74,7 @@ test('review is usable without horizontal overflow on mobile', async ({ page }, 
   test.skip(testInfo.project.name !== 'mobile');
   await page.goto('/');
   await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
   const sizes=await page.evaluate(()=>({
     scrollWidth:document.documentElement.scrollWidth,
     clientWidth:document.documentElement.clientWidth,
@@ -84,6 +87,7 @@ test('review is usable without horizontal overflow on mobile', async ({ page }, 
 test('scheduled publication returns to Today as an upcoming action', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: /Revisar 3 campanhas/i }).click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
   await page.getByRole('button', { name: 'Aprovar e ir para publicação →' }).click();
   await expect(page.getByRole('heading', { name: 'Seu Pin está pronto.' })).toBeVisible();
 
@@ -100,6 +104,7 @@ test('scheduled publication returns to Today as an upcoming action', async ({ pa
 test('Review can prepare a full Pinterest Creative Pack and blocks approval until the generated image is validated', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: /Revisar 3 campanhas/i }).click();
+ await page.getByRole('button',{name:'2 · Imagem'}).click();
 
   await expect(page.getByRole('heading', { name: 'Transforme este produto em um Pin completo.' })).toBeVisible();
   await page.getByRole('button', { name: 'Preparar Pin', exact: true }).click();
@@ -108,9 +113,9 @@ test('Review can prepare a full Pinterest Creative Pack and blocks approval unti
   await expect(page.locator('.concept-card')).toHaveCount(3);
   // New progressive disclosure: keep the full-page review short on mobile.
   await expect(page.locator('.creative-image-method')).toHaveCount(3);
-  await page.locator('.creative-image-method').first().locator('summary').first().click();
+  // ChatGPT method is expanded by default in the guided image step.
   await expect(page.getByText('PROMPT DE IMAGEM')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Copiar e abrir ChatGPT' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Abrir ChatGPT/ })).toBeVisible();
   await expect(page.getByText('1000 × 1500', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: /Ver \d+ pendência\(s\) para aprovar/ }).click();
@@ -123,6 +128,7 @@ test('Review can prepare a full Pinterest Creative Pack and blocks approval unti
 test('unsupported creative command is explicit and cannot alter the campaign', async ({page})=>{
   await page.goto('/');
   await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
   const edit=page.getByPlaceholder(/Peça qualquer alteração/i);
   await edit.fill('Coloque um astronauta voando do lado da cadeira');
   await edit.press('Enter');
@@ -134,6 +140,7 @@ test('unsupported creative command is explicit and cannot alter the campaign', a
 test('final Pinterest screen explains every field and offers independent copy buttons',async({page})=>{
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await page.getByRole('button',{name:'Aprovar e ir para publicação →'}).click();
  const guide=page.getByRole('region',{name:'Dados para criar seu Pin'});
  await expect(guide).toBeVisible();
@@ -150,9 +157,11 @@ test('final Pinterest screen explains every field and offers independent copy bu
 test('custom ChatGPT image prompt preserves mandatory source rules in visible final prompt',async({page})=>{
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'2 · Imagem'}).click();
  await page.getByRole('button',{name:'Preparar Pin',exact:true}).click();
- await page.locator('.creative-image-method').first().locator('summary').first().click();
+ // ChatGPT method is already open.
  await page.getByLabel('Suas instruções extras para a IA (opcional)').fill('Luz natural suave, manter forma e cor da referência.');
+ await page.locator('.prompt-raw-details summary').click();
  const prompt=page.locator('.image-prompt-box');
  await expect(prompt).toContainText('Luz natural suave');
  await expect(page.getByText('Como gerar com seu ChatGPT (sem API)')).toBeVisible();
@@ -162,14 +171,18 @@ test('custom ChatGPT image prompt preserves mandatory source rules in visible fi
 test('Approval with incomplete creative shows actionable blockers and preserves campaign',async({page})=>{
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
+ await page.locator('.pin-expert-journey>summary').click();
  await expect(page.getByRole('region',{name:'Etapas para publicar seu Pin'})).toBeVisible();
  await expect(page.getByRole('region',{name:'Próxima ação e textos do Pin'})).toBeVisible();
  await expect(page.getByRole('region',{name:'Etapas para publicar seu Pin'}).locator('summary')).toContainText('Ver todas as etapas');
+ await page.getByRole('button',{name:'2 · Imagem'}).click();
  await page.getByRole('button',{name:'Preparar Pin',exact:true}).click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await page.getByRole('button',{name:/Ver \d+ pendência\(s\) para aprovar/}).click();
  const errors=page.locator('#review-blockers');
  await expect(errors).toContainText('ainda não foi realizada');
- await expect(errors.getByRole('link',{name:/Resolver esta etapa/}).first()).toHaveAttribute('href','#review-creative');
+ await expect(errors.getByRole('button',{name:/Ir para a etapa correta/}).first()).toBeVisible();
  await expect(page).toHaveURL(/\/review\//);
  await expect(page.locator('.save-state')).toContainText('v2');
  await page.goto('/campaigns');
@@ -178,6 +191,8 @@ test('Approval with incomplete creative shows actionable blockers and preserves 
 test('Review explains affiliate link source and image workflow without claiming automatic commission',async({page})=>{
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
+ await page.locator('.pin-expert-journey>summary').click();
  const guide=page.getByRole('region',{name:'Etapas para publicar seu Pin'});
  await guide.locator('summary').click();
  await expect(guide.getByText('Conferir link',{exact:true}).first()).toBeVisible();
@@ -190,6 +205,7 @@ test('Review explains affiliate link source and image workflow without claiming 
 test('Approved campaign list leads to publishing rather than a confusing review loop',async({page})=>{
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  await page.getByRole('button',{name:'Aprovar e ir para publicação →'}).click();
  await page.goto('/campaigns');
  await page.getByRole('button',{name:'Aprovadas'}).click();
@@ -201,6 +217,7 @@ test('Approved campaign list leads to publishing rather than a confusing review 
 test('Review shows NestAI copy as optional, safely previewed, never auto-approved',async({page})=>{
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:/Criar textos com NestAI \(opcional\)/}).click();
  const assist=page.getByRole('region',{name:'Criar textos com NestAI'});
  await expect(assist).toBeVisible();
  await expect(assist.getByRole('heading',{name:/Personalizar seus textos com IA/})).toBeVisible();
@@ -211,7 +228,10 @@ test('Review shows NestAI copy as optional, safely previewed, never auto-approve
 test('an incomplete Pin uses a visible requirement count instead of a misleading Approve button',async({page})=>{
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
+ await page.getByRole('button',{name:'2 · Imagem'}).click();
  await page.getByRole('button',{name:'Preparar Pin',exact:true}).click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
  const resolve=page.getByRole('button',{name:/Ver \d+ pendência\(s\) para aprovar/});
  await expect(resolve).toBeVisible();
  await resolve.click();
