@@ -5,16 +5,16 @@ import {classifyNestAiFailure} from '../../apps/web/src/lib/nestAiFailure';
 import {aiSupportDiagnostic} from '../../apps/web/src/lib/nestAiTransport';
 
 describe('App Check fail-closed initialization and Firebase SDK dummy tokens',()=>{
-  it('activates Enterprise App Check before creating Auth, Firestore or Storage',()=>{
+  it('starts Google Auth and Firestore before optional App Check challenge',()=>{
+    // Do not make login depend on a first-run reCAPTCHA Enterprise challenge.
     const source=readFileSync('apps/web/src/lib/firebase.ts','utf8');
     const init=source.indexOf('nestAiAppCheck = initializeAppCheck(firebaseApp,');
     const auth=source.indexOf('getAuth(firebaseApp)');
     const firestore=source.indexOf('getFirestore(firebaseApp)');
-    const storage=source.indexOf('getStorage(firebaseApp)');
-    expect(init).toBeGreaterThan(-1);
-    expect(init).toBeLessThan(auth);
-    expect(init).toBeLessThan(firestore);
-    expect(init).toBeLessThan(storage);
+    expect(init).toBeGreaterThan(auth);
+    expect(init).toBeGreaterThan(firestore);
+    expect(source).toContain('export async function getNestAffiliateAppCheckToken');
+    expect(source).not.toContain('let appCheckInitializationError: unknown');
   });
   it('rejects SDK dummy token with recaptcha-error rather than forwarding it',()=>{
     expect(()=>validatedAppCheckTokenResult({
