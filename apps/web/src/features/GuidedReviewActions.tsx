@@ -1,4 +1,5 @@
 import {useState} from 'react';
+import {InlinePinCopyChooser} from './InlinePinCopyChooser';
 import type {Campaign} from '@nestaffiliate/core';
 import {useI18n} from '../lib/i18n-context';
 import {inspectAffiliateAttestation,isMarketplaceAffiliateDestination,detectUnsupportedPinClaims} from '@nestaffiliate/compliance';
@@ -6,10 +7,13 @@ import {inspectAffiliateAttestation,isMarketplaceAffiliateDestination,detectUnsu
 function loc(locale:string,pt:string,en:string,es:string){
  return locale==='pt-BR'?pt:locale==='es'?es:en;
 }
-export function GuidedReviewActions({campaign}: {campaign:Campaign}){
+export function GuidedReviewActions({campaign,editable,onUpdate}: {campaign:Campaign;editable:boolean;onUpdate:(campaign:Campaign)=>void}){
  const {locale}=useI18n();
  const [copied,setCopied]=useState<'title'|'description'|null>(null);
  const [copyError,setCopyError]=useState(false);
+ const [copyEditorOpen,setCopyEditorOpen]=useState(false);
+ const [copyFeedback,setCopyFeedback]=useState<'synced'|'local'|null>(null);
+ const openCopyEditor=()=>{setCopyEditorOpen(true);setCopyFeedback(null);};
  const v=campaign.currentVersion;
  const shopee=v.product.marketplace==='SHOPEE';
  const hasAffiliate=!shopee && isMarketplaceAffiliateDestination(v.product.affiliateUrl?.value,'MELI')
@@ -53,20 +57,30 @@ export function GuidedReviewActions({campaign}: {campaign:Campaign}){
    else{setCopied(null);setCopyError(true);}
   }
  }
- return <section className="guided-review-actions" aria-label={loc(locale,'Próxima ação e textos do Pin','Next step and Pin text','Siguiente paso y textos')}>
+ return <section id="review-next-action" className="guided-review-actions" aria-label={loc(locale,'Próxima ação e textos do Pin','Next step and Pin text','Siguiente paso y textos')}>
   <div className="guided-review-top">
    <div><p className="eyebrow">{loc(locale,'SEU PIN · PRÓXIMA AÇÃO','YOUR PIN · NEXT ACTION','TU PIN · SIGUIENTE PASO')}</p>
     <h2>{current.name}</h2>
     <p>{loc(locale,'Sua campanha já está salva. Escolha uma ação abaixo; os detalhes ficam disponíveis quando precisar.','Your campaign is saved. Choose an action; details are available below.','Tu campaña está guardada. Elige una acción.')}</p>
    </div>
-   <a className="button primary guided-next-cta" href={current.target}>{current.name} →</a>
+   {current.target==="#review-copy-editor"
+    ?<button type="button" className="button primary guided-next-cta" onClick={openCopyEditor}>{current.name} →</button>
+    :<a className="button primary guided-next-cta" href={current.target}>{current.name} →</a>}
   </div>
+  {copyEditorOpen&&<InlinePinCopyChooser campaign={campaign} editable={editable} onUpdate={onUpdate}
+     onClose={()=>setCopyEditorOpen(false)} onComplete={synced=>{setCopyFeedback(synced?"synced":"local");setCopyEditorOpen(false);}}/>}
+  {copyFeedback&&<p className={copyFeedback==="local"?"guided-copy-sync-warning":"guided-copy-complete"} role="status">
+    {copyFeedback==="synced"
+     ?loc(locale,"Textos escolhidos e aplicados. Agora copie os campos abaixo ou continue para a imagem.","Selected copy applied. Copy the fields below or continue to the image.","Textos aplicados. Copia los campos o continúa con la imagen.")
+     :loc(locale,"Texto aplicado, mas a sincronização do Creative Pack não foi confirmada. Confira sua conexão antes de publicar.","Copy applied, but Creative Pack sync is unconfirmed. Check the connection before posting.","Textos aplicados, pero la sincronización no se confirmó.")}
+  </p>}
   {shopee&&<p className="guided-shopee-note">{loc(locale,
    'Shopee: a marcação de afiliado é conferida na publicação. Prepare os textos e a imagem agora.',
    'Shopee tagging is confirmed at publication. Prepare copy and image now.',
    'Shopee: la etiqueta se confirma al publicar. Prepara textos e imagen.')}</p>}
   <nav className="guided-review-shortcuts" aria-label={loc(locale,'Ir para uma tarefa','Jump to a task','Ir a una tarea')}>
-   <a href="#review-ai">{loc(locale,'Textos + IA','Copy + AI','Textos + IA')}</a>
+   <button type="button" onClick={openCopyEditor}>{loc(locale,'Escolher textos','Choose text','Elegir textos')}</button>
+   <a href="#review-ai">{loc(locale,'NestAI (opcional)','NestAI (optional)','NestAI (opcional)')}</a>
    <a href="#review-product">{loc(locale,'Link','Affiliate link','Enlace')}</a>
    <a href="#review-images">{loc(locale,'Imagem','Image','Imagen')}</a>
    <a href="#review-blockers">{loc(locale,'Aprovação','Approval','Aprobación')}</a>
@@ -75,7 +89,7 @@ export function GuidedReviewActions({campaign}: {campaign:Campaign}){
   {unsafeCopy&&<div className="guided-copy-truth-warning" role="alert">
    <strong>{loc(locale,'Texto salvo precisa de correção antes de publicar','Saved copy needs correction before publishing','El texto guardado requiere corrección')}</strong>
    <p>{loc(locale,'Encontramos promessas sobre o desempenho do produto que não foram comprovadas. O texto continua no histórico, mas não pode ser copiado para publicação até você escolher uma alternativa segura.','Unverified product performance claims were found. Choose a safe alternative before copying or publishing.','Encontramos afirmaciones sobre el producto sin verificar. Selecciona un texto seguro.')}</p>
-   <a href="#review-copy-editor">{loc(locale,'Escolher outros textos →','Choose another version →','Elegir otra opción →')}</a>
+   <button type="button" className="guided-choose-safe-text" onClick={openCopyEditor}>{loc(locale,'Escolher textos seguros aqui →','Choose safe text here →','Elegir texto seguro aquí →')}</button>
   </div>}
   <div className="guided-copy-preview">
    <div className="guided-copy-field">
