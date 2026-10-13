@@ -104,7 +104,7 @@ export function ImagePromptPanel({
       onChange={e=>{setExtraInstructions(e.target.value);setCopied(false);}}/>
      <small>{locale==='pt-BR'?'Você pode colar instruções próprias. Elas serão acrescentadas ao prompt protegido; não substituem a referência real autorizada.':locale==='es'?'Puedes pegar tus propias instrucciones, sin eliminar la referencia autorizada.':'Paste your own instructions here. They are appended to the protected prompt; the real licensed reference remains mandatory.'}</small>
    </div>
-   <pre className="prompt-box image-prompt-box">{fullPrompt}</pre>
+   <details className="prompt-raw-details"><summary>{locale==='pt-BR'?'Ver prompt completo (opcional)':locale==='es'?'Ver prompt completo':'View full prompt (optional)'}</summary><pre className="prompt-box image-prompt-box">{fullPrompt}</pre></details>
    <div className="chatgpt-bridge-steps">
       <strong>{locale==='pt-BR'?'Como gerar com seu ChatGPT (sem API)':locale==='es'?'Cómo generar con tu ChatGPT (sin API)':'Use your ChatGPT without an API'}</strong>
       <ol><li>{locale==='pt-BR'?'Clique em “Copiar e abrir ChatGPT” e cole o prompt na conversa.':locale==='es'?'Copia y abre ChatGPT, luego pega el prompt.':'Copy the prompt and open ChatGPT; paste the prompt.'}</li>
