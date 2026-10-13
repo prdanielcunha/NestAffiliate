@@ -80,7 +80,7 @@ export function aiSupportDiagnostic(error:unknown,requestId?:string):string{
  // The original FirebaseError can carry sensitive URL/body text and is dropped.
  const normalized=e.message.match(/^APP_CHECK_([A-Z_]+?)(?:_HTTP_([4-5][0-9]{2}))?$/);
  if(normalized){
-   const category=normalized[1];
+   const category=normalized[1]??'SDK_UNKNOWN';
    const aliases:Record<string,string>={
      RECAPTCHA_ERROR:'RECAPTCHA',
      INITIAL_THROTTLE:'THROTTLED',
