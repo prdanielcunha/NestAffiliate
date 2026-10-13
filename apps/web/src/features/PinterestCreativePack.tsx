@@ -240,7 +240,7 @@ export function PinterestCreativePackPanel({
     </details>
 
     <div className="pack-section" id="review-copy-editor">
-      <details className="pack-copy-details" open={campaign.currentVersion.creativeIntelligence?.origin!=='nestai'}>
+      <details className="pack-copy-details" open={campaign.currentVersion.creativeIntelligence?.origin!=='nestai'||detectUnsupportedPinClaims(campaign.currentVersion.narrative.pinterestTitle+' '+campaign.currentVersion.narrative.description).length>0}>
        <summary><strong>{locale==='pt-BR'?'Revisar e trocar textos do Pin':locale==='es'?'Revisar textos del Pin':'Review Pin copy'}</strong><span>{locale==='pt-BR'?'3 títulos e 3 descrições · escolha sem perder histórico':locale==='es'?'3 títulos y 3 descripciones':'3 titles and 3 descriptions'}</span></summary>
       <div className="copy-option-grid">
         <div>
