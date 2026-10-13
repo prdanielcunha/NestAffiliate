@@ -61,5 +61,6 @@ test('reduced motion preference keeps the application usable', async ({ page }) 
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'NestAffiliate trabalhou por você.' })).toBeVisible();
   await page.getByRole('link', { name: /Revisar 3 campanhas/i }).click();
+  await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
   await expect(page.getByText('PIN PREVIEW')).toBeVisible();
 });
