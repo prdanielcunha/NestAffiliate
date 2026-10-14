@@ -31,3 +31,11 @@
 .radar7-compare-option input{height:18px;width:18px}
 .radar7-compare-option input:disabled{cursor:not-allowed}
 @media(max-width:560px){.radar7-workbench{padding:12px}.radar7-toolbar{align-items:stretch}.radar7-toolbar label{flex-direction:column;align-items:stretch}.radar7-toolbar select{width:100%;max-width:none}.radar7-saved-actions{width:100%}}
+
+.radar7-interests,.radar7-interests label{display:grid;gap:7px}
+.radar7-interests{padding:13px 15px;border:1px solid var(--border);background:var(--surface2);border-radius:14px}
+.radar7-interests label{font-size:13px;font-weight:700}
+.radar7-interests select{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;min-height:44px;padding:8px 10px;max-width:430px}
+.radar7-interests small{color:var(--muted);line-height:1.5;font-size:12px}
+.radar7-workbench :is(button,select):focus-visible,.radar7-library :is(button,summary,a):focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.radar7-workbench *, .radar7-library *{scroll-behavior:auto!important;transition:none!important}}
