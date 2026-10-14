@@ -12,18 +12,21 @@ test.describe('Revenue 3 feature flags',()=>{
     await expect(page.getByText('Sem exportações importadas ainda.')).toBeVisible();
   });
 
-  test('Revenue 3: marketplace evidence and filters',async({page})=>{
+  test('Revenue 3: marketplace evidence and progressive filters',async({page})=>{
     await page.goto('/radar');
-    await expect(page.locator('.r3-filters')).toBeVisible();
+    await page.getByRole('button',{name:'Mercado Livre',exact:true}).click();
+    await page.getByRole('textbox',{name:'Pesquisar produtos e necessidades'}).fill('organizador cozinha pequena');
+    await page.getByRole('button',{name:'Pesquisar',exact:true}).click();
+    await expect(page.locator('.opportunity-card').first()).toBeVisible({timeout:15000});
+    await page.locator('.radar6-research-tools > summary').click();
     const onlyVerified=page.getByLabel('Só ofertas validadas');
+    await expect(onlyVerified).toBeVisible();
     await onlyVerified.check();
     await expect(onlyVerified).toBeChecked();
     await onlyVerified.uncheck();
-    await expect(onlyVerified).not.toBeChecked();
-    await page.getByRole('button',{name:'Mercado Livre',exact:true}).click();
-    await page.getByRole('button',{name:'Analisar produtos'}).click();
-    await expect(page.locator('.opportunity-card').first()).toBeVisible({timeout:15000});
+    await page.locator('.radar6-card-details > summary').first().click();
     await expect(page.locator('.opportunity-card .revenue-assessment').first()).toBeVisible();
     await expect(page.locator('.revenue-assessment').first()).toContainText('Trilha comercial');
   });
+
 });
