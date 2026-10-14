@@ -39,3 +39,7 @@
 .radar7-interests small{color:var(--muted);line-height:1.5;font-size:12px}
 .radar7-workbench :is(button,select):focus-visible,.radar7-library :is(button,summary,a):focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 @media(prefers-reduced-motion:reduce){.radar7-workbench *, .radar7-library *{scroll-behavior:auto!important;transition:none!important}}
+
+.radar7-next-step{margin:12px 0 2px;padding:10px 12px;border-left:3px solid var(--accent);background:var(--surface2);border-radius:4px 10px 10px 4px;display:grid;gap:4px}
+.radar7-next-step strong{font-size:12px}
+.radar7-next-step span{font-size:13px;line-height:1.5;color:var(--muted)}
