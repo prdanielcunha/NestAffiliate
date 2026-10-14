@@ -47,7 +47,7 @@ export function RadarResearchLibrary({recent,saved,preferred,syncEnabled,syncAva
           </button>
           <button type="button" className="text-button" disabled={!syncAvailable} onClick={()=>{
             const question=en?'Delete the cloud copy? Research on this device will stay.':es?'¿Eliminar copia en la nube? Se conservan los datos locales.':'Excluir sua cópia na nuvem? As pesquisas deste dispositivo serão preservadas.';
-            if(window.confirm(question))void onDeleteSyncedCopy().catch(()=>onSyncNow());
+            if(window.confirm(question))void onDeleteSyncedCopy().catch(()=>window.alert(en?'Could not delete the cloud copy. Try again.':es?'No se pudo borrar la copia. Inténtalo de nuevo.':'Não foi possível excluir a cópia na nuvem. Tente novamente.'));
           }}>{en?'Delete cloud copy':es?'Eliminar copia de la nube':'Excluir cópia na nuvem'}</button>
         </div>}
         <small>{en?'Only this account can access the private cloud record. Concurrent edits use the latest saved version.':es?'Solo esta cuenta tiene acceso. En ediciones simultáneas prevalece la versión más reciente.':'Somente sua conta acessa a cópia privada. Se dois dispositivos editarem simultaneamente, prevalece a versão mais recente.'}</small>
