@@ -66,7 +66,8 @@ export function RadarDiscovery({
       const mkt = getMarketplace(signal.source);
       const signalGroup = getGroup(signal.source);
       const label = mkt === 'MELI' ? 'Mercado Livre' : mkt === 'SHOPEE' ? 'Shopee' : t('Fonte identificada', 'Identified source', 'Fuente identificada');
-      const evidence = label + ' · ' + new Date(signal.observedAt).toLocaleDateString(locale);
+      const when = Date.parse(signal.observedAt);
+      const evidence = label + (Number.isFinite(when) ? ' · ' + new Date(when).toLocaleDateString(locale) : '');
       all.push({id:'evidence-'+signal.id,keyword,title:keyword,group:signalGroup ?? 'recommended',marketplace:mkt,evidence});
       if (signalGroup) all.push({id:'recommend-'+signal.id,keyword,title:keyword,group:'recommended',marketplace:mkt,evidence});
     }
@@ -87,7 +88,6 @@ export function RadarDiscovery({
     });
   },[marketSignals, locale, language]);
 
-  const filtered = suggestions.filter(item => item.group === group && (marketplace === 'ALL' || !item.marketplace || item.marketplace === marketplace));
   const groups: Array<{id:SuggestionGroup;label:string}> = [
     {id:'recommended',label:t('Para você','For you','Para ti')},
     {id:'bestSellers',label:t('Mais vendidos','Best sellers','Más vendidos')},
