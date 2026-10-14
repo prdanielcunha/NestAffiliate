@@ -43,8 +43,9 @@ export function PerformancePanel({
 
   function save(){
     if(!campaignId || !editable) return;
+    const financialDeclared=[form.sales,form.revenue,form.commission].some(value=>value.trim().length>0);
     const row=normalizePerformanceInput({
-      organizationId,campaignId,source:'MANUAL',
+      organizationId,campaignId,source:'MANUAL',salesKnown:financialDeclared,
       impressions:Number(form.impressions),engagements:Number(form.engagements),saves:Number(form.saves),
       pinClicks:Number(form.pinClicks),outboundClicks:Number(form.outboundClicks),sales:Number(form.sales),
       revenue:Number(form.revenue),commission:Number(form.commission),
@@ -79,6 +80,11 @@ export function PerformancePanel({
       <p className="eyebrow">{t('importResult')}</p>
       <h2>{t('recordMetrics')}</h2>
       <p className="muted">{t('recordMetricsSub')}</p>
+      <p className="muted">{locale==='pt-BR'
+        ? 'Vendas, receita e comissão em branco significam dados desconhecidos, não zero vendas. Para registrar zero informado, digite 0. Estes valores são declarações manuais, não comprovantes do marketplace.'
+        : locale==='es'
+          ? 'Ventas, ingresos y comisión en blanco son desconocidos, no cero. Introduzca 0 solo si el resultado es conocido. Los valores manuales no son prueba del marketplace.'
+          : 'Blank sales, revenue and commission mean unknown, not zero. Enter 0 only for a known result. Manual entries are not verified marketplace statements.'}</p>
       <div className="form-grid">
         <label className="span-2">{t('campaign')}<select value={campaignId} onChange={(e)=>setCampaignId(e.target.value)}><option value="">{t('select')}</option>{published.map((c)=><option value={c.id} key={c.id}>{c.currentVersion.keyword} · v{c.currentVersion.version}</option>)}</select></label>
         {Object.entries(form).map(([key,value])=><label key={key}>{key}<input inputMode="decimal" value={value} onChange={(e)=>setForm((old)=>({...old,[key]:e.target.value}))} /></label>)}
