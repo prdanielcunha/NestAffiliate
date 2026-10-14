@@ -1083,8 +1083,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
 
   function marketSignalLabel(signal:CommerceSignal){
     if(signal.source==='MELI_BEST_SELLER') return t('marketBestSeller');
-    if(signal.source==='MELI_TREND_GROWTH') return t('marketGrowing');
-    if(signal.source==='MELI_TREND_DESIRED') return t('marketHighlySearched');
+    if(signal.source==='MELI_TREND_GROWTH' || signal.source==='MELI_TREND_DESIRED') return locale==='pt-BR'?'Tendência listada':locale==='es'?'Tendencia listada':'Listed trend';
     if(signal.source==='SHOPEE_SEARCH_ASSISTED') return t('shopeeSearchAssisted');
     if(signal.source==='SHOPEE_EXTRA_COMMISSION') return t('shopeeExtraCommission');
     if(signal.source==='SHOPEE_TOP_SALES') return t('shopeeTopSales');
