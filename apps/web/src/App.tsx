@@ -945,7 +945,6 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
   const [errorCode,setErrorCode]=useState('');
   const [hasSearched,setHasSearched]=useState(false);
-  const [activeIntentQuery,setActiveIntentQuery]=useState<string|null>(null);
   const [analysisNotice,setAnalysisNotice]=useState('');
   const [shopeeApiConfigured,setShopeeApiConfigured]=useState<boolean|null>(null);
   const [shopeeProviderFallback,setShopeeProviderFallback]=useState(false);
@@ -955,15 +954,19 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     sourceLimited:providerDegraded[opp.product.marketplace==='MELI'?'MELI':'SHOPEE'],
   })]));
   const v4Funnel=buildRadarFunnelV4(Object.values(v4ById),opportunities.length);
-  const visibleOpportunities=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
-    ? opportunities.filter((opportunity)=>{
-        const assessment=assessRevenueOpportunity(opportunity);
-        if(onlyValidated && assessment.track!=='VALIDATED')return false;
-        if(confirmedCommissionOnly && assessment.revenueConfidence==='UNKNOWN')return false;
-        if(authorizedAssetsOnly && !['AUTHORIZED','PLATFORM_PROVIDED','USER_PROVIDED','GENERATED'].includes(opportunity.product.assetRights))return false;
-        return true;
-      })
-    : opportunities;
+  const maxDisplayedPrice=maxPrice.trim()?Number(maxPrice.replace(',','.')):null;
+  const visibleOpportunities=opportunities.filter((opportunity)=>{
+    if(maxDisplayedPrice!==null && Number.isFinite(maxDisplayedPrice)
+      && opportunity.product.price && opportunity.product.price.value>maxDisplayedPrice)return false;
+    if(requireImage && !opportunity.product.imageUrl)return false;
+    if(FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED){
+      const assessment=assessRevenueOpportunity(opportunity);
+      if(onlyValidated && assessment.track!=='VALIDATED')return false;
+      if(confirmedCommissionOnly && assessment.revenueConfidence==='UNKNOWN')return false;
+      if(authorizedAssetsOnly && !['AUTHORIZED','PLATFORM_PROVIDED','USER_PROVIDED','GENERATED'].includes(opportunity.product.assetRights))return false;
+    }
+    return true;
+  });
   const shownOpportunities=FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4StatusFilter!=='ALL'
     ? visibleOpportunities.filter(opp=>v4ById[opp.id]?.status===v4StatusFilter)
     : visibleOpportunities;
@@ -1196,7 +1199,6 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         void recordRadarSignal({db:currentDb,organizationId,query:effectiveQuery,products:found}).catch(()=>undefined);
       }
 
-      const ceiling=maxPrice.trim() ? Number(maxPrice.replace(',','.')) : null;
       const snapshotResolver=signalResolverFromSnapshots(signalOverride ?? marketSignals);
       const ranked=shortlist(found,effectiveQuery,FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED?48:20,(product)=>{
         const stored=snapshotResolver(product,effectiveQuery);
@@ -1224,9 +1226,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             }),
           ],
         };
-      })
-        .filter((opportunity)=>ceiling===null || !opportunity.product.price || opportunity.product.price.value<=ceiling)
-        .filter((opportunity)=>!requireImage || Boolean(opportunity.product.imageUrl));
+      });
 
       const rankAssessments=Object.fromEntries(ranked.map(opp=>[opp.id,assessOpportunityV4({
         product:opp.product,keyword:opp.keyword,signals:opp.commercialSignals,legacyScore:opp.score.score,
@@ -1470,14 +1470,14 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         shopeeAutomatic={shopeeApiConfigured===true && !shopeeProviderFallback}
         hasSearched={hasSearched}
         searchQuery={query}
-        onSearch={keyword=>{setActiveIntentQuery(keyword);void search(keyword);}}
+        onSearch={keyword=>{void search(keyword);}}
         onMarketplaceChange={value=>{
           setMarketplaceScope(value);
           setOpportunities([]);
           setSearchMeta(null);
           setHasSearched(false);
           setAnalysisNotice('');
-          setActiveIntentQuery(null);
+          
           setShopeeProviderFallback(false);
         }}
         onOpenImport={()=>setShowImport(current=>!current)}
@@ -1711,10 +1711,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   ? <span className="potential-chip">{v4FilterLabels[v4ById[opportunity.id]!.status]}</span>
                   : <><span className={`potential-chip potential-${potential.toLowerCase()}`}>{potentialLabel}</span>
                     <span>NestScore 2.0 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}</span></>}
-                {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED&&<details className="legacy-radar-score">
-                   <summary>{locale==='pt-BR'?'Nota histórica (heurística)':locale==='es'?'Puntuación histórica (heurística)':'Legacy heuristic score'}</summary>
-                   <small>NestScore 2.0: {opportunity.score.score}/100 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}. {locale==='pt-BR'?'Não comprova procura nem vendas.':locale==='es'?'No prueba demanda ni ventas.':'Does not prove demand or sales.'}</small>
-                 </details>}
+
               </div>
               <h3>{isSafeOfferUrl(product.url.value,product.marketplace)
                 ? <a className="product-title-link" href={product.url.value} target="_blank" rel="noopener noreferrer">{product.title.value}</a>
@@ -1743,6 +1740,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   : null}
               </div>
               <details className="radar6-card-details"><summary>{locale==='pt-BR'?'Ver detalhes e evidências':locale==='es'?'Ver detalles y evidencias':'View details and evidence'}</summary>
+                {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED&&<details className="legacy-radar-score">
+                   <summary>{locale==='pt-BR'?'Nota histórica (heurística)':locale==='es'?'Puntuación histórica (heurística)':'Legacy heuristic score'}</summary>
+                   <small>NestScore 2.0: {opportunity.score.score}/100 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}. {locale==='pt-BR'?'Não comprova procura nem vendas.':locale==='es'?'No prueba demanda ni ventas.':'Does not prove demand or sales.'}</small>
+                 </details>}
               {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4ById[opportunity.id] && <OpportunityV4Panel assessment={v4ById[opportunity.id]!}/>}
               {assessment && FEATURE_FLAGS.REVENUE_ASSESSMENT_ENABLED && <RevenueAssessmentPanel assessment={assessment}/>}
               {FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED && <details className="revenue-assessment">
