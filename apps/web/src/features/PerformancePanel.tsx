@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { NavLink } from 'react-router-dom';
+import { buildAffiliateActionPlan,type AffiliateActionType } from '../lib/commercialActionPlan';
 import type { ApprovalEvent, Campaign } from '@nestaffiliate/core';
 import { normalizePerformanceInput, summarizePerformance, parsePinterestMetricsCSV, type PinterestMetricsPreview, type PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
@@ -28,6 +30,25 @@ export function PerformancePanel({
   const [form,setForm]=useState({impressions:'',engagements:'',saves:'',pinClicks:'',outboundClicks:'',sales:'',revenue:'',commission:''});
   const summary=useMemo(()=>summarizePerformance(rows),[rows]);
   const insights=useMemo(()=>deriveLearning(campaigns,rows,approvalEvents),[campaigns,rows,approvalEvents]);
+  const actionPlan=useMemo(()=>buildAffiliateActionPlan(campaigns,rows),[campaigns,rows]);
+  const actionLabels:Record<AffiliateActionType,[string,string,string]>={
+    START:['Pesquisar meu primeiro produto','Explore my first product','Buscar mi primer producto'],
+    PUBLISH_READY:['Publicar campanha já aprovada','Publish an approved campaign','Publicar campaña aprobada'],
+    IMPORT_METRICS:['Importar métricas que faltam','Import missing performance data','Importar métricas que faltan'],
+    CHECK_DATA_FRESHNESS:['Atualizar métricas antigas','Refresh older metrics','Actualizar métricas antiguas'],
+    VERIFY_REVENUE:['Conferir comissões com o programa','Verify commissions with provider','Verificar comisiones con el programa'],
+    TEST_CREATIVE:['Testar outro ângulo criativo','Test a different creative angle','Probar otro enfoque creativo'],
+    BUILD_SAMPLE:['Construir histórico antes de otimizar','Build evidence before optimizing','Reunir datos antes de optimizar'],
+  };
+  const actionDetails:Record<AffiliateActionType,[string,string,string]>={
+    START:['Escolha uma necessidade, compare produtos e prepare seu primeiro Pin.','Start with a buyer problem, then compare before preparing a Pin.','Busca una necesidad, compara y prepara tu primer Pin.'],
+    PUBLISH_READY:['Já existe uma campanha aprovada. Confirme link e publicação no fluxo guiado.','An approved campaign is ready for the guided publishing checklist.','Una campaña aprobada espera el proceso de publicación.'],
+    IMPORT_METRICS:['Há publicação sem métricas vinculadas. Importe um CSV autorizado com o ID exato da campanha.','A published campaign has no attributed metrics. Import an authorized CSV.','Hay una campaña sin métricas. Importa un CSV autorizado.'],
+    CHECK_DATA_FRESHNESS:['Suas observações são antigas. Atualize os relatórios antes de concluir que um Pin melhorou ou piorou.','Data is old. Refresh reports before comparing campaign performance.','Los datos son antiguos. Actualízalos antes de comparar.'],
+    VERIFY_REVENUE:['Existem cliques reais, mas nenhum relatório de vendas do marketplace foi associado. Cliques não comprovam receita.','Clicks exist, but no marketplace sales statement is attached. Traffic does not prove revenue.','Hay clics, pero no reporte del programa. Los clics no prueban ventas.'],
+    TEST_CREATIVE:['Uma campanha tem pelo menos 1.500 impressões e menos de 0,5% de cliques de saída. Isso é um convite a testar título, imagem ou pasta — não um diagnóstico de causa.','A campaign has 1,500+ impressions and under 0.5% outbound clicks. Try a distinct creative hypothesis, without assuming causality.','Una campaña tiene 1.500+ impresiones y menos del 0,5% de clics de salida. Prueba otra variante sin suponer causalidad.'],
+    BUILD_SAMPLE:['Menos de 12 campanhas têm impressões observadas. O sistema evita declarar padrões vencedores com amostras pequenas.','Fewer than 12 campaigns have observed impressions, so there is not enough evidence for a winning pattern.','Menos de 12 campañas tienen impresiones observadas; aún no hay base para patrones ganadores.'],
+  };
 
   function prepareImport(){
     try{setImportPreview(parsePinterestMetricsCSV({csv,organizationId,publishedCampaignIds:published.map(c=>c.id)}));setImportError('');setImportSuccess(false);}
@@ -62,7 +83,23 @@ export function PerformancePanel({
       <div className="metric-card"><span>{t('sales')}</span><strong>{rows.length && rows.every(row=>row.salesKnown===false)?'—':summary.sales}</strong></div>
     </div>
 
-    <section className="surface pinterest-csv-import">
+    <section className="surface radar8-learning-actions" aria-label={locale==='pt-BR'?'Próximos passos para melhorar os resultados':locale==='es'?'Próximos pasos con datos reales':'Next steps from observed evidence'}>
+      <p className="eyebrow">{locale==='pt-BR'?'INTELIGÊNCIA COM EVIDÊNCIA':locale==='es'?'INTELIGENCIA CON EVIDENCIA':'EVIDENCE-LED INTELLIGENCE'}</p>
+      <h2>{locale==='pt-BR'?'O que fazer agora para evoluir?':locale==='es'?'¿Qué hacer ahora para mejorar?':'What should you do next?'}</h2>
+      <p className="muted">{locale==='pt-BR'?'Recomendações baseadas no estado das campanhas e nos relatórios existentes. Não são promessas de vendas nem conclusões de IA sem dados.':locale==='es'?'Sugerencias basadas en campañas y datos registrados, no promesas de ventas.':'Suggestions use recorded campaign states and measured observations, not revenue predictions.'}</p>
+      <div className="radar8-action-grid">{actionPlan.length?actionPlan.map(action=>{
+        const index=locale==='en'?1:locale==='es'?2:0;
+        const href=action.to==='/results'?'#pinterest-metrics-import':action.to;
+        const title=actionLabels[action.type][index];
+        return <article key={action.type} className="radar8-action">
+          <strong>{title}</strong>
+          <p>{actionDetails[action.type][index]}</p>
+          {action.observedImpressions!==undefined&&<small>{new Intl.NumberFormat(locale).format(action.observedImpressions)} {locale==='pt-BR'?'impressões observadas':locale==='es'?'impresiones observadas':'observed impressions'} · {action.observedClicks} {locale==='pt-BR'?'cliques de saída':locale==='es'?'clics de salida':'outbound clicks'}</small>}
+          {href.startsWith('#')?<a href={href} className="button secondary">{title} →</a>:<NavLink className="button secondary" to={href}>{title} →</NavLink>}
+        </article>;
+      }):<p>{locale==='pt-BR'?'Você já tem um histórico consistente. Continue acompanhando dados reais e testando hipóteses, uma mudança de cada vez.':locale==='es'?'Sigue midiendo datos reales y probando cambios individualmente.':'Keep monitoring real outcomes and testing one change at a time.'}</p>}</div>
+    </section>
+    <section id="pinterest-metrics-import" className="surface pinterest-csv-import">
       <p className="eyebrow">PINTEREST · RELATÓRIO AUTORIZADO</p>
       <h2>{locale==='pt-BR'?'Importar métricas do Pinterest':locale==='es'?'Importar métricas de Pinterest':'Import Pinterest metrics'}</h2>
       <p className="muted">{locale==='pt-BR'?'Use um CSV exportado/autorizado. Impressões, saves e cliques são dados de distribuição; vendas e comissões só aparecem quando comprovadas em relatórios do marketplace.':locale==='es'?'Importe solo datos autorizados. Los clics no prueban ventas.':'Use an authorized export. Clicks do not prove sales or commissions.'}</p>
