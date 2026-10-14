@@ -1766,6 +1766,16 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   ? <span className="proof-chip success">{t('shopeeAffiliateReady')}</span>
                   : null}
               </div>
+              {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4ById[opportunity.id] && <div className="radar7-next-step">
+                <strong>{locale==='pt-BR'?'Próximo cuidado':locale==='es'?'Siguiente paso':'Next check'}</strong>
+                <span>{(()=>{
+                  const blockers=v4ById[opportunity.id]!.readiness.blockers.filter(item=>item!=='APPROVAL_REQUIRED');
+                  return blockers.length ? opportunityReasonLabel(blockers[0]!,locale) :
+                    locale==='pt-BR'?'Pode preparar o conteúdo. A publicação ainda exige revisão.':
+                    locale==='es'?'Puedes preparar el contenido; todavía requiere revisión.':
+                      'Ready to prepare content; publishing still requires review.';
+                })()}</span>
+              </div>}
               <details className="radar6-card-details"><summary>{locale==='pt-BR'?'Ver detalhes e evidências':locale==='es'?'Ver detalles y evidencias':'View details and evidence'}</summary>
                 {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED&&<details className="legacy-radar-score">
                    <summary>{locale==='pt-BR'?'Nota histórica (heurística)':locale==='es'?'Puntuación histórica (heurística)':'Legacy heuristic score'}</summary>
