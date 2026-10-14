@@ -52,3 +52,11 @@
 .radar6-page button:focus-visible,.radar6-page summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 @media(max-width:720px){.radar6-suggestion-grid{grid-template-columns:1fr}.radar6-page .opportunity-grid{grid-template-columns:1fr}.radar6-page .opportunity-card .product-image{height:200px}}
 @media(max-width:460px){.radar6-discovery{gap:18px;padding:16px}.radar6-search-control{flex-direction:column}.radar6-search-control .button{width:100%}.radar6-search-control input{min-height:44px}.radar6-marketplace-options button{font-size:12px;padding:7px 10px}.radar6-page .page-title{padding-top:0}}
+
+.radar6-evidence-expander{margin:12px 0;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.radar6-evidence-expander>summary{cursor:pointer;padding:14px 16px;color:var(--text);font-weight:700}
+.radar6-evidence-expander .v4-funnel{margin:0;border:0;box-shadow:none}
+.radar6-result-metrics{margin-top:10px}
+.radar6-result-metrics>summary{font-size:13px;cursor:pointer;color:var(--muted);font-weight:600}
+.radar6-result-metrics[open]{padding-bottom:5px}
+.radar6-load-more{display:block;margin:22px auto;min-width:190px}
