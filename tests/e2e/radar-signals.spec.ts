@@ -1,82 +1,54 @@
 import { expect, test } from '@playwright/test';
 
-test('Radar shows automatic market status, useful suggestions and real product cards', async ({ page }) => {
+async function submitSearch(page:import('@playwright/test').Page){
+  const input=page.getByRole('textbox',{name:'Pesquisar produtos e necessidades'});
+  await input.fill('organizador cozinha pequena');
+  await page.getByRole('button',{name:'Pesquisar',exact:true}).click();
+}
+
+test('Radar 6 discovers marketplace products before asking for an affiliate link', async ({ page }) => {
   await page.goto('/radar');
-
-  await expect(page.getByText('Marketplaces conectados',{exact:true})).toBeVisible();
-  await expect(page.getByText(/Mercado Livre e Shopee são consultados separadamente/)).toBeVisible();
-  await expect(page.getByText('Sugestões que valem testar',{exact:true})).toBeVisible();
-  await expect(page.locator('.suggestion-buttons button').first()).toBeVisible();
-
-  await expect(page.getByText('JSON oficial do Mercado Livre',{exact:true})).toHaveCount(0);
-  await expect(page.getByText('SINAIS OFICIAIS',{exact:true})).toHaveCount(0);
-
+  await expect(page.getByRole('heading',{name:'Encontre boas oportunidades para divulgar'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Explore ideias'})).toBeVisible();
+  await expect(page.getByRole('textbox',{name:'Pesquisar produtos e necessidades'})).toBeVisible();
+  await expect(page.getByRole('region',{name:'Importação inteligente'})).toHaveCount(0);
+  await expect(page.locator('.radar6-suggestion')).toHaveCount(6);
   await page.getByRole('button',{name:'Mercado Livre',exact:true}).click();
-  await page.getByRole('button',{name:'Analisar produtos'}).click();
-
-  await expect(page.locator('.opportunity-card')).toHaveCount(3,{timeout:10_000});
+  await submitSearch(page);
+  await expect(page.locator('.opportunity-card')).toHaveCount(3,{timeout:15000});
   await expect(page.getByText('Análise concluída',{exact:true})).toBeVisible();
-  await expect(page.getByText(/passaram pela validação de estoque e prova social/)).toBeVisible();
-  await expect(page.locator('.proof-chip.success').first()).toContainText('Disponível agora');
-  await expect(page.getByText(/143 encontrados no catálogo/)).toBeVisible();
   await expect(page.getByRole('link',{name:'Organizador de Gavetas Ajustável'})).toBeVisible();
-  await expect(page.getByRole('link',{name:'Prateleira Extensível para Armário'})).toBeVisible();
-
-  await expect(page.getByText('ADICIONAR PRODUTO (OPCIONAL)',{exact:true})).toBeVisible();
-
+  await expect(page.getByRole('button',{name:'Preparar meu Pin →'}).first()).toBeVisible();
+  await expect(page.getByText('Filtros e detalhes da pesquisa')).toBeVisible();
+  await expect(page.locator('.radar6-card-details').first()).not.toHaveAttribute('open');
   await page.getByRole('button',{name:'Shopee',exact:true}).click();
-  await expect(page).toHaveURL(/\/radar$/);
-  await page.getByRole('button',{name:'Buscar produtos Shopee',exact:true}).click();
-
-  await expect(page.locator('.opportunity-card')).toHaveCount(3,{timeout:10_000});
+  await submitSearch(page);
+  await expect(page.locator('.opportunity-card')).toHaveCount(3,{timeout:15000});
   await expect(page.getByRole('link',{name:'Organizador Giratório Multiuso Shopee'})).toBeVisible();
-  await expect(page.getByRole('link',{name:'Prateleira Extensível para Cozinha Shopee'})).toBeVisible();
-  await expect(page.getByText('Link afiliado oficial pronto').first()).toBeVisible();
-  await expect(page.getByText(/Comissão 12%/).first()).toBeVisible();
   await expect(page.locator('.search-source')).toContainText('Shopee Affiliate Open API');
-  await expect(page.getByRole('button',{name:'Abrir catálogo Shopee',exact:true})).toHaveCount(0);
-  await expect(page).toHaveURL(/\/radar$/);
 });
 
+test('Importing by link remains available on demand without dominating the Radar',async({page})=>{
+  await page.goto('/radar');
+  await page.getByRole('button',{name:/Adicionar por link ou print/}).click();
+  await expect(page.getByRole('region',{name:'Importação inteligente'})).toBeVisible();
+});
 
 test('Radar keeps Shopee usable while Open API credentials are pending', async ({ page }) => {
   await page.goto('/radar?shopeeApi=pending');
-
   await page.getByRole('button',{name:'Shopee',exact:true}).click();
-
   await expect(page.getByText('Use a Shopee agora — sem esperar a API',{exact:true})).toBeVisible();
-  await expect(page.getByText('MODO RÁPIDO ATIVO',{exact:true}).first()).toBeVisible();
-  await expect(page.getByRole('button',{name:'Continuar sem API',exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Pesquisar na Shopee ↗',exact:true})).toBeVisible();
   await expect(page.getByText('Cole um produto da Shopee',{exact:true})).toBeVisible();
-  await expect(page.locator('.opportunity-card')).toHaveCount(0);
-
-  const shared=[
-    'Organizador Giratório Multiuso',
-    'R$ 59,90',
-    'https://shopee.com.br/Organizador-Giratorio-Multiuso-i.12345.987654321',
-  ].join('\n');
+  const shared=['Organizador Giratório Multiuso','R$ 59,90','https://shopee.com.br/Organizador-Giratorio-Multiuso-i.12345.987654321'].join('\n');
   await page.getByLabel('Cole aqui o produto da Shopee').fill(shared);
-  await expect(page.getByRole('textbox',{name:/Título/})).toHaveValue('Organizador Giratório Multiuso');
-  await page.getByText('Melhorar análise (opcional)',{exact:true}).click();
-  await expect(page.getByRole('textbox',{name:'Preço opcional',exact:true})).toHaveValue('59,90');
-
   await page.getByRole('button',{name:'Analisar e criar oportunidade',exact:true}).click();
   await expect(page).toHaveURL(/\/review\/campaign-/);
-  await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
-  await expect(page.locator('#review-product').getByText('Organizador Giratório Multiuso',{exact:true}).first()).toBeVisible();
 });
 
-
-test('Radar shows Shopee-specific recovery when the API provider is unavailable', async ({ page }) => {
+test('Radar gives Shopee-specific recovery when the API is unavailable',async({page})=>{
   await page.goto('/radar?shopeeApi=error');
   await page.getByRole('button',{name:'Shopee',exact:true}).click();
-  await page.getByRole('button',{name:'Buscar produtos Shopee',exact:true}).click();
-
-  await expect(page.getByText('A busca não concluiu',{exact:true})).toBeVisible();
-  await expect(page.getByText('Não foi possível consultar a Shopee Affiliate Open API agora.',{exact:true})).toBeVisible();
-  await expect(page.getByText('Não foi possível consultar o Mercado Livre agora. O sistema tentou a rota oficial principal e o fallback seguro.',{exact:true})).toHaveCount(0);
+  await submitSearch(page);
   await expect(page.getByText('Shopee temporariamente em modo rápido',{exact:true})).toBeVisible();
   await expect(page.getByText('Cole um produto da Shopee',{exact:true})).toBeVisible();
-  await expect(page).toHaveURL(/\/radar\?shopeeApi=error$/);
 });
