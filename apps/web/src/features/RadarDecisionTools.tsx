@@ -32,7 +32,7 @@ export function RadarResearchLibrary({recent,saved,preferred,onRestoreSearch,onR
         <h3>{en?'Saved for later':es?'Guardados para después':'Produtos salvos para depois'}</h3>
         <p className="muted">{en?'Saved on this device only. Prices and availability are snapshots; verify again before publishing.':es?'Solo guardados en este dispositivo. Verifica precio y disponibilidad antes de publicar.':'Salvos apenas neste dispositivo. Preço e disponibilidade são registros antigos: confirme novamente antes de publicar.'}</p>
         <div className="radar7-saved-list">{saved.map(item=><article key={item.id}>
-          <div><strong>{item.title}</strong><small>{item.marketplace==='MELI'?'Mercado Livre':'Shopee'} · {new Date(item.savedAt).toLocaleDateString(locale)}</small></div>
+          <div><strong>{item.title}</strong><small>{item.marketplace==='MELI'?'Mercado Livre':item.marketplace==='SHOPEE'?'Shopee':'Amazon'} · {new Date(item.savedAt).toLocaleDateString(locale)}</small></div>
           <div className="radar7-saved-actions">
             {item.keyword&&<button className="button secondary" type="button" onClick={()=>onRestoreSearch(item.keyword)}>{en?'Research again':es?'Buscar de nuevo':'Pesquisar novamente'}</button>}
             {item.url&&<a className="button secondary" href={item.url} target="_blank" rel="noopener noreferrer">{en?'View listing':es?'Ver anuncio':'Ver anúncio'}</a>}
