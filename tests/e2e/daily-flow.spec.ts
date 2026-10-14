@@ -220,7 +220,7 @@ test('Approved campaign list leads to publishing rather than a confusing review 
 test('Review shows NestAI copy as optional, safely previewed, never auto-approved',async({page})=>{
  await page.goto('/');
  await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
- await page.getByRole('button',{name:/Criar textos com NestAI \(opcional\)/}).click();
+ await page.getByRole('button',{name:/Ou criar com NestAI/}).click();
  const assist=page.getByRole('region',{name:'Criar textos com NestAI'});
  await expect(assist).toBeVisible();
  await expect(assist.getByRole('heading',{name:/Personalizar seus textos com IA/})).toBeVisible();

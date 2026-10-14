@@ -520,3 +520,22 @@ button, a { touch-action:manipulation; }
 .pin-studio-stage .pinterest-creative-pack>.pack-section:has(.pack-copy-details) .copy-option-grid {
  max-height:470px;overflow-y:auto;
 }
+
+/* Text-first Pin Studio: no image CTA until the human has confirmed copy. */
+.guided-text-primary-actions {display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;}
+.guided-text-primary-actions>.button {flex:1 1 230px;min-height:50px;white-space:normal;line-height:1.4;}
+.guided-copy-preview-label {
+ font-size:11px;line-height:1.5;font-weight:800;letter-spacing:.1em;
+ color:var(--muted);margin:0 0 12px;
+}
+.guided-step-complete {
+ margin-top:18px;display:grid;gap:12px;padding:16px;border:1px solid var(--border-strong);
+ border-radius:18px;background:var(--accent-soft);
+}
+.guided-step-complete p {margin:0;color:var(--text);font-size:14px;line-height:1.6;}
+.guided-step-complete .guided-continue-image {width:100%;min-height:52px;}
+@media(max-width:720px){
+ .guided-text-primary-actions {display:grid;grid-template-columns:1fr;}
+ .guided-text-primary-actions>.button {width:100%;min-height:52px;}
+ .guided-step-complete {padding:14px;}
+}

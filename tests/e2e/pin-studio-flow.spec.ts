@@ -32,7 +32,7 @@ test('NestAI is a deliberate optional choice, never an automatic required step',
   await page.goto('/');
   await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
   await expect(page.locator('#review-ai')).toBeHidden();
-  await page.getByRole('button',{name:/Criar textos com NestAI \(opcional\)/}).click();
+  await page.getByRole('button',{name:/Ou criar com NestAI/}).click();
   await expect(page.getByRole('region',{name:'Criar textos com NestAI'})).toBeVisible();
   await expect(page.getByRole('button',{name:/Tentar personalização com NestAI/})).toBeEnabled();
   await expect(page.locator('.pin-studio-tabs button.active')).toContainText('Textos');
