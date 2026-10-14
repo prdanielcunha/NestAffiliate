@@ -18,12 +18,12 @@ export interface AffiliateAction {
 export function buildAffiliateActionPlan(campaigns:Campaign[],rows:PerformanceDaily[],now=new Date()):AffiliateAction[]{
   const published=campaigns.filter(c=>c.status==='PUBLISHED');
   const ready=campaigns.find(c=>c.status==='PUBLICATION_READY');
-  const to:number=2;
+  const maxActions=2;
   const actions:AffiliateAction[]=[];
   if(!published.length){
     if(ready) actions.push({type:'PUBLISH_READY',to:'/publish/'+encodeURIComponent(ready.id),campaignId:ready.id,evidenceCount:0});
     actions.push({type:'START',to:'/radar',evidenceCount:0});
-    return actions.slice(0,to);
+    return actions.slice(0,maxActions);
   }
   const publishedIds=new Set(published.map(c=>c.id));
   const valid=rows.filter(r=>publishedIds.has(r.campaignId) && Number.isFinite(r.impressions) &&
@@ -33,7 +33,7 @@ export function buildAffiliateActionPlan(campaigns:Campaign[],rows:PerformanceDa
   const covered=new Set(valid.map(r=>r.campaignId));
   const firstMissing=published.find(c=>!covered.has(c.id));
   if(firstMissing)actions.push({type:'IMPORT_METRICS',to:'/results',campaignId:firstMissing.id,evidenceCount:covered.size});
-  const recent=valid.filter(r=>Date.parse(r.observedAt)>=now.getTime()-35*86400000);
+  const recent=valid.filter(r=>{const day=Date.parse(r.date+'T00:00:00Z');return Number.isFinite(day) && day>=now.getTime()-35*86400000 && day<=now.getTime();});
   if(valid.length&&!recent.length)actions.push({type:'CHECK_DATA_FRESHNESS',to:'/results',evidenceCount:valid.length});
   const observedIds=new Set(valid.filter(r=>r.impressions>0).map(r=>r.campaignId));
   const socialClicks=valid.reduce((sum,r)=>sum+Math.max(0,r.outboundClicks),0);
@@ -54,6 +54,6 @@ export function buildAffiliateActionPlan(campaigns:Campaign[],rows:PerformanceDa
     observedImpressions:investigate.impressions,observedClicks:investigate.clicks,
   });
   if(observedIds.size<12)actions.push({type:'BUILD_SAMPLE',to:'/radar',evidenceCount:observedIds.size});
-  if(ready && actions.length<to)actions.push({type:'PUBLISH_READY',to:'/publish/'+encodeURIComponent(ready.id),campaignId:ready.id,evidenceCount:0});
-  return actions.slice(0,to);
+  if(ready && actions.length<maxActions)actions.push({type:'PUBLISH_READY',to:'/publish/'+encodeURIComponent(ready.id),campaignId:ready.id,evidenceCount:0});
+  return actions.slice(0,maxActions);
 }
