@@ -159,7 +159,7 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
       syncInFlight.current=pending;
     },750);
     return ()=>{active=false;window.clearTimeout(timer);};
-  },[key,userId,organizationId,workspace.syncEnabled,workspace.updatedAt,syncNonce]);
+  },[key,userId,organizationId,workspace,syncNonce]);
   const update=(fn:(value:RadarWorkspace)=>RadarWorkspace)=>{
     if(!key)return;
     setRecord(prev=>{
