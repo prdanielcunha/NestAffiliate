@@ -26,7 +26,7 @@ const categorySeeds = [
 ] as const;
 
 function getGroup(source: string): SuggestionGroup | null {
-  if (source === 'MELI_BEST_SELLER' || source === 'SHOPEE_TOP_SALES') return 'bestSellers';
+  if (source === 'MELI_BEST_SELLER') return 'bestSellers';
   if (source === 'MELI_TREND_POPULAR' || source === 'MELI_TREND_GROWTH' || source === 'MELI_TREND_DESIRED') return 'trending';
   // Old growth/desired labels also represent a single trend snapshot, not measured changes.
   return null;
@@ -66,8 +66,8 @@ export function RadarDiscovery({
       const keyword = signal.keyword?.trim();
       if (!keyword || keyword.length < 4) continue;
       const mkt = getMarketplace(signal.source);
-      const authenticatedBestSeller=signal.source==='MELI_BEST_SELLER' || (signal.source==='SHOPEE_TOP_SALES' && signal.evidence.some(text=>text.startsWith('vendas oficiais:')));
-      const signalGroup=signal.source==='SHOPEE_TOP_SALES'&&!authenticatedBestSeller ? null : getGroup(signal.source);
+      // Official sales quantity is not proof of position in a bestseller ranking.
+      const signalGroup=getGroup(signal.source);
       const label = mkt === 'MELI' ? 'Mercado Livre' : mkt === 'SHOPEE' ? 'Shopee' : language === 'en' ? 'Identified source' : language === 'es' ? 'Fuente identificada' : 'Fonte identificada';
       const when = Date.parse(signal.observedAt);
       const evidence = label + (Number.isFinite(when) ? ' · ' + new Date(when).toLocaleDateString(locale) : '');
