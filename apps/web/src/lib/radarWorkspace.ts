@@ -5,7 +5,7 @@ import { isSafeOfferUrl } from '@nestaffiliate/radar';
 export type RadarSort = 'recommended'|'priceAsc'|'priceDesc'|'sales'|'commission';
 export interface SavedRadarOffer {
   id:string;
-  marketplace:'MELI'|'SHOPEE';
+  marketplace:'MELI'|'SHOPEE'|'AMAZON';
   title:string;
   keyword:string;
   url:string|null;
@@ -87,7 +87,7 @@ export function sanitizeRadarWorkspace(raw:unknown,now=new Date()):RadarWorkspac
     if(!value||typeof value!=='object')continue;
     const offer=value as Partial<SavedRadarOffer>;
     const id=cleanText(offer.id,150),title=cleanText(offer.title,160),marketplace=offer.marketplace;
-    if(!id||!title||!['MELI','SHOPEE'].includes(String(marketplace)))continue;
+    if(!id||!title||!['MELI','SHOPEE','AMAZON'].includes(String(marketplace)))continue;
     const parsedTime=Date.parse(String(offer.savedAt));
     if(!Number.isFinite(parsedTime)||parsedTime<minSavedTime||parsedTime>now.getTime()+60000)continue;
     if(saved.some(item=>item.id===id))continue;
