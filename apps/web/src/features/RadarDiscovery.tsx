@@ -5,7 +5,7 @@ import { useI18n } from '../lib/i18n-context';
 import './radar-discovery.css';
 
 type Marketplace = 'ALL' | 'MELI' | 'SHOPEE';
-type SuggestionGroup = 'recommended' | 'bestSellers' | 'searched' | 'growing' | 'categories' | 'problems';
+type SuggestionGroup = 'recommended' | 'bestSellers' | 'searched' | 'trending' | 'categories' | 'problems';
 type RadarSuggestion = { id: string; keyword: string; title: string; group: SuggestionGroup; marketplace?: 'MELI' | 'SHOPEE'; evidence?: string };
 
 const categorySeeds = [
@@ -27,9 +27,8 @@ const categorySeeds = [
 
 function getGroup(source: string): SuggestionGroup | null {
   if (source === 'MELI_BEST_SELLER' || source === 'SHOPEE_TOP_SALES') return 'bestSellers';
-  if (source === 'MELI_TREND_DESIRED') return 'searched';
-  // A position in a single snapshot is not measured growth over time.
-  // Growth remains hidden until two comparable authorized observations exist.
+  if (source === 'MELI_TREND_POPULAR' || source === 'MELI_TREND_GROWTH' || source === 'MELI_TREND_DESIRED') return 'trending';
+  // Old growth/desired labels also represent a single trend snapshot, not measured changes.
   return null;
 }
 
@@ -96,7 +95,7 @@ export function RadarDiscovery({
     {id:'recommended',label:t('Para você','For you','Para ti')},
     {id:'bestSellers',label:t('Mais vendidos','Best sellers','Más vendidos')},
     {id:'searched',label:t('Mais procurados','Most searched','Más buscados')},
-    {id:'growing',label:t('Em crescimento','Growing','En crecimiento')},
+    {id:'trending',label:t('Tendências','Trending topics','Tendencias')},
     {id:'categories',label:t('Por categoria','By category','Por categoría')},
     {id:'problems',label:t('Resolver problemas','Solve problems','Resolver problemas')},
   ];
