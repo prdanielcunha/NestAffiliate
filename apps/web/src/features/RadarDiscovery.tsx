@@ -65,7 +65,7 @@ export function RadarDiscovery({
       if (!keyword || keyword.length < 4) continue;
       const mkt = getMarketplace(signal.source);
       const signalGroup = getGroup(signal.source);
-      const label = mkt === 'MELI' ? 'Mercado Livre' : mkt === 'SHOPEE' ? 'Shopee' : t('Fonte identificada', 'Identified source', 'Fuente identificada');
+      const label = mkt === 'MELI' ? 'Mercado Livre' : mkt === 'SHOPEE' ? 'Shopee' : language === 'en' ? 'Identified source' : language === 'es' ? 'Fuente identificada' : 'Fonte identificada';
       const when = Date.parse(signal.observedAt);
       const evidence = label + (Number.isFinite(when) ? ' · ' + new Date(when).toLocaleDateString(locale) : '');
       all.push({id:'evidence-'+signal.id,keyword,title:keyword,group:signalGroup ?? 'recommended',marketplace:mkt,evidence});
