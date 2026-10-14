@@ -16,6 +16,7 @@ test('Smart Import keeps a declared affiliate URL and prepares Pin copy automati
     })});
   });
   await page.goto('/radar');
+ await page.getByRole('button',{name:/Adicionar por link ou print/}).click();
   const smart=page.getByRole('region',{name:'Importação inteligente'});
   await expect(smart).toBeVisible();
   await smart.getByPlaceholder('https://meli.la/...').fill('https://meli.la/2GDhhKL');
@@ -37,6 +38,7 @@ test('Smart Import keeps a declared affiliate URL and prepares Pin copy automati
 });
 test('Smart Import defaults to ordinary link and never labels it as an affiliate URL', async ({page})=>{
   await page.goto('/radar');
+ await page.getByRole('button',{name:/Adicionar por link ou print/}).click();
   const smart=page.getByRole('region',{name:'Importação inteligente'});
   await expect(smart.getByLabel('Não, é um link comum')).toBeChecked();
   await expect(smart.getByLabel('Sim, já é meu link afiliado')).not.toBeChecked();
@@ -45,6 +47,7 @@ test('Smart Import preserves an unresolved meli.la affiliate link without claimi
  await page.route('**/api/v1/nestaffiliate/mercadolivre/resolve',async route=>
    route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'UNRESOLVED',reason:'SHORTLINK_UNRESOLVED'})}));
  await page.goto('/radar');
+ await page.getByRole('button',{name:/Adicionar por link ou print/}).click();
  const smart=page.getByRole('region',{name:'Importação inteligente'});
  await smart.getByPlaceholder('https://meli.la/...').fill('https://meli.la/2GDhhKL');
  await smart.getByLabel('Sim, já é meu link afiliado').check();
@@ -61,6 +64,7 @@ test('Smart Import preserves an unresolved meli.la affiliate link without claimi
 
 test('Shopee canonical link resolves an exact official item and preserves official affiliate offer',async({page})=>{
  await page.goto('/radar');
+ await page.getByRole('button',{name:/Adicionar por link ou print/}).click();
  const smart=page.getByRole('region',{name:'Importação inteligente'});
  await smart.getByPlaceholder(/https:\/\/meli\.la/).fill('https://shopee.com.br/Organizador-Giratorio-Multiuso-Shopee-i.12345.98765001');
  await expect(smart.getByLabel('Não, é um link comum')).toBeChecked();
@@ -79,6 +83,7 @@ test('Shopee canonical link resolves an exact official item and preserves offici
 
 test('Opaque Shopee affiliate shortlink stays as a pending draft, never masquerades as a verified product',async({page})=>{
  await page.goto('/radar');
+ await page.getByRole('button',{name:/Adicionar por link ou print/}).click();
  const smart=page.getByRole('region',{name:'Importação inteligente'});
  await smart.getByPlaceholder(/https:\/\/meli\.la/).fill('https://s.shopee.com.br/abc123');
  await smart.getByLabel('Sim, já é meu link afiliado').check();
@@ -103,6 +108,7 @@ test('mobile review starts with copy, next action and collapsed detailed journey
   await route.continue();
  });
  await page.goto('/radar');
+ await page.getByRole('button',{name:/Adicionar por link ou print/}).click();
  const smart=page.getByRole('region',{name:'Importação inteligente'});
  await smart.getByPlaceholder(/https:\/\/meli\.la/).fill('https://meli.la/2GDhhKL');
  await smart.getByText('Caso a fonte não identifique o produto').click();
@@ -136,6 +142,7 @@ test('Shopee short share URL resolves through Hub while preserving affiliate att
   })});
  });
  await page.goto('/radar');
+ await page.getByRole('button',{name:/Adicionar por link ou print/}).click();
  const smart=page.getByRole('region',{name:'Importação inteligente'});
  await smart.getByPlaceholder(/https:\/\/meli\.la/).fill('https://s.shopee.com.br/ABC123');
  await smart.getByLabel('Sim, já é meu link afiliado').check();
@@ -155,6 +162,7 @@ test('mobile visual concept and new direction NEVER change selected title or des
  await page.route('**/api/v1/nestaffiliate/mercadolivre/resolve',async route=>
   route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'SOURCE_LIMITED'})}));
  await page.goto('/radar');
+ await page.getByRole('button',{name:/Adicionar por link ou print/}).click();
  const smart=page.getByRole('region',{name:'Importação inteligente'});
  await smart.getByPlaceholder(/https:\/\/meli\.la/).fill('https://meli.la/2GDhhKL');
  await smart.getByText('Caso a fonte não identifique o produto').click();
