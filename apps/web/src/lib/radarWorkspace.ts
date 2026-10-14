@@ -147,7 +147,7 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
     const timer=window.setTimeout(()=>{
       if(syncPaused.current)return;
       const pending=syncPrivateRadarWorkspace({db:currentDb,userId,organizationId,workspace}).then(result=>{
-        if(!active)return;
+        if(!active || syncPaused.current)return;
         if(result.mode==='remote_newer'){
           setRecord(prev=>{
             if(prev.key!==key || workspaceModifiedAt(prev.state)>workspaceModifiedAt(result.workspace))return prev;
@@ -155,7 +155,7 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
           });
         }
         setSyncStatus('synced');
-      }).catch(()=>{if(active)setSyncStatus('error');}).finally(()=>{if(syncInFlight.current===pending)syncInFlight.current=null;});
+      }).catch(()=>{if(active && !syncPaused.current)setSyncStatus('error');}).finally(()=>{if(syncInFlight.current===pending)syncInFlight.current=null;});
       syncInFlight.current=pending;
     },750);
     return ()=>{active=false;window.clearTimeout(timer);};
