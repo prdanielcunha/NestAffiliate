@@ -2164,11 +2164,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           <small>{locale==='pt-BR'?'Sugestão editorial, não comprovação comercial. Revise textos e produto antes de aprovar.':locale==='es'?'Propuesta editorial. Revisa antes de aprobar.':'Editorial proposal. Review before approving.'}</small>
         </details>}
 
-        <div className="pin-studio-next">
-          <button className="button primary" type="button" onClick={()=>setStudioStage('image')}>
-            {locale==='pt-BR'?'Próximo: preparar a imagem →':locale==='es'?'Siguiente: preparar la imagen →':'Next: prepare your image →'}
-          </button>
-        </div>
+
       </div>
       </div>
       <div className="pin-studio-stage" hidden={studioStage!=='image'}>
