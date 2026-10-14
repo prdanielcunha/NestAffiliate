@@ -7,6 +7,7 @@ test.describe('Radar 4.0 opt-in design and gates',()=>{
     await page.getByRole('button',{name:'Mercado Livre',exact:true}).click();
     await page.getByRole('textbox',{name:'Pesquisar produtos e necessidades'}).fill('organizador cozinha pequena');
     await page.getByRole('button',{name:'Pesquisar',exact:true}).click();
+    await page.locator('.radar6-evidence-expander > summary').click();
     await expect(page.locator('.v4-funnel')).toBeVisible();
     await expect(page.locator('.v4-funnel')).toContainText('RADAR 4.0');
     await expect(page.locator('.opportunity-v4-panel')).toHaveCount(3);
