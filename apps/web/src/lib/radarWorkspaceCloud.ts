@@ -1,4 +1,4 @@
-import {doc,getDoc,runTransaction,serverTimestamp,type Firestore} from 'firebase/firestore';
+import {deleteDoc,doc,getDoc,runTransaction,serverTimestamp,type Firestore} from 'firebase/firestore';
 import type {RadarWorkspace} from './radarWorkspace';
 import {sanitizeRadarWorkspace} from './radarWorkspace';
 
@@ -57,4 +57,8 @@ export async function syncPrivateRadarWorkspace(input:{
     },{merge:true});
     return {mode:'uploaded',workspace:local};
   });
+}
+
+export async function deletePrivateRadarWorkspace(input:{db:Firestore;userId:string;organizationId:string}):Promise<void>{
+  await deleteDoc(doc(input.db,radarPrivateWorkspacePath(input.userId,input.organizationId)));
 }
