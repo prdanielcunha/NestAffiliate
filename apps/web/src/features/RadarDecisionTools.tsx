@@ -10,19 +10,48 @@ function verifiedCommission(item:Opportunity):number|null {
     && /affiliate|official|manual-confirmed/i.test(rate.source)?rate.value:null;
 }
 
-export function RadarResearchLibrary({recent,saved,preferred,onRestoreSearch,onRemoveSaved,onClear}:{
+export function RadarResearchLibrary({recent,saved,preferred,syncEnabled,syncAvailable,syncStatus,onSyncEnabled,onSyncNow,onDeleteSyncedCopy,onRestoreSearch,onRemoveSaved,onClear}:{
  recent:string[];
  saved:SavedRadarOffer[];
  preferred:string|null;
+ syncEnabled:boolean;
+ syncAvailable:boolean;
+ syncStatus:'off'|'syncing'|'synced'|'error'|'unavailable';
+ onSyncEnabled:(value:boolean)=>void;
+ onSyncNow:()=>void;
+ onDeleteSyncedCopy:()=>Promise<void>;
  onRestoreSearch:(query:string)=>void;
  onRemoveSaved:(id:string)=>void;
  onClear:()=>void;
 }){
   const {locale}=useI18n();const en=locale==='en',es=locale==='es';
-  if(!recent.length&&!saved.length&&!preferred)return null;
+
   return <details className="radar7-library">
     <summary>{en?'My research':es?'Mis búsquedas':'Minhas pesquisas'} · {saved.length} {en?'saved':es?'guardados':'salvos'}</summary>
     <div className="radar7-library-content">
+      <section className="radar8-sync" aria-label={en?'Private research synchronization':es?'Sincronización de investigación privada':'Sincronização privada de pesquisas'}>
+        <div><strong>{en?'Keep my research on other devices':es?'Conservar mis búsquedas en otros dispositivos':'Acessar minhas pesquisas em outros dispositivos'}</strong>
+          <p className="muted">{en?'Optional. Saved privately under your own account. Disabled by default.':es?'Opcional. Guardada solo en tu cuenta. Desactivada por defecto.':'Opcional. Guardada apenas na sua conta. Desativada por padrão.'}</p>
+        </div>
+        <label className="radar8-sync-toggle"><input type="checkbox" checked={syncEnabled} disabled={!syncAvailable}
+          onChange={event=>onSyncEnabled(event.target.checked)}/>
+          {en?'Enable private sync':es?'Activar sincronización privada':'Ativar sincronização privada'}
+        </label>
+        {syncEnabled&&<div className="radar8-sync-actions">
+          <span role="status">{syncStatus==='syncing'?(en?'Syncing…':es?'Sincronizando…':'Sincronizando…'):
+            syncStatus==='synced'?(en?'Last change synchronized':es?'Último cambio sincronizado':'Última alteração sincronizada'):
+            syncStatus==='error'?(en?'Could not sync; research remains on this device.':es?'Fallo la sincronización; los datos siguen aquí.':'Falha na sincronização; suas pesquisas continuam neste dispositivo.'):
+            syncStatus==='unavailable'?(en?'Sync not available in this session':es?'Sincronización no disponible':'Sincronização indisponível nesta sessão'):'—'}</span>
+          <button type="button" className="button secondary" disabled={!syncAvailable||syncStatus==='syncing'} onClick={onSyncNow}>
+            {en?'Sync now':es?'Sincronizar ahora':'Sincronizar agora'}
+          </button>
+          <button type="button" className="text-button" disabled={!syncAvailable} onClick={()=>{
+            const question=en?'Delete the cloud copy? Research on this device will stay.':es?'¿Eliminar copia en la nube? Se conservan los datos locales.':'Excluir sua cópia na nuvem? As pesquisas deste dispositivo serão preservadas.';
+            if(window.confirm(question))void onDeleteSyncedCopy().catch(()=>window.alert(en?'Could not delete the cloud copy. Try again.':es?'No se pudo borrar la copia. Inténtalo de nuevo.':'Não foi possível excluir a cópia na nuvem. Tente novamente.'));
+          }}>{en?'Delete cloud copy':es?'Eliminar copia de la nube':'Excluir cópia na nuvem'}</button>
+        </div>}
+        <small>{en?'Only this account can access the private cloud record. Concurrent edits use the latest saved version.':es?'Solo esta cuenta tiene acceso. En ediciones simultáneas prevalece la versión más reciente.':'Somente sua conta acessa a cópia privada. Se dois dispositivos editarem simultaneamente, prevalece a versão mais recente.'}</small>
+      </section>
       {preferred&&<p className="muted">{en?'Selected interest':es?'Interés seleccionado':'Interesse escolhido'}: <strong>{preferred}</strong></p>}
       {recent.length>0&&<section>
         <h3>{en?'Recent searches':es?'Búsquedas recientes':'Buscas recentes'}</h3>

@@ -79,6 +79,9 @@ export function normalizePerformanceInput(input: Partial<PerformanceDaily> & Pic
     revenue:num(input.revenue),
     commission:num(input.commission),
     source:input.source ?? 'MANUAL',
+    salesKnown:typeof input.salesKnown==='boolean' ? input.salesKnown :
+      input.source==='PINTEREST_CSV'||input.source==='PINTEREST_API' ? false :
+        input.source==='MARKETPLACE' || ['sales','revenue','commission'].some(key=>Object.prototype.hasOwnProperty.call(input,key)),
     observedAt:input.observedAt ?? new Date().toISOString(),
   };
 }
