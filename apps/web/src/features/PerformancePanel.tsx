@@ -7,6 +7,7 @@ import { deriveLearning } from '@nestaffiliate/learning';
 import { useI18n } from '../lib/i18n-context';
 import { useAuth } from '../lib/auth';
 import { canWrite } from '@nestaffiliate/core';
+import './performance-actions.css';
 
 export function PerformancePanel({
   organizationId,campaigns,rows,approvalEvents,onSave,onImport,
