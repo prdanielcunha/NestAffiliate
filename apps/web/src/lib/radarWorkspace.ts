@@ -29,7 +29,7 @@ const empty=():RadarWorkspace=>({version:1,recentSearches:[],saved:[],preferredC
 export const radarOfferId=(product:{marketplace:string;externalId:string})=>product.marketplace+':'+product.externalId;
 
 function cleanText(input:unknown,max=120):string{
-  return typeof input==='string'?input.replace(/[\u0000-\u001f]/g,' ').trim().slice(0,max):'';
+  return typeof input==='string'?input.replace(/\p{Cc}/gu,' ').trim().slice(0,max):'';
 }
 export const normalizeRadarKeyword=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
 export function addRecentSearch(items:string[],query:string):string[]{
