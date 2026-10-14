@@ -57,7 +57,7 @@ import {nestAiFailureLabel,type NestAiFailureCode} from './lib/nestAiFailure';
 import { loadLatestRadarV4Coverage, listRadarV4Research, listRadarV4Assessments, primaryRadarBlocker, saveRadarV4Coverage, type SourceCoverageRunV4, type StoredRadarAssessmentV4 } from './services/radarV4Repository';
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel, opportunityReasonLabel } from './features/OpportunityV4Panel';
-import { ProblemIntentExplorer } from './features/ProblemIntentExplorer';
+import { RadarDiscovery } from './features/RadarDiscovery';
 import { RadarProductImage } from './features/RadarProductImage';
 import { WorkspaceLibrary } from './features/WorkspaceLibrary';
 import { CampaignJourney } from './features/CampaignJourney';
@@ -918,7 +918,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const { t, locale } = useI18n();
   const identity=useAuth();
   const navigate = useNavigate();
-  const [query, setQuery] = useState('organizador cozinha pequena');
+  const [query, setQuery] = useState('');
+  const [showImport, setShowImport] = useState(false);
+  const [visibleResultCount,setVisibleResultCount]=useState(6);
   const [marketplaceScope,setMarketplaceScope]=useState<'ALL'|'MELI'|'SHOPEE'>('ALL');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [comparisonProducts,setComparisonProducts]=useState<ProductTruth[]>([]);
@@ -944,7 +946,6 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [state, setState] = useState<'idle'|'loading'|'error'>('idle');
   const [errorCode,setErrorCode]=useState('');
   const [hasSearched,setHasSearched]=useState(false);
-  const [activeIntentQuery,setActiveIntentQuery]=useState<string|null>(null);
   const [analysisNotice,setAnalysisNotice]=useState('');
   const [shopeeApiConfigured,setShopeeApiConfigured]=useState<boolean|null>(null);
   const [shopeeProviderFallback,setShopeeProviderFallback]=useState(false);
@@ -954,15 +955,19 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     sourceLimited:providerDegraded[opp.product.marketplace==='MELI'?'MELI':'SHOPEE'],
   })]));
   const v4Funnel=buildRadarFunnelV4(Object.values(v4ById),opportunities.length);
-  const visibleOpportunities=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED
-    ? opportunities.filter((opportunity)=>{
-        const assessment=assessRevenueOpportunity(opportunity);
-        if(onlyValidated && assessment.track!=='VALIDATED')return false;
-        if(confirmedCommissionOnly && assessment.revenueConfidence==='UNKNOWN')return false;
-        if(authorizedAssetsOnly && !['AUTHORIZED','PLATFORM_PROVIDED','USER_PROVIDED','GENERATED'].includes(opportunity.product.assetRights))return false;
-        return true;
-      })
-    : opportunities;
+  const maxDisplayedPrice=maxPrice.trim()?Number(maxPrice.replace(',','.')):null;
+  const visibleOpportunities=opportunities.filter((opportunity)=>{
+    if(maxDisplayedPrice!==null && Number.isFinite(maxDisplayedPrice)
+      && opportunity.product.price && opportunity.product.price.value>maxDisplayedPrice)return false;
+    if(requireImage && !opportunity.product.imageUrl)return false;
+    if(FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED){
+      const assessment=assessRevenueOpportunity(opportunity);
+      if(onlyValidated && assessment.track!=='VALIDATED')return false;
+      if(confirmedCommissionOnly && assessment.revenueConfidence==='UNKNOWN')return false;
+      if(authorizedAssetsOnly && !['AUTHORIZED','PLATFORM_PROVIDED','USER_PROVIDED','GENERATED'].includes(opportunity.product.assetRights))return false;
+    }
+    return true;
+  });
   const shownOpportunities=FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4StatusFilter!=='ALL'
     ? visibleOpportunities.filter(opp=>v4ById[opp.id]?.status===v4StatusFilter)
     : visibleOpportunities;
@@ -1084,6 +1089,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     const effectiveQuery=(queryOverride ?? query).trim();
     if(!effectiveQuery) return;
     setQuery(effectiveQuery);
+    setVisibleResultCount(6);
     setErrorCode('');
 
     if(marketplaceScope==='SHOPEE' && (shopeeApiConfigured===false || shopeeProviderFallback)){
@@ -1195,7 +1201,6 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         void recordRadarSignal({db:currentDb,organizationId,query:effectiveQuery,products:found}).catch(()=>undefined);
       }
 
-      const ceiling=maxPrice.trim() ? Number(maxPrice.replace(',','.')) : null;
       const snapshotResolver=signalResolverFromSnapshots(signalOverride ?? marketSignals);
       const ranked=shortlist(found,effectiveQuery,FEATURE_FLAGS.RADAR_V4_DISCOVERY_ENABLED?48:20,(product)=>{
         const stored=snapshotResolver(product,effectiveQuery);
@@ -1223,9 +1228,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             }),
           ],
         };
-      })
-        .filter((opportunity)=>ceiling===null || !opportunity.product.price || opportunity.product.price.value<=ceiling)
-        .filter((opportunity)=>!requireImage || Boolean(opportunity.product.imageUrl));
+      });
 
       const rankAssessments=Object.fromEntries(ranked.map(opp=>[opp.id,assessOpportunityV4({
         product:opp.product,keyword:opp.keyword,signals:opp.commercialSignals,legacyScore:opp.score.score,
@@ -1460,82 +1463,47 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   }
 
   return (
-    <div className="page">
+    <div className="page radar6-page">
       <PageTitle eyebrow="RADAR" title={t('opportunities')} subtitle={t('opportunitiesSub')} />
-      <details className="radar-advanced-research"><summary>{locale==='pt-BR'?'Ver histórico de pesquisas anteriores':locale==='es'?'Ver historial de búsquedas':'View research history'}</summary>
-        <RadarResearchHistory organizationId={organizationId} />
-      </details>
-      {editable&&<SmartProductImport organizationId={organizationId} onImported={(product,keyword,strategy,attempted,failure)=>create(product,keyword,undefined,undefined,true,strategy,attempted,failure)}/>}
-      <p className="radar-simple-help">{locale==='pt-BR'?'Cole um link do Mercado Livre ou da Shopee, ou envie um print. O próximo passo aparece automaticamente.':locale==='es'?'Pega un enlace de Mercado Livre o Shopee o sube una captura.':'Paste a Mercado Livre or Shopee link, or upload a screenshot.'}</p>
-      <div className="marketplace-scope" role="group" aria-label={t('marketplaceFilter')}>
-        <span>{t('marketplaceFilter')}</span>
-        <div>
-          {(['ALL','MELI','SHOPEE'] as const).map((value)=><button
-            key={value}
-            type="button"
-            className={marketplaceScope===value ? 'active' : ''}
-            aria-pressed={marketplaceScope===value}
-            onClick={()=>{
-              setMarketplaceScope(value);
-              setOpportunities([]);
-              setSearchMeta(null);
-              setHasSearched(false);
-              setAnalysisNotice('');
-              setActiveIntentQuery(null);
-              setShopeeProviderFallback(false);
-            }}
-          >{value==='ALL' ? t('marketplaceAll') : value==='MELI' ? t('marketplaceMeli') : t('marketplaceShopee')}</button>)}
-        </div>
-      </div>
-
-      <ProblemIntentExplorer
+      <RadarDiscovery
+        marketSignals={marketSignals}
         busy={state==='loading'}
-        onSearch={q=>{setActiveIntentQuery(q);void search(q);}}
-        feedback={activeIntentQuery&&query===activeIntentQuery&&hasSearched&&state==='error'
-          ? {query:activeIntentQuery,phase:'error',detail:locale==='pt-BR'?'A fonte pode estar indisponível, limitada ou sem permissão para pesquisar.':'Provider unavailable, restricted or lacking search permission.'}
-          : activeIntentQuery&&query===activeIntentQuery&&state==='loading'
-            ? {query:activeIntentQuery,phase:'searching'}
-            : activeIntentQuery&&query===activeIntentQuery&&hasSearched&&state==='idle'
-              ? {query:activeIntentQuery,
-                phase:searchMeta?.visible
-                  ? (Object.values(sourceStatus).some(value=>value&&value!=='OK')?'partial':'success')
-                  : 'empty',
-                count:searchMeta?.visible??0}
-              : null}
+        marketplace={marketplaceScope}
+        shopeeAutomatic={shopeeApiConfigured===true && !shopeeProviderFallback}
+        hasSearched={hasSearched}
+        searchQuery={query}
+        onSearch={keyword=>{void search(keyword);}}
+        onMarketplaceChange={value=>{
+          setMarketplaceScope(value);
+          setVisibleResultCount(6);
+          setOpportunities([]);
+          setSearchMeta(null);
+          setHasSearched(false);
+          setAnalysisNotice('');
+          
+          setShopeeProviderFallback(false);
+        }}
+        onOpenImport={()=>setShowImport(current=>!current)}
       />
-      <div className="search-box">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void search()} placeholder={t('radarSearchPlaceholder')} />
-        <button className="button primary" disabled={state==='loading'} onClick={() => void search()}>
-          {state==='loading'
-            ? t('analyzingProducts')
-            : marketplaceScope==='SHOPEE' && (shopeeApiConfigured===false || shopeeProviderFallback)
-              ? t('shopeeUseQuickMode')
-              : marketplaceScope==='SHOPEE'
-                ? t('searchShopeeOfficial')
-                : t('analyzeProducts')}
-        </button>
-      </div>
-
+      {showImport && editable && <div className="radar6-import-panel" id="radar6-import-panel">
+        <SmartProductImport organizationId={organizationId}
+          onImported={(product,keyword,strategy,attempted,failure)=>create(product,keyword,undefined,undefined,true,strategy,attempted,failure)}/>
+        <details className="radar-advanced-research">
+          <summary>{locale==='pt-BR'?'Prefiro inserir os dados manualmente':locale==='es'?'Introducir información manualmente':'Enter product details manually'}</summary>
+          <ManualProductImport organizationId={organizationId} onImported={(product,keyword,signals)=>create(product,keyword,signals)}/>
+        </details>
+      </div>}
       {marketplaceScope==='SHOPEE' && (shopeeApiConfigured===false || shopeeProviderFallback) && <>
         <ShopeeResearchBridge query={query} degraded={shopeeProviderFallback && shopeeApiConfigured===true} />
-        {editable
-          ? <ManualProductImport
-              organizationId={organizationId}
-              featured
-              defaultMarketplace="SHOPEE"
-              seedKeyword={query}
-              onImported={(product, keyword, signals) => create(product, keyword, signals)}
-            />
-          : <div className="notice">{t('readOnlyRadar')}</div>}
+        {editable && <ManualProductImport organizationId={organizationId} featured defaultMarketplace="SHOPEE"
+          seedKeyword={query} onImported={(product,keyword,signals)=>create(product,keyword,signals)}/>}
       </>}
-
-      <div className="radar-suggestions">
-        <span>{t('suggestedSearches')}</span>
-        <div className="suggestion-buttons">
-          {suggestedQueries.map((suggestion)=><button key={suggestion} type="button" onClick={()=>void search(suggestion)}>{suggestion}</button>)}
-        </div>
-      </div>
-
+      {hasSearched && <details className="radar6-research-tools">
+        <summary>{locale==='pt-BR'?'Filtros e detalhes da pesquisa':locale==='es'?'Filtros y detalles de la búsqueda':'Filters and research details'}</summary>
+        <details className="radar-advanced-research">
+          <summary>{locale==='pt-BR'?'Histórico de pesquisas':locale==='es'?'Historial de búsqueda':'Research history'}</summary>
+          <RadarResearchHistory organizationId={organizationId}/>
+        </details>
       <div className="radar-status-row">
         <details className="market-intelligence">
           <summary>
@@ -1604,6 +1572,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         <label className="filter-check"><input type="checkbox" checked={confirmedCommissionOnly} onChange={(e)=>setConfirmedCommissionOnly(e.target.checked)}/><span>{t('r3OnlyConfirmedCommission')}</span></label>
         <label className="filter-check"><input type="checkbox" checked={authorizedAssetsOnly} onChange={(e)=>setAuthorizedAssetsOnly(e.target.checked)}/><span>{t('r3OnlyAuthorizedAssets')}</span></label>
       </div>}
+      </details>}
       {state === 'loading' && <ProgressSteps />}
       {analysisNotice && state==='idle' && <div className="radar-analysis-success" role="status" aria-live="polite">
         <span className="radar-success-mark">✓</span>
@@ -1655,7 +1624,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         <p>{locale==='pt-BR'?'Os dados que faltaram não foram tratados como sinal negativo do produto. Investigue as ofertas existentes ou tente novamente quando a fonte estiver disponível.':locale==='es'?'Los datos faltantes no significan mala calidad. Examine las ofertas existentes o reintente cuando vuelva la fuente.':'Missing provider data is not evidence of a poor product. Review existing offers or retry once the provider recovers.'}</p>
         <small>{Object.entries(sourceStatus).filter(([,s])=>s&&s!=='OK').map(([name,status])=>name+': '+status).join(' · ')}</small>
       </section>}
-      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && hasSearched && state==='idle' && <section className="v4-funnel">
+      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && hasSearched && state==='idle' && <details className="radar6-evidence-expander">
+        <summary>{locale==='pt-BR'?'Como estes resultados foram analisados':locale==='es'?'Cómo se analizaron los resultados':'How these results were assessed'}</summary>
+        <section className="v4-funnel">
         <p className="eyebrow">RADAR 4.0 · EVIDENCE</p>
         <h3>{locale==='pt-BR'?'Investigação, não volume artificial':'Evidence-first investigation'}</h3>
         <div className="v4-funnel-metrics">
@@ -1665,13 +1636,15 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           <div><strong>{v4Funnel.promising}</strong><span>{locale==='pt-BR'?'Para investigar':locale==='es'?'Para investigar':'Worth investigating'}</span></div>
         </div>
         <p className="muted">{locale==='pt-BR'?'Este Radar identifica ofertas para pesquisa. Aprovação, imagem, link de comissão e publicação são confirmados depois, na campanha.':locale==='es'?'El Radar identifica ofertas para investigación. La publicación se valida después en la campaña.':'This Radar finds research candidates; creative, commission link, approval and publication are checked later.'}</p>
-      </section>}
+        </section>
+      </details>}
       {searchMeta && state==='idle' && <section className="radar-search-summary">
         <div>
           <span className="eyebrow">{t('radarSearchResult')}</span>
           <strong>{searchMeta.visible>0
             ? t('radarProductsShown',{n:searchMeta.visible})
             : t('radarNoProductsShown')}</strong>
+          <details className="radar6-result-metrics"><summary>{locale==='pt-BR'?'Ver números e validações da pesquisa':locale==='es'?'Ver números y validaciones':'Research numbers and checks'}</summary>
           <p>{t('radarSearchStats',{
             catalog:searchMeta.catalogTotal,
             analyzed:searchMeta.candidates,
@@ -1694,6 +1667,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               ? 'Radar 4.0: produtos são pesquisados sem exigir 100 vendas. Fonte, estoque, comissão e imagem podem estar pendentes; nenhum dado desconhecido é considerado confirmado.'
               : 'Radar 4.0: no 100-sales discovery threshold. Stock, commissions and image rights may remain unknown.'}
           </small>}
+          </details>
         </div>
         <span className="search-source">{searchMeta.provider==='SHOPEE'
           ? t('shopeeOfficialApiSource')
@@ -1701,7 +1675,6 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             ? `Mercado Livre + ${t('shopeeOfficialApiSource')}`
             : 'Mercado Livre'} · {new Intl.DateTimeFormat(locale,{timeStyle:'short'}).format(Date.parse(searchMeta.observedAt))}</span>
       </section>}
-      {!hasSearched && !opportunities.length && state === 'idle' && <Empty title={t('radarEmpty')} body={t('radarEmptyBody')} />}
       {hasSearched && !opportunities.length && state==='idle' && <section className="radar-zero-results">
         <strong>{searchMeta?.usable
           ? t('radarFilteredEmptyTitle')
@@ -1713,14 +1686,13 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           {suggestedQueries.slice(0,4).map((suggestion)=><button key={`empty-${suggestion}`} type="button" onClick={()=>void search(suggestion)}>{suggestion}</button>)}
         </div>
       </section>}
-      {(marketplaceScope==='SHOPEE' && (shopeeApiConfigured===false || shopeeProviderFallback)) || ((marketplaceScope==='MELI' || marketplaceScope==='ALL') && hasSearched && ((state==='error' && !errorCode.startsWith('SHOPEE_')) || (state==='idle' && sourceStatus.MELI && sourceStatus.MELI!=='OK'))) ? null : editable ? (
-        <ManualProductImport organizationId={organizationId} onImported={(product, keyword, signals) => create(product, keyword, signals)} />
-      ) : (
-        <div className="notice">{t('readOnlyRadar')}</div>
-      )}
       {FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && hasSearched && opportunities.length>0 && visibleOpportunities.length===0 && <Empty title={t('r3FilterNoMatch')} body={t('r3FilterClearHelp')}/>}
+      {hasSearched && shownOpportunities.length>0 && <div className="radar6-result-intro">
+        <h2>{locale==='pt-BR'?'Escolha um produto para preparar seu Pin':locale==='es'?'Elige un producto para preparar tu Pin':'Choose a product for your Pin'}</h2>
+        <span className="muted">{shownOpportunities.length} {locale==='pt-BR'?'opções nesta pesquisa':locale==='es'?'opciones en esta búsqueda':'options in this search'}</span>
+      </div>}
       <div className="opportunity-grid">
-        {shownOpportunities.map((opportunity,index) => {
+        {shownOpportunities.slice(0,visibleResultCount).map((opportunity,index) => {
           const product=opportunity.product;
           // A partial rollout must never allow unverified research items into a campaign.
           const assessment=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? assessRevenueOpportunity(opportunity) : null;
@@ -1747,10 +1719,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   ? <span className="potential-chip">{v4FilterLabels[v4ById[opportunity.id]!.status]}</span>
                   : <><span className={`potential-chip potential-${potential.toLowerCase()}`}>{potentialLabel}</span>
                     <span>NestScore 2.0 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}</span></>}
-                {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED&&<details className="legacy-radar-score">
-                   <summary>{locale==='pt-BR'?'Nota histórica (heurística)':locale==='es'?'Puntuación histórica (heurística)':'Legacy heuristic score'}</summary>
-                   <small>NestScore 2.0: {opportunity.score.score}/100 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}. {locale==='pt-BR'?'Não comprova procura nem vendas.':locale==='es'?'No prueba demanda ni ventas.':'Does not prove demand or sales.'}</small>
-                 </details>}
+
               </div>
               <h3>{isSafeOfferUrl(product.url.value,product.marketplace)
                 ? <a className="product-title-link" href={product.url.value} target="_blank" rel="noopener noreferrer">{product.title.value}</a>
@@ -1765,9 +1734,6 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                 {typeof product.soldQuantity?.value==='number'
                   ? <span className="proof-chip">{t('salesProof',{n:new Intl.NumberFormat(locale,{notation:'compact',maximumFractionDigits:1}).format(product.soldQuantity.value)})}</span>
                   : null}
-                {typeof product.availableQuantity?.value==='number'
-                  ? <span className="proof-chip subtle">{t('stockProof',{n:new Intl.NumberFormat(locale).format(product.availableQuantity.value)})}</span>
-                  : null}
                 {typeof product.rating?.value==='number'
                   ? <span className="proof-chip subtle">★ {product.rating.value.toFixed(1)}</span>
                   : null}
@@ -1781,6 +1747,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   ? <span className="proof-chip success">{t('shopeeAffiliateReady')}</span>
                   : null}
               </div>
+              <details className="radar6-card-details"><summary>{locale==='pt-BR'?'Ver detalhes e evidências':locale==='es'?'Ver detalles y evidencias':'View details and evidence'}</summary>
+                {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED&&<details className="legacy-radar-score">
+                   <summary>{locale==='pt-BR'?'Nota histórica (heurística)':locale==='es'?'Puntuación histórica (heurística)':'Legacy heuristic score'}</summary>
+                   <small>NestScore 2.0: {opportunity.score.score}/100 · {t(opportunity.score.confidence as 'high'|'medium'|'low')}. {locale==='pt-BR'?'Não comprova procura nem vendas.':locale==='es'?'No prueba demanda ni ventas.':'Does not prove demand or sales.'}</small>
+                 </details>}
               {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4ById[opportunity.id] && <OpportunityV4Panel assessment={v4ById[opportunity.id]!}/>}
               {assessment && FEATURE_FLAGS.REVENUE_ASSESSMENT_ENABLED && <RevenueAssessmentPanel assessment={assessment}/>}
               {FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED && <details className="revenue-assessment">
@@ -1831,15 +1802,26 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                 {opportunity.rankingReasons.slice(0,3).map((reason)=><span key={reason}>{reason}</span>)}
               </div>
               <div className="tracking-row"><code>{opportunity.trackingCode}</code><button className="text-button" onClick={()=>void navigator.clipboard.writeText(opportunity.trackingCode)}>{t('copyTracking')}</button></div>
+                <div className="radar6-secondary-actions">
+                  <ProductSourceActions product={product} compact />
+                  <button className="button secondary" type="button" onClick={()=>prepareAffiliate(opportunity)}>{t('affiliatePrep')}</button>
+                </div>
+              </details>
               <div className="opportunity-actions">
-                <ProductSourceActions product={product} compact />
-                <button className="button secondary" onClick={()=>prepareAffiliate(opportunity)}>{t('affiliatePrep')}</button>
-                <button className="button primary" disabled={!editable} onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>{locale==='pt-BR'?'Criar Pin com este produto →':locale==='es'?'Crear Pin con este producto →':'Create Pin with this product →'}</button>
+                <button className="button primary" disabled={!editable}
+                  onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>
+                  {locale==='pt-BR'?'Preparar meu Pin →':locale==='es'?'Preparar mi Pin →':'Prepare my Pin →'}
+                </button>
               </div>
             </div>
           </article>
         )})}
       </div>
+      {shownOpportunities.length>visibleResultCount && <button type="button" className="button secondary radar6-load-more"
+        onClick={()=>setVisibleResultCount(value=>value+6)}>
+        {locale==='pt-BR'?'Mostrar mais produtos':locale==='es'?'Mostrar más productos':'Show more products'}
+        {' '}({Math.min(visibleResultCount,shownOpportunities.length)} / {shownOpportunities.length})
+      </button>}
     </div>
   );
 }

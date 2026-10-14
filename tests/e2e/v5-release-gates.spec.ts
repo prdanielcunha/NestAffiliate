@@ -32,7 +32,7 @@ test('V5 library and intent explorer keep PT/EN/ES labels without lost workflows
  for(const locale of ['pt-BR','en','es']){
   await page.goto('/radar');
   await page.getByRole('combobox',{name:'Language'}).selectOption(locale);
-  await expect(page.locator('.intent-explorer')).toBeVisible();
+  await expect(page.locator('.radar6-discovery')).toBeVisible();
   await page.goto('/library');
   await expect(page.locator('.library-controls input')).toBeVisible();
   await expect(page.locator('.library-results')).toBeVisible();
