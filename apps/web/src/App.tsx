@@ -2183,6 +2183,13 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <details className="pin-advanced-reel"><summary>{locale==='pt-BR'?'Opcional: criar Reel também':'Optional: create a Reel'}</summary><ReelKitPanel campaign={activeCampaign}/></details>}
       </div>
       <div className="pin-studio-stage" hidden={studioStage!=='review'}>
+        {campaign.marketplace==='SHOPEE'&&<p className="guided-shopee-note" role="note">
+          {locale==='pt-BR'
+            ?'Shopee: a marcação de afiliado é conferida na publicação. Confira o produto, a imagem final e a elegibilidade antes de publicar.'
+            :locale==='es'
+              ?'Shopee: verifica la etiqueta de afiliado durante la publicación y confirma el producto y la imagen.'
+              :'Shopee: affiliate tagging is verified when publishing. Confirm the product and final image.'}
+        </p>}
         <details className="pin-expert-journey"><summary>{locale==='pt-BR'?'Ver jornada detalhada e etapas anteriores':'View detailed steps'}</summary><CampaignJourney campaign={activeCampaign}/></details>
       {editError && <div className="notice edit-feedback" role="alert">{editError}</div>}
       {pendingEdit?.ok && <section className="edit-preview" aria-label="Prévia da alteração">
