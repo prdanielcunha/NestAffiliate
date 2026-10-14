@@ -6,7 +6,7 @@ test('review copy button opens choices in place without anchor teleport',async({
   const block=page.getByRole('region',{name:'Próxima ação e textos do Pin'});
   await expect(block).toBeVisible();
   const top=await page.evaluate(()=>window.scrollY);
-  await block.getByRole('button',{name:'Escolher textos'}).click();
+  await block.getByRole('button',{name:/Escolher título e descrição/}).click();
   const picker=page.locator('.inline-copy-chooser');
   await expect(picker).toBeVisible();
   await expect(picker.getByRole('heading',{name:'Escolha aqui, sem sair desta tela'})).toBeVisible();
