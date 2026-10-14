@@ -43,3 +43,14 @@
 .radar7-next-step{margin:12px 0 2px;padding:10px 12px;border-left:3px solid var(--accent);background:var(--surface2);border-radius:4px 10px 10px 4px;display:grid;gap:4px}
 .radar7-next-step strong{font-size:12px}
 .radar7-next-step span{font-size:13px;line-height:1.5;color:var(--muted)}
+
+.radar8-sync{display:grid;gap:12px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface2)}
+.radar8-sync strong{font-size:15px}
+.radar8-sync p{margin:5px 0 0}
+.radar8-sync-toggle{display:flex;gap:10px;align-items:center;font-size:13px;font-weight:700;cursor:pointer}
+.radar8-sync-toggle input{min-width:20px;min-height:20px;accent-color:var(--accent)}
+.radar8-sync-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.radar8-sync-actions span{font-size:12px;flex-basis:100%;color:var(--muted)}
+.radar8-sync-actions .button{width:auto;margin:0}
+.radar8-sync-actions .text-button{padding:8px}
+.radar8-sync small{color:var(--muted);font-size:12px;line-height:1.5}
