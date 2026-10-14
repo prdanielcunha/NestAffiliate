@@ -25,7 +25,7 @@ export function RadarResearchLibrary({recent,saved,preferred,syncEnabled,syncAva
  onClear:()=>void;
 }){
   const {locale}=useI18n();const en=locale==='en',es=locale==='es';
-  if(!recent.length&&!saved.length&&!preferred)return null;
+
   return <details className="radar7-library">
     <summary>{en?'My research':es?'Mis búsquedas':'Minhas pesquisas'} · {saved.length} {en?'saved':es?'guardados':'salvos'}</summary>
     <div className="radar7-library-content">
