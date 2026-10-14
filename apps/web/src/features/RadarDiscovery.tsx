@@ -5,7 +5,7 @@ import { useI18n } from '../lib/i18n-context';
 import './radar-discovery.css';
 
 type Marketplace = 'ALL' | 'MELI' | 'SHOPEE';
-type SuggestionGroup = 'recommended' | 'bestSellers' | 'searched' | 'growing' | 'categories' | 'problems';
+type SuggestionGroup = 'recommended' | 'bestSellers' | 'searched' | 'trending' | 'categories' | 'problems';
 type RadarSuggestion = { id: string; keyword: string; title: string; group: SuggestionGroup; marketplace?: 'MELI' | 'SHOPEE'; evidence?: string };
 
 const categorySeeds = [
@@ -26,9 +26,9 @@ const categorySeeds = [
 ] as const;
 
 function getGroup(source: string): SuggestionGroup | null {
-  if (source === 'MELI_BEST_SELLER' || source === 'SHOPEE_TOP_SALES') return 'bestSellers';
-  if (source === 'MELI_TREND_DESIRED') return 'searched';
-  if (source === 'MELI_TREND_GROWTH') return 'growing';
+  if (source === 'MELI_BEST_SELLER') return 'bestSellers';
+  if (source === 'MELI_TREND_POPULAR' || source === 'MELI_TREND_GROWTH' || source === 'MELI_TREND_DESIRED') return 'trending';
+  // Old growth/desired labels also represent a single trend snapshot, not measured changes.
   return null;
 }
 
@@ -40,7 +40,7 @@ function getMarketplace(source: string): 'MELI' | 'SHOPEE' | undefined {
 
 export function RadarDiscovery({
   onSearch, busy, marketSignals, marketplace, onMarketplaceChange, onOpenImport, hasSearched, searchQuery,
-  shopeeAutomatic,
+  shopeeAutomatic,preferredCategory,onPreferredCategory,
 }: {
   onSearch: (keyword: string) => void;
   busy: boolean;
@@ -51,6 +51,8 @@ export function RadarDiscovery({
   hasSearched: boolean;
   searchQuery: string;
   shopeeAutomatic: boolean;
+  preferredCategory:string|null;
+  onPreferredCategory:(category:string|null)=>void;
 }) {
   const { locale } = useI18n();
   const language = locale === 'en' ? 'en' : locale === 'es' ? 'es' : 'pt';
@@ -64,7 +66,8 @@ export function RadarDiscovery({
       const keyword = signal.keyword?.trim();
       if (!keyword || keyword.length < 4) continue;
       const mkt = getMarketplace(signal.source);
-      const signalGroup = getGroup(signal.source);
+      // Official sales quantity is not proof of position in a bestseller ranking.
+      const signalGroup=getGroup(signal.source);
       const label = mkt === 'MELI' ? 'Mercado Livre' : mkt === 'SHOPEE' ? 'Shopee' : language === 'en' ? 'Identified source' : language === 'es' ? 'Fuente identificada' : 'Fonte identificada';
       const when = Date.parse(signal.observedAt);
       const evidence = label + (Number.isFinite(when) ? ' · ' + new Date(when).toLocaleDateString(locale) : '');
@@ -92,14 +95,17 @@ export function RadarDiscovery({
     {id:'recommended',label:t('Para você','For you','Para ti')},
     {id:'bestSellers',label:t('Mais vendidos','Best sellers','Más vendidos')},
     {id:'searched',label:t('Mais procurados','Most searched','Más buscados')},
-    {id:'growing',label:t('Em crescimento','Growing','En crecimiento')},
+    {id:'trending',label:t('Tendências','Trending topics','Tendencias')},
     {id:'categories',label:t('Por categoria','By category','Por categoría')},
     {id:'problems',label:t('Resolver problemas','Solve problems','Resolver problemas')},
   ];
   const availableGroups=groups.filter(tab => tab.id === 'recommended' || tab.id === 'categories' || tab.id === 'problems'
     || suggestions.some(item => item.group===tab.id && (marketplace==='ALL' || !item.marketplace || item.marketplace===marketplace)));
   const activeGroup = availableGroups.some(tab=>tab.id===group)?group:'recommended';
-  const displayed=suggestions.filter(item => item.group === activeGroup && (marketplace==='ALL'|| !item.marketplace || item.marketplace===marketplace));
+  const displayed=suggestions.filter(item => item.group === activeGroup && (marketplace==='ALL'|| !item.marketplace || item.marketplace===marketplace))
+    .sort((a,b)=>activeGroup==='recommended' && preferredCategory
+      ? Number(b.id==='suggest-'+preferredCategory)-Number(a.id==='suggest-'+preferredCategory)
+      : 0);
   const showSuggestions = !hasSearched;
 
   return <section className="radar6-discovery" aria-label={t('Pesquisar oportunidades','Discover opportunities','Buscar oportunidades')}>
@@ -130,6 +136,15 @@ export function RadarDiscovery({
       {marketplace==='SHOPEE'&&!shopeeAutomatic && <p className="radar6-marketplace-note" role="status">{t('A busca automática da Shopee pode exigir importação assistida. Vamos orientar você.','Shopee may require assisted import. We will guide you.','Shopee puede requerir importación asistida. Te guiaremos.')}</p>}
     </fieldset>
     {showSuggestions && <>
+      <div className="radar7-interests">
+        <label htmlFor="radar7-preferred-category">{t('Qual área você quer explorar mais?','Which area interests you most?','¿Qué categoría te interesa más?')}</label>
+        <select id="radar7-preferred-category" value={preferredCategory??''}
+          onChange={event=>onPreferredCategory(event.target.value||null)}>
+          <option value="">{t('Todas as áreas','All categories','Todas las categorías')}</option>
+          {categorySeeds.map(([id,pt,en,es])=><option key={id} value={id}>{language==='en'?en:language==='es'?es:pt}</option>)}
+        </select>
+        <small>{t('Sua escolha orienta sugestões neste dispositivo; não representa demanda comprovada.','Your choice guides ideas on this device; it does not prove demand.','Tu elección guía sugerencias en este dispositivo; no acredita demanda.')}</small>
+      </div>
       <div className="radar6-suggestions-heading"><h3>{t('Explore ideias','Explore ideas','Explora ideas')}</h3><span>{t('Escolha uma sugestão para pesquisar','Choose an idea to search','Elige una idea para buscar')}</span></div>
       <div className="radar6-tabs" role="group" aria-label={t('Tipo de sugestão','Suggestion type','Tipo de sugerencia')}>
         {availableGroups.map(tab=><button key={tab.id} type="button" aria-pressed={activeGroup===tab.id}

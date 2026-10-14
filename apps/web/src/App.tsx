@@ -58,6 +58,8 @@ import { loadLatestRadarV4Coverage, listRadarV4Research, listRadarV4Assessments,
 import { validateStoredProductReference } from './services/productReferenceRepository';
 import { OpportunityV4Panel, opportunityReasonLabel } from './features/OpportunityV4Panel';
 import { RadarDiscovery } from './features/RadarDiscovery';
+import { RadarComparisonBar, RadarResearchLibrary } from './features/RadarDecisionTools';
+import { radarOfferId, sortRadarOpportunities, useRadarWorkspace, type RadarSort } from './lib/radarWorkspace';
 import { RadarProductImage } from './features/RadarProductImage';
 import { WorkspaceLibrary } from './features/WorkspaceLibrary';
 import { CampaignJourney } from './features/CampaignJourney';
@@ -921,6 +923,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [query, setQuery] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [visibleResultCount,setVisibleResultCount]=useState(6);
+  const [radarSort,setRadarSort]=useState<RadarSort>('recommended');
+  const [comparisonIds,setComparisonIds]=useState<string[]>([]);
+  const {workspace,addSearch,toggleSaved,removeSaved,setPreferredCategory,clear:clearResearch}=useRadarWorkspace(organizationId,identity.user?.uid??null);
+  const toggleComparison=(id:string)=>setComparisonIds(current=>current.includes(id)?current.filter(value=>value!==id):current.length>=3?current:[...current,id]);
   const [marketplaceScope,setMarketplaceScope]=useState<'ALL'|'MELI'|'SHOPEE'>('ALL');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [comparisonProducts,setComparisonProducts]=useState<ProductTruth[]>([]);
@@ -968,9 +974,10 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     }
     return true;
   });
-  const shownOpportunities=FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4StatusFilter!=='ALL'
+  const filteredOpportunities=FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4StatusFilter!=='ALL'
     ? visibleOpportunities.filter(opp=>v4ById[opp.id]?.status===v4StatusFilter)
     : visibleOpportunities;
+  const shownOpportunities=sortRadarOpportunities(filteredOpportunities,radarSort);
   const [searchMeta,setSearchMeta]=useState<{
     provider:'MELI'|'SHOPEE'|'ALL';
     query:string;
@@ -1076,8 +1083,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
 
   function marketSignalLabel(signal:CommerceSignal){
     if(signal.source==='MELI_BEST_SELLER') return t('marketBestSeller');
-    if(signal.source==='MELI_TREND_GROWTH') return t('marketGrowing');
-    if(signal.source==='MELI_TREND_DESIRED') return t('marketHighlySearched');
+    if(signal.source==='MELI_TREND_GROWTH' || signal.source==='MELI_TREND_DESIRED') return locale==='pt-BR'?'Tendência listada':locale==='es'?'Tendencia listada':'Listed trend';
     if(signal.source==='SHOPEE_SEARCH_ASSISTED') return t('shopeeSearchAssisted');
     if(signal.source==='SHOPEE_EXTRA_COMMISSION') return t('shopeeExtraCommission');
     if(signal.source==='SHOPEE_TOP_SALES') return t('shopeeTopSales');
@@ -1089,6 +1095,8 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     const effectiveQuery=(queryOverride ?? query).trim();
     if(!effectiveQuery) return;
     setQuery(effectiveQuery);
+    addSearch(effectiveQuery);
+    setComparisonIds([]);
     setVisibleResultCount(6);
     setErrorCode('');
 
@@ -1472,9 +1480,12 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         shopeeAutomatic={shopeeApiConfigured===true && !shopeeProviderFallback}
         hasSearched={hasSearched}
         searchQuery={query}
+        preferredCategory={workspace.preferredCategory}
+        onPreferredCategory={setPreferredCategory}
         onSearch={keyword=>{void search(keyword);}}
         onMarketplaceChange={value=>{
           setMarketplaceScope(value);
+          setComparisonIds([]);
           setVisibleResultCount(6);
           setOpportunities([]);
           setSearchMeta(null);
@@ -1485,6 +1496,8 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         }}
         onOpenImport={()=>setShowImport(current=>!current)}
       />
+      <RadarResearchLibrary recent={workspace.recentSearches} saved={workspace.saved} preferred={workspace.preferredCategory}
+        onRestoreSearch={term=>void search(term)} onRemoveSaved={removeSaved} onClear={clearResearch}/>
       {showImport && editable && <div className="radar6-import-panel" id="radar6-import-panel">
         <SmartProductImport organizationId={organizationId}
           onImported={(product,keyword,strategy,attempted,failure)=>create(product,keyword,undefined,undefined,true,strategy,attempted,failure)}/>
@@ -1691,6 +1704,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         <h2>{locale==='pt-BR'?'Escolha um produto para preparar seu Pin':locale==='es'?'Elige un producto para preparar tu Pin':'Choose a product for your Pin'}</h2>
         <span className="muted">{shownOpportunities.length} {locale==='pt-BR'?'opções nesta pesquisa':locale==='es'?'opciones en esta búsqueda':'options in this search'}</span>
       </div>}
+      {hasSearched && opportunities.length>0 && state==='idle' && <RadarComparisonBar
+        items={opportunities} selectedIds={comparisonIds} onToggle={toggleComparison}
+        onClear={()=>setComparisonIds([])} sort={radarSort} onSortChange={value=>{setRadarSort(value);setVisibleResultCount(6);}}
+        onPrepare={item=>create(item.product,item.keyword,{signals:item.commercialSignals},opportunities.findIndex(found=>found.id===item.id)+1)}
+      />}
       <div className="opportunity-grid">
         {shownOpportunities.slice(0,visibleResultCount).map((opportunity,index) => {
           const product=opportunity.product;
@@ -1704,7 +1722,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
             potential==='HIGH' ? t('potentialHigh') :
             t('potentialValidated');
           return (
-          <article className="opportunity-card radar2-card" key={product.externalId}>
+          <article className="opportunity-card radar2-card" key={radarOfferId(product)}>
             <div className="product-image">
               <RadarProductImage product={product} />
               <span className="rank-pill">#{index+1}</span>
@@ -1747,6 +1765,16 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   ? <span className="proof-chip success">{t('shopeeAffiliateReady')}</span>
                   : null}
               </div>
+              {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4ById[opportunity.id] && <div className="radar7-next-step">
+                <strong>{locale==='pt-BR'?'Próximo cuidado':locale==='es'?'Siguiente paso':'Next check'}</strong>
+                <span>{(()=>{
+                  const blockers=v4ById[opportunity.id]!.readiness.blockers.filter(item=>item!=='APPROVAL_REQUIRED');
+                  return blockers.length ? opportunityReasonLabel(blockers[0]!,locale) :
+                    locale==='pt-BR'?'Pode preparar o conteúdo. A publicação ainda exige revisão.':
+                    locale==='es'?'Puedes preparar el contenido; todavía requiere revisión.':
+                      'Ready to prepare content; publishing still requires review.';
+                })()}</span>
+              </div>}
               <details className="radar6-card-details"><summary>{locale==='pt-BR'?'Ver detalhes e evidências':locale==='es'?'Ver detalles y evidencias':'View details and evidence'}</summary>
                 {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED&&<details className="legacy-radar-score">
                    <summary>{locale==='pt-BR'?'Nota histórica (heurística)':locale==='es'?'Puntuación histórica (heurística)':'Legacy heuristic score'}</summary>
@@ -1809,9 +1837,21 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               </details>
               <div className="opportunity-actions">
                 <button className="button primary" disabled={!editable}
-                  onClick={() => create(product,query,{signals:opportunity.commercialSignals},index+1)}>
+                  onClick={() => create(product,query,{signals:opportunity.commercialSignals},opportunities.findIndex(found=>found.id===opportunity.id)+1)}>
                   {locale==='pt-BR'?'Preparar meu Pin →':locale==='es'?'Preparar mi Pin →':'Prepare my Pin →'}
                 </button>
+                <button type="button" className="radar7-save-button" onClick={()=>toggleSaved(opportunity)}
+                  aria-pressed={workspace.saved.some(saved=>saved.id===radarOfferId(product))}>
+                  {workspace.saved.some(saved=>saved.id===radarOfferId(product))
+                    ? locale==='pt-BR'?'✓ Salvo para depois':locale==='es'?'✓ Guardado':'✓ Saved'
+                    : locale==='pt-BR'?'Salvar para depois':locale==='es'?'Guardar para después':'Save for later'}
+                </button>
+                <label className="radar7-compare-option">
+                  <input type="checkbox" checked={comparisonIds.includes(radarOfferId(product))}
+                    disabled={!comparisonIds.includes(radarOfferId(product))&&comparisonIds.length>=3}
+                    onChange={()=>toggleComparison(radarOfferId(product))}/>
+                  <span>{locale==='pt-BR'?'Comparar com outros':locale==='es'?'Comparar con otros':'Compare with others'}</span>
+                </label>
               </div>
             </div>
           </article>
