@@ -920,6 +920,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [showImport, setShowImport] = useState(false);
+  const [visibleResultCount,setVisibleResultCount]=useState(6);
   const [marketplaceScope,setMarketplaceScope]=useState<'ALL'|'MELI'|'SHOPEE'>('ALL');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [comparisonProducts,setComparisonProducts]=useState<ProductTruth[]>([]);
@@ -1088,6 +1089,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
     const effectiveQuery=(queryOverride ?? query).trim();
     if(!effectiveQuery) return;
     setQuery(effectiveQuery);
+    setVisibleResultCount(6);
     setErrorCode('');
 
     if(marketplaceScope==='SHOPEE' && (shopeeApiConfigured===false || shopeeProviderFallback)){
@@ -1473,6 +1475,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         onSearch={keyword=>{void search(keyword);}}
         onMarketplaceChange={value=>{
           setMarketplaceScope(value);
+          setVisibleResultCount(6);
           setOpportunities([]);
           setSearchMeta(null);
           setHasSearched(false);
@@ -1621,7 +1624,9 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         <p>{locale==='pt-BR'?'Os dados que faltaram não foram tratados como sinal negativo do produto. Investigue as ofertas existentes ou tente novamente quando a fonte estiver disponível.':locale==='es'?'Los datos faltantes no significan mala calidad. Examine las ofertas existentes o reintente cuando vuelva la fuente.':'Missing provider data is not evidence of a poor product. Review existing offers or retry once the provider recovers.'}</p>
         <small>{Object.entries(sourceStatus).filter(([,s])=>s&&s!=='OK').map(([name,status])=>name+': '+status).join(' · ')}</small>
       </section>}
-      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && hasSearched && state==='idle' && <section className="v4-funnel">
+      {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && hasSearched && state==='idle' && <details className="radar6-evidence-expander">
+        <summary>{locale==='pt-BR'?'Como estes resultados foram analisados':locale==='es'?'Cómo se analizaron los resultados':'How these results were assessed'}</summary>
+        <section className="v4-funnel">
         <p className="eyebrow">RADAR 4.0 · EVIDENCE</p>
         <h3>{locale==='pt-BR'?'Investigação, não volume artificial':'Evidence-first investigation'}</h3>
         <div className="v4-funnel-metrics">
@@ -1631,13 +1636,15 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           <div><strong>{v4Funnel.promising}</strong><span>{locale==='pt-BR'?'Para investigar':locale==='es'?'Para investigar':'Worth investigating'}</span></div>
         </div>
         <p className="muted">{locale==='pt-BR'?'Este Radar identifica ofertas para pesquisa. Aprovação, imagem, link de comissão e publicação são confirmados depois, na campanha.':locale==='es'?'El Radar identifica ofertas para investigación. La publicación se valida después en la campaña.':'This Radar finds research candidates; creative, commission link, approval and publication are checked later.'}</p>
-      </section>}
+        </section>
+      </details>}
       {searchMeta && state==='idle' && <section className="radar-search-summary">
         <div>
           <span className="eyebrow">{t('radarSearchResult')}</span>
           <strong>{searchMeta.visible>0
             ? t('radarProductsShown',{n:searchMeta.visible})
             : t('radarNoProductsShown')}</strong>
+          <details className="radar6-result-metrics"><summary>{locale==='pt-BR'?'Ver números e validações da pesquisa':locale==='es'?'Ver números y validaciones':'Research numbers and checks'}</summary>
           <p>{t('radarSearchStats',{
             catalog:searchMeta.catalogTotal,
             analyzed:searchMeta.candidates,
@@ -1660,6 +1667,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               ? 'Radar 4.0: produtos são pesquisados sem exigir 100 vendas. Fonte, estoque, comissão e imagem podem estar pendentes; nenhum dado desconhecido é considerado confirmado.'
               : 'Radar 4.0: no 100-sales discovery threshold. Stock, commissions and image rights may remain unknown.'}
           </small>}
+          </details>
         </div>
         <span className="search-source">{searchMeta.provider==='SHOPEE'
           ? t('shopeeOfficialApiSource')
@@ -1684,7 +1692,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         <span className="muted">{shownOpportunities.length} {locale==='pt-BR'?'opções nesta pesquisa':locale==='es'?'opciones en esta búsqueda':'options in this search'}</span>
       </div>}
       <div className="opportunity-grid">
-        {shownOpportunities.map((opportunity,index) => {
+        {shownOpportunities.slice(0,visibleResultCount).map((opportunity,index) => {
           const product=opportunity.product;
           // A partial rollout must never allow unverified research items into a campaign.
           const assessment=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? assessRevenueOpportunity(opportunity) : null;
@@ -1809,6 +1817,11 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           </article>
         )})}
       </div>
+      {shownOpportunities.length>visibleResultCount && <button type="button" className="button secondary radar6-load-more"
+        onClick={()=>setVisibleResultCount(value=>value+6)}>
+        {locale==='pt-BR'?'Mostrar mais produtos':locale==='es'?'Mostrar más productos':'Show more products'}
+        {' '}({Math.min(visibleResultCount,shownOpportunities.length)} / {shownOpportunities.length})
+      </button>}
     </div>
   );
 }
