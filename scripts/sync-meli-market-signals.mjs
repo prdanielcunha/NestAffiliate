@@ -128,23 +128,18 @@ async function meliGet(path,accessToken){
 
 function trendSignal(entry,index,observedAt){
   const position=index+1;
-  const segment=position<=10
-    ? {source:'MELI_TREND_GROWTH',label:'Mercado Livre · maior crescimento semanal',base:1,floor:0.78,start:1,end:10}
-    : position<=30
-      ? {source:'MELI_TREND_DESIRED',label:'Mercado Livre · buscas mais desejadas',base:0.86,floor:0.66,start:11,end:30}
-      : {source:'MELI_TREND_POPULAR',label:'Mercado Livre · tendência popular',base:0.75,floor:0.56,start:31,end:50};
-  const relative=position-segment.start;
-  const span=Math.max(1,segment.end-segment.start);
-  const strength=segment.base-(segment.base-segment.floor)*(relative/span);
+  // The official /trends/MLB endpoint provides a ranked trend list.
+  // Its ordinal positions do NOT identify weekly growth or search volume.
+  const strength=Math.max(0.55,1-((position-1)/Math.max(1,50-1))*0.4);
   return {
-    id:`meli-trend-${position}-${normalize(entry.keyword).replace(/[^a-z0-9]+/g,'-').slice(0,80)}`,
-    source:segment.source,
+    id:'meli-trend-'+position+'-'+normalize(entry.keyword).replace(/[^a-z0-9]+/g,'-').slice(0,80),
+    source:'MELI_TREND_POPULAR',
     kind:'DEMAND',
     strength:Number(strength.toFixed(4)),
-    confidence:0.96,
+    confidence:0.9,
     observedAt,
-    label:segment.label,
-    evidence:[`posição geral:${position}`,segment.label],
+    label:'Mercado Livre · termo na lista oficial de tendências',
+    evidence:['posição na lista de tendências:'+position,'não comprova crescimento percentual nem volume de buscas'],
     rank:position,
     keyword:String(entry.keyword || ''),
   };

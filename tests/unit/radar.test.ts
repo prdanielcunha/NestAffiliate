@@ -40,13 +40,14 @@ describe('radar engine', () => {
 });
 
 
-it('turns official Mercado Livre positions into stronger demand signals',()=>{
-  const growth=buildMeliTrendSignal({position:1,keyword:'organizador cozinha'});
-  const desired=buildMeliTrendSignal({position:15,keyword:'organizador cozinha'});
-  const popular=buildMeliTrendSignal({position:45,keyword:'organizador cozinha'});
-  expect(growth.source).toBe('MELI_TREND_GROWTH');
-  expect(growth.strength).toBeGreaterThan(desired.strength);
-  expect(desired.strength).toBeGreaterThan(popular.strength);
+it('uses official trend positions without inventing measured growth or search volume',()=>{
+  const high=buildMeliTrendSignal({position:1,keyword:'organizador cozinha'});
+  const mid=buildMeliTrendSignal({position:15,keyword:'organizador cozinha'});
+  const low=buildMeliTrendSignal({position:45,keyword:'organizador cozinha'});
+  expect(high.source).toBe('MELI_TREND_POPULAR');
+  expect(mid.source).toBe('MELI_TREND_POPULAR');
+  expect(high.strength).toBeGreaterThan(mid.strength);
+  expect(mid.strength).toBeGreaterThan(low.strength);
 });
 
 it('boosts a bestseller opportunity without changing the 100 point ceiling',()=>{
@@ -80,12 +81,12 @@ it('creates stable affiliate tracking labels',()=>{
 });
 
 
-it('parses the official Mercado Livre trends payload by documented position bands',()=>{
+it('parses the official Mercado Livre ranked trend payload without fictional position bands',()=>{
   const payload=Array.from({length:50},(_,index)=>({keyword:`keyword ${index+1}`,url:'https://lista.mercadolivre.com.br/x'}));
   const signals=parseMeliTrendsPayload(payload,'2026-10-02T00:00:00.000Z');
   expect(signals).toHaveLength(50);
-  expect(signals[0]?.source).toBe('MELI_TREND_GROWTH');
-  expect(signals[10]?.source).toBe('MELI_TREND_DESIRED');
+  expect(signals[0]?.source).toBe('MELI_TREND_POPULAR');
+  expect(signals[10]?.source).toBe('MELI_TREND_POPULAR');
   expect(signals[30]?.source).toBe('MELI_TREND_POPULAR');
 });
 
