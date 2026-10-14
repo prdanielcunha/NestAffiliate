@@ -129,6 +129,7 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
   const [syncStatus,setSyncStatus]=useState<'off'|'syncing'|'synced'|'error'|'unavailable'>('off');
   const [syncNonce,setSyncNonce]=useState(0);
   const syncInFlight=useRef<Promise<unknown>|null>(null);
+  const syncPaused=useRef(false);
   useEffect(()=>{setRecord({key,state:key?load(key):empty()});},[key]);
   useEffect(()=>{
     if(!key||record.key!==key)return;
@@ -144,6 +145,7 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
     setSyncStatus('syncing');
     const currentDb=db;
     const timer=window.setTimeout(()=>{
+      if(syncPaused.current)return;
       const pending=syncPrivateRadarWorkspace({db:currentDb,userId,organizationId,workspace}).then(result=>{
         if(!active)return;
         if(result.mode==='remote_newer'){
@@ -170,6 +172,7 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
   async function deleteSyncedCopy(){
     if(!db||!key||!userId||!organizationId)throw new Error('SYNC_NOT_AVAILABLE');
     // Stop uploading before deleting the synced document. Local research is retained.
+    syncPaused.current=true;
     setRecord(prev=>prev.key===key?{key,state:{...prev.state,syncEnabled:false}}:prev);
     try{
       await syncInFlight.current?.catch(()=>undefined);
@@ -183,6 +186,7 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
     syncAvailable:Boolean(db&&key),
     setSyncEnabled:(enabled:boolean)=>{
       if(!key)return;
+      syncPaused.current=!enabled;
       setRecord(prev=>({key,state:{...(prev.key===key?prev.state:load(key)),syncEnabled:enabled}}));
       if(enabled)setSyncNonce(n=>n+1);
     },
