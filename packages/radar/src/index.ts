@@ -219,26 +219,19 @@ export function buildMeliTrendSignal(input:{
   observedAt?:string;
 }):CommerceSignal{
   const position=Math.max(1,Math.min(50,Math.round(input.position)));
-  const segment=position<=10
-    ? {source:'MELI_TREND_GROWTH' as const,label:'Mercado Livre · maior crescimento semanal',base:1,span:10}
-    : position<=30
-      ? {source:'MELI_TREND_DESIRED' as const,label:'Mercado Livre · buscas mais desejadas',base:0.86,span:20}
-      : {source:'MELI_TREND_POPULAR' as const,label:'Mercado Livre · tendência popular',base:0.75,span:20};
-  const segmentPosition=position<=10 ? position : position<=30 ? position-10 : position-30;
-  const decay=(segmentPosition-1)/Math.max(1,segment.span-1);
-  const floor=segment.source==='MELI_TREND_GROWTH' ? 0.78 : segment.source==='MELI_TREND_DESIRED' ? 0.66 : 0.56;
-  const strength=clamp01(segment.base-(segment.base-floor)*decay);
+  // Ranking position alone is not evidence of week-over-week growth.
+  const strength=clamp01(1-((position-1)/49)*0.4);
   return {
-    id:`meli-trend:${position}:${normalizeSearchText(input.keyword)}`,
-    source:segment.source,
+    id:'meli-trend:'+position+':'+normalizeSearchText(input.keyword),
+    source:'MELI_TREND_POPULAR',
     kind:'DEMAND',
     strength,
-    confidence:0.96,
+    confidence:0.9,
     observedAt:input.observedAt ?? new Date().toISOString(),
-    label:segment.label,
+    label:'Mercado Livre · termo na lista oficial de tendências',
     rank:position,
     keyword:input.keyword,
-    evidence:[`posição geral:${position}`,segment.label],
+    evidence:['posição na lista de tendências:'+position,'crescimento/volume de busca não informados'],
   };
 }
 
