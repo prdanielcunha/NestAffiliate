@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { db } from './firebase';
 import {deletePrivateRadarWorkspace,syncPrivateRadarWorkspace,workspaceModifiedAt} from './radarWorkspaceCloud';
 import type { Opportunity } from '@nestaffiliate/radar';
@@ -128,6 +128,7 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
   const [record,setRecord]=useState<{key:string|null;state:RadarWorkspace}>(()=>({key,state:key?load(key):empty()}));
   const [syncStatus,setSyncStatus]=useState<'off'|'syncing'|'synced'|'error'|'unavailable'>('off');
   const [syncNonce,setSyncNonce]=useState(0);
+  const syncInFlight=useRef<Promise<unknown>|null>(null);
   useEffect(()=>{setRecord({key,state:key?load(key):empty()});},[key]);
   useEffect(()=>{
     if(!key||record.key!==key)return;
@@ -143,7 +144,7 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
     setSyncStatus('syncing');
     const currentDb=db;
     const timer=window.setTimeout(()=>{
-      void syncPrivateRadarWorkspace({db:currentDb,userId,organizationId,workspace}).then(result=>{
+      const pending=syncPrivateRadarWorkspace({db:currentDb,userId,organizationId,workspace}).then(result=>{
         if(!active)return;
         if(result.mode==='remote_newer'){
           setRecord(prev=>{
@@ -152,7 +153,8 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
           });
         }
         setSyncStatus('synced');
-      }).catch(()=>{if(active)setSyncStatus('error');});
+      }).catch(()=>{if(active)setSyncStatus('error');}).finally(()=>{if(syncInFlight.current===pending)syncInFlight.current=null;});
+      syncInFlight.current=pending;
     },750);
     return ()=>{active=false;window.clearTimeout(timer);};
   },[key,userId,organizationId,workspace.syncEnabled,workspace.updatedAt,syncNonce]);
@@ -169,8 +171,11 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
     if(!db||!key||!userId||!organizationId)throw new Error('SYNC_NOT_AVAILABLE');
     // Stop uploading before deleting the synced document. Local research is retained.
     setRecord(prev=>prev.key===key?{key,state:{...prev.state,syncEnabled:false}}:prev);
-    await deletePrivateRadarWorkspace({db,userId,organizationId});
-    setSyncStatus('off');
+    try{
+      await syncInFlight.current?.catch(()=>undefined);
+      await deletePrivateRadarWorkspace({db,userId,organizationId});
+      setSyncStatus('off');
+    }catch(error){setSyncStatus('error');throw error;}
   }
   return {
     workspace,
