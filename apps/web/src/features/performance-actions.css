@@ -1,0 +1,10 @@
+.radar8-learning-actions{display:grid;gap:13px}
+.radar8-learning-actions h2{margin:0;font-size:clamp(19px,2.4vw,25px)}
+.radar8-learning-actions>.muted{font-size:13px;line-height:1.6;margin:0}
+.radar8-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.radar8-action{display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:16px;border-radius:14px;border:1px solid var(--border);background:var(--surface2)}
+.radar8-action strong{font-size:15px;line-height:1.4}
+.radar8-action p{font-size:13px;color:var(--muted);line-height:1.6;margin:0}
+.radar8-action small{color:var(--muted)}
+.radar8-action .button{width:auto;min-height:42px;margin-top:auto}
+@media(max-width:670px){.radar8-action-grid{grid-template-columns:1fr}}

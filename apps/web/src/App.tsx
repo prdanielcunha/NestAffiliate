@@ -925,7 +925,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [visibleResultCount,setVisibleResultCount]=useState(6);
   const [radarSort,setRadarSort]=useState<RadarSort>('recommended');
   const [comparisonIds,setComparisonIds]=useState<string[]>([]);
-  const {workspace,addSearch,toggleSaved,removeSaved,setPreferredCategory,clear:clearResearch}=useRadarWorkspace(organizationId,identity.user?.uid??null);
+  const {workspace,addSearch,toggleSaved,removeSaved,setPreferredCategory,clear:clearResearch,syncStatus,syncAvailable,setSyncEnabled,syncNow,deleteSyncedCopy}=useRadarWorkspace(organizationId,identity.user?.uid??null);
   const toggleComparison=(id:string)=>setComparisonIds(current=>current.includes(id)?current.filter(value=>value!==id):current.length>=3?current:[...current,id]);
   const [marketplaceScope,setMarketplaceScope]=useState<'ALL'|'MELI'|'SHOPEE'>('ALL');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -1497,6 +1497,8 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
         onOpenImport={()=>setShowImport(current=>!current)}
       />
       <RadarResearchLibrary recent={workspace.recentSearches} saved={workspace.saved} preferred={workspace.preferredCategory}
+        syncEnabled={workspace.syncEnabled===true} syncAvailable={syncAvailable} syncStatus={syncStatus}
+        onSyncEnabled={setSyncEnabled} onSyncNow={syncNow} onDeleteSyncedCopy={deleteSyncedCopy}
         onRestoreSearch={term=>void search(term)} onRemoveSaved={removeSaved} onClear={clearResearch}/>
       {showImport && editable && <div className="radar6-import-panel" id="radar6-import-panel">
         <SmartProductImport organizationId={organizationId}
