@@ -111,7 +111,7 @@ export function InlinePinCopyChooser({campaign,editable,onUpdate,onClose,onCompl
   return <section className="inline-copy-chooser" id="review-inline-copy" aria-label={txt(locale,'Escolha os textos nesta etapa','Choose text in this step','Elige los textos aquí')}>
     <div className="inline-copy-head">
       <div>
-        <p className="eyebrow">{txt(locale,'ETAPA 2 · TEXTOS','STEP 2 · COPY','PASO 2 · TEXTOS')}</p>
+        <p className="eyebrow">{txt(locale,'ETAPA 1 · TEXTOS','STEP 1 · COPY','PASO 1 · TEXTOS')}</p>
         <h3>{txt(locale,'Escolha aqui, sem sair desta tela','Choose here, without leaving this screen','Elige aquí, sin salir de esta pantalla')}</h3>
         <p>{txt(locale,'Selecione um título e uma descrição. Só depois de confirmar eles substituem os textos da campanha.','Select a title and description. They are applied only after confirmation.','Selecciona un título y descripción. Se aplican solo al confirmar.')}</p>
       </div>

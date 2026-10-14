@@ -2164,11 +2164,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           <small>{locale==='pt-BR'?'Sugestão editorial, não comprovação comercial. Revise textos e produto antes de aprovar.':locale==='es'?'Propuesta editorial. Revisa antes de aprobar.':'Editorial proposal. Review before approving.'}</small>
         </details>}
 
-        <div className="pin-studio-next">
-          <button className="button primary" type="button" onClick={()=>setStudioStage('image')}>
-            {locale==='pt-BR'?'Próximo: preparar a imagem →':locale==='es'?'Siguiente: preparar la imagen →':'Next: prepare your image →'}
-          </button>
-        </div>
+
       </div>
       </div>
       <div className="pin-studio-stage" hidden={studioStage!=='image'}>
@@ -2187,6 +2183,13 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
         {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <details className="pin-advanced-reel"><summary>{locale==='pt-BR'?'Opcional: criar Reel também':'Optional: create a Reel'}</summary><ReelKitPanel campaign={activeCampaign}/></details>}
       </div>
       <div className="pin-studio-stage" hidden={studioStage!=='review'}>
+        {campaign.marketplace==='SHOPEE'&&<p className="guided-shopee-note" role="note">
+          {locale==='pt-BR'
+            ?'Shopee: a marcação de afiliado é conferida na publicação. Confira o produto, a imagem final e a elegibilidade antes de publicar.'
+            :locale==='es'
+              ?'Shopee: verifica la etiqueta de afiliado durante la publicación y confirma el producto y la imagen.'
+              :'Shopee: affiliate tagging is verified when publishing. Confirm the product and final image.'}
+        </p>}
         <details className="pin-expert-journey"><summary>{locale==='pt-BR'?'Ver jornada detalhada e etapas anteriores':'View detailed steps'}</summary><CampaignJourney campaign={activeCampaign}/></details>
       {editError && <div className="notice edit-feedback" role="alert">{editError}</div>}
       {pendingEdit?.ok && <section className="edit-preview" aria-label="Prévia da alteração">

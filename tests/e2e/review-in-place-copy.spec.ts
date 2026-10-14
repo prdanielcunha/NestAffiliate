@@ -5,8 +5,13 @@ test('review copy button opens choices in place without anchor teleport',async({
   await page.getByRole('link',{name:/Revisar 3 campanhas/i}).click();
   const block=page.getByRole('region',{name:'Próxima ação e textos do Pin'});
   await expect(block).toBeVisible();
+  // Automatically filled copy is a suggestion, not user approval.
+  await expect(block.getByRole('heading',{name:'Escolha o título e a descrição'})).toBeVisible();
+  await expect(block.getByText('PRÉVIA · SUGESTÕES AINDA NÃO CONFIRMADAS')).toBeVisible();
+  await expect(block.getByRole('button',{name:/Continuar para imagem/})).toHaveCount(0);
+  await expect(block.getByRole('button',{name:/Preparar imagem/})).toHaveCount(0);
   const top=await page.evaluate(()=>window.scrollY);
-  await block.getByRole('button',{name:'Escolher textos'}).click();
+  await block.getByRole('button',{name:/Escolher título e descrição/}).click();
   const picker=page.locator('.inline-copy-chooser');
   await expect(picker).toBeVisible();
   await expect(picker.getByRole('heading',{name:'Escolha aqui, sem sair desta tela'})).toBeVisible();
@@ -26,6 +31,7 @@ test('review copy button opens choices in place without anchor teleport',async({
   await picker.getByRole('button',{name:'Concluir e fechar'}).click();
   await expect(picker).toHaveCount(0);
   await expect(block).toContainText(/Textos escolhidos e aplicados|Texto aplicado, mas a sincronização/);
+  await expect(block.getByRole('button',{name:/Continuar para imagem/})).toBeVisible();
   await expect(block.getByRole('button',{name:'Copiar descrição'})).toBeEnabled();
 });
 
