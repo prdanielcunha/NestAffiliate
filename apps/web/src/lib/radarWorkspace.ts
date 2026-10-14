@@ -130,7 +130,7 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
   const [syncNonce,setSyncNonce]=useState(0);
   const syncInFlight=useRef<Promise<unknown>|null>(null);
   const syncPaused=useRef(false);
-  useEffect(()=>{setRecord({key,state:key?load(key):empty()});},[key]);
+  useEffect(()=>{syncPaused.current=false;setRecord({key,state:key?load(key):empty()});},[key]);
   useEffect(()=>{
     if(!key||record.key!==key)return;
     try{localStorage.setItem(key,JSON.stringify(record.state));}catch{/* Private browsing/quota: session still works. */}
