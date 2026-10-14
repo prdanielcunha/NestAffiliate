@@ -1,13 +1,12 @@
 import {test,expect} from '@playwright/test';
 
-test('Radar problem-first research requires an intentional human search',async({page})=>{
- await page.goto('/radar');
- const explorer=page.getByRole('region',{name:/Encontrar oportunidades por problemas/i});
- await expect(explorer).toBeVisible();
- await expect(explorer.getByText('Hipóteses editoriais')).toBeVisible();
- await explorer.getByRole('button',{name:/Armários de cozinha sem espaço/i}).click();
- await expect(explorer.getByRole('button',{name:/Pesquisar produtos para isso/i})).toBeVisible();
- await expect(page.locator('.opportunity-grid .opportunity-card')).toHaveCount(0);
+test('Radar 6 starts with discovery, not a product import form',async({page})=>{
+  await page.goto('/radar');
+  const discovery=page.getByRole('region',{name:'Pesquisar oportunidades'});
+  await expect(discovery.getByRole('heading',{name:'Encontre boas oportunidades para divulgar'})).toBeVisible();
+  await expect(discovery.getByRole('button',{name:'Resolver problemas'})).toBeVisible();
+  await expect(page.locator('.opportunity-grid .opportunity-card')).toHaveCount(0);
+  await expect(page.getByRole('region',{name:'Importação inteligente'})).toHaveCount(0);
 });
 
 test('Creative concepts have three different visual layouts and preserve 2:3 preview',async({page})=>{

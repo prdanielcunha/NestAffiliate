@@ -5,12 +5,16 @@ test.describe('Radar 4.0 opt-in design and gates',()=>{
   test('search exposes honest evidence, recoverable statuses and real source links',async({page})=>{
     await page.goto('/radar');
     await page.getByRole('button',{name:'Mercado Livre',exact:true}).click();
-    await page.getByRole('button',{name:'Analisar produtos'}).click();
+    await page.getByRole('textbox',{name:'Pesquisar produtos e necessidades'}).fill('organizador cozinha pequena');
+    await page.getByRole('button',{name:'Pesquisar',exact:true}).click();
+    await page.locator('.radar6-evidence-expander > summary').click();
     await expect(page.locator('.v4-funnel')).toBeVisible();
     await expect(page.locator('.v4-funnel')).toContainText('RADAR 4.0');
     await expect(page.locator('.opportunity-v4-panel')).toHaveCount(3);
     await expect(page.locator('.opportunity-v4-panel').first()).toContainText('Potencial editorial');
+    await page.locator('.radar6-card-details > summary').first().click();
     await expect(page.locator('.opportunity-card').first().getByRole('link',{name:'Abrir anúncio original'})).toHaveAttribute('href',/^https:\/\/www\.mercadolivre\.com\.br\//);
+    await page.locator('.radar6-research-tools > summary').click();
     await page.getByRole('button',{name:'Quase prontas',exact:true}).click();
     await expect(page.locator('.v4-filter-options button.active')).toContainText('Quase prontas');
     await page.getByRole('button',{name:'Todas',exact:true}).click();
@@ -19,7 +23,8 @@ test.describe('Radar 4.0 opt-in design and gates',()=>{
   test('evidence-first cards hide legacy scoring behind explanation',async({page})=>{
     await page.goto('/radar');
     await page.getByRole('button',{name:'Mercado Livre',exact:true}).click();
-    await page.getByRole('button',{name:'Analisar produtos'}).click();
+    await page.getByRole('textbox',{name:'Pesquisar produtos e necessidades'}).fill('organizador cozinha pequena');
+    await page.getByRole('button',{name:'Pesquisar',exact:true}).click();
     const card=page.locator('.opportunity-card').first();
     await expect(card.locator('.radar-score-v4')).toContainText(/\d+–\d+/);
     await expect(card.locator('.legacy-radar-score')).toContainText('Nota histórica');
@@ -46,8 +51,9 @@ test.describe('Radar 4.0 opt-in design and gates',()=>{
   test('research draft is editable but never labeled publication-ready without proof',async({page})=>{
     await page.goto('/radar');
     await page.getByRole('button',{name:'Mercado Livre',exact:true}).click();
-    await page.getByRole('button',{name:'Analisar produtos'}).click();
-    await page.getByRole('button',{name:'Criar Pin com este produto →'}).first().click();
+    await page.getByRole('textbox',{name:'Pesquisar produtos e necessidades'}).fill('organizador cozinha pequena');
+    await page.getByRole('button',{name:'Pesquisar',exact:true}).click();
+    await page.getByRole('button',{name:'Preparar meu Pin →'}).first().click();
     await expect(page).toHaveURL(/\/review\/campaign-/);
     await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
     await expect(page.getByRole('link',{name:'Abrir anúncio original'})).toBeVisible();

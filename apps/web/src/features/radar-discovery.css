@@ -1,0 +1,62 @@
+/* Radar 6.0: discovery-first, progressively disclosed research. */
+.radar6-page .page-title {margin-bottom:12px}
+.radar6-page .page-title h1 {font-size:clamp(26px,3.5vw,36px)}
+.radar6-discovery {display:grid;gap:22px;margin:0 0 22px;padding:clamp(16px,3vw,28px);background:var(--surface);border:1px solid var(--border);border-radius:24px}
+.radar6-intro h2{font-size:clamp(21px,3vw,30px);line-height:1.18;letter-spacing:-.025em;margin:0 0 7px}
+.radar6-intro p{color:var(--muted);line-height:1.5;max-width:650px;margin:0}
+.radar6-search{display:grid;gap:10px}
+.radar6-search-label{font-size:14px;font-weight:700}
+.radar6-search-control{display:flex;gap:10px;padding:7px;background:var(--surface2);border:1px solid var(--border);border-radius:15px;align-items:stretch}
+.radar6-search-control:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.radar6-search-control input{flex:1;min-width:0;padding:12px;background:transparent;border:0;color:var(--text);font:inherit;outline:none;font-size:16px}
+.radar6-search-control .button{min-height:46px;white-space:nowrap}
+.radar6-marketplaces{border:0;padding:0;margin:0;min-width:0}
+.radar6-marketplaces legend{font-size:13px;color:var(--muted);font-weight:700;margin-bottom:9px}
+.radar6-marketplace-options{display:flex;gap:8px;flex-wrap:wrap}
+.radar6-marketplace-options button,.radar6-tabs button{min-height:42px;padding:8px 13px;border:1px solid var(--border);border-radius:999px;background:var(--surface2);color:var(--text);cursor:pointer;font-size:13px}
+.radar6-marketplace-options button.active,.radar6-tabs button.active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,var(--surface));font-weight:700}
+.radar6-marketplace-note{margin:8px 0 0;color:var(--muted);font-size:13px}
+.radar6-suggestions-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.radar6-suggestions-heading h3{margin:0;font-size:18px}
+.radar6-suggestions-heading span,.radar6-evidence-help{font-size:12px;color:var(--muted)}
+.radar6-tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.radar6-tabs button{white-space:nowrap}
+.radar6-suggestion-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.radar6-suggestion{display:grid;grid-template-columns:1fr auto;gap:4px 10px;text-align:left;align-items:center;min-width:0;min-height:76px;background:var(--surface2);border:1px solid var(--border);border-radius:15px;padding:13px 15px;color:var(--text);cursor:pointer}
+.radar6-suggestion:hover{border-color:var(--border-strong)}
+.radar6-suggestion-title{font-weight:700;overflow-wrap:anywhere}
+.radar6-suggestion small{grid-column:1;font-size:11px;color:var(--muted);line-height:1.4}
+.radar6-suggestion-arrow{grid-column:2;grid-row:1 / span 2;color:var(--muted)}
+.radar6-more{justify-self:start;padding:9px 0;border:0;background:transparent;color:var(--text);font-weight:700;cursor:pointer}
+.radar6-evidence-help{margin:-10px 0 0;line-height:1.5}
+.radar6-import-bridge{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:17px;border-top:1px solid var(--border);font-size:13px}
+.radar6-import-bridge .button{width:auto}
+.radar6-import-panel{margin:0 0 20px}
+.radar6-import-panel .smart-import{margin-top:0}
+.radar6-research-tools{margin:16px 0 20px}
+.radar6-research-tools>summary{cursor:pointer;font-weight:700;color:var(--text);padding:13px 16px;border:1px solid var(--border);border-radius:13px;background:var(--surface);list-style:revert}
+.radar6-research-tools[open]>summary{margin-bottom:16px}
+.radar6-page .opportunity-grid{align-items:start}
+.radar6-page .opportunity-card .product-image{height:220px}
+.radar6-page .opportunity-card .opportunity-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.radar6-page .opportunity-card h3{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;font-size:16px}
+.radar6-page .opportunity-card .price{margin:10px 0;font-size:19px}
+.radar6-page .opportunity-card .product-proof-row{display:flex;flex-wrap:wrap;gap:6px}
+.radar6-page .opportunity-actions{margin-top:12px;display:grid;gap:10px}
+.radar6-page .opportunity-actions .button{margin-top:0}
+.radar6-card-details{border-top:1px solid var(--border);padding-top:12px;margin-top:14px}
+.radar6-card-details>summary{cursor:pointer;font-weight:700;padding:8px 0;list-style:revert}
+.radar6-card-details .tracking-row{margin-top:14px}
+.radar6-result-intro{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:20px 0 10px}
+.radar6-result-intro h2{font-size:21px;margin:0}
+.radar6-page button:focus-visible,.radar6-page summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media(max-width:720px){.radar6-suggestion-grid{grid-template-columns:1fr}.radar6-page .opportunity-grid{grid-template-columns:1fr}.radar6-page .opportunity-card .product-image{height:200px}}
+@media(max-width:460px){.radar6-discovery{gap:18px;padding:16px}.radar6-search-control{flex-direction:column}.radar6-search-control .button{width:100%}.radar6-search-control input{min-height:44px}.radar6-marketplace-options button{font-size:12px;padding:7px 10px}.radar6-page .page-title{padding-top:0}}
+
+.radar6-evidence-expander{margin:12px 0;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.radar6-evidence-expander>summary{cursor:pointer;padding:14px 16px;color:var(--text);font-weight:700}
+.radar6-evidence-expander .v4-funnel{margin:0;border:0;box-shadow:none}
+.radar6-result-metrics{margin-top:10px}
+.radar6-result-metrics>summary{font-size:13px;cursor:pointer;color:var(--muted);font-weight:600}
+.radar6-result-metrics[open]{padding-bottom:5px}
+.radar6-load-more{display:block;margin:22px auto;min-width:190px}
