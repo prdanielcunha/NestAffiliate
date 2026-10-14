@@ -36,3 +36,14 @@ test('Radar allows controlled side-by-side comparison and sorting',async({page})
  await bar.getByRole('button',{name:'Limpar seleção'}).click();
  await expect(bar.locator('table')).toHaveCount(0);
 });
+
+test('Private cloud sync remains opt-in and exposes a way to remove remote research',async({page})=>{
+ await page.goto('/radar');
+ const library=page.locator('.radar7-library');
+ await library.locator('summary').first().click();
+ const toggle=library.getByRole('checkbox',{name:'Ativar sincronização privada'});
+ await expect(toggle).not.toBeChecked();
+ await expect(library.getByText('Somente sua conta acessa a cópia privada.')).toBeVisible();
+ // No remote requests should be needed for the default locally stored research flow.
+ await expect(library.getByRole('button',{name:'Sincronizar agora'})).toHaveCount(0);
+});
