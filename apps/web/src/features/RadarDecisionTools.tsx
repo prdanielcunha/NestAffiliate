@@ -1,5 +1,6 @@
+import {useState} from 'react';
 import type { Opportunity } from '@nestaffiliate/radar';
-import { isSafeOfferUrl } from '@nestaffiliate/radar';
+import { isSafeOfferUrl,assessOfferIdentity,offerFreshness,observationTime } from '@nestaffiliate/radar';
 import { useI18n } from '../lib/i18n-context';
 import { radarOfferId, type RadarSort, type SavedRadarOffer } from '../lib/radarWorkspace';
 import './radar-workspace.css';
@@ -10,7 +11,7 @@ function verifiedCommission(item:Opportunity):number|null {
     && /affiliate|official|manual-confirmed/i.test(rate.source)?rate.value:null;
 }
 
-export function RadarResearchLibrary({recent,saved,preferred,syncEnabled,syncAvailable,syncStatus,onSyncEnabled,onSyncNow,onDeleteSyncedCopy,onRestoreSearch,onRemoveSaved,onClear}:{
+export function RadarResearchLibrary({recent,saved,preferred,syncEnabled,syncAvailable,syncStatus,onSyncEnabled,onSyncNow,onDeleteSyncedCopy,onRestoreSearch,onRemoveSaved,onClear,onExport,onImport}:{
  recent:string[];
  saved:SavedRadarOffer[];
  preferred:string|null;
@@ -23,8 +24,11 @@ export function RadarResearchLibrary({recent,saved,preferred,syncEnabled,syncAva
  onRestoreSearch:(query:string)=>void;
  onRemoveSaved:(id:string)=>void;
  onClear:()=>void;
+ onExport:()=>void;
+ onImport:(file:File)=>Promise<void>;
 }){
   const {locale}=useI18n();const en=locale==='en',es=locale==='es';
+  const [importError,setImportError]=useState('');
 
   return <details className="radar7-library">
     <summary>{en?'My research':es?'Mis búsquedas':'Minhas pesquisas'} · {saved.length} {en?'saved':es?'guardados':'salvos'}</summary>
@@ -59,9 +63,13 @@ export function RadarResearchLibrary({recent,saved,preferred,syncEnabled,syncAva
       </section>}
       {saved.length>0&&<section>
         <h3>{en?'Saved for later':es?'Guardados para después':'Produtos salvos para depois'}</h3>
-        <p className="muted">{en?'Saved on this device only. Prices and availability are snapshots; verify again before publishing.':es?'Solo guardados en este dispositivo. Verifica precio y disponibilidad antes de publicar.':'Salvos apenas neste dispositivo. Preço e disponibilidade são registros antigos: confirme novamente antes de publicar.'}</p>
+        <p className="muted">{en?'Saved research is a historical snapshot. If sync is enabled, a private copy is also in your account. Recheck listings before publishing.':es?'Los datos guardados son históricos y pueden sincronizarse en privado. Comprueba cada oferta antes de publicar.':'Pesquisas salvas são registros históricos. Se a sincronização estiver ativada, haverá também uma cópia privada na conta. Confirme a oferta antes de publicar.'}</p>
         <div className="radar7-saved-list">{saved.map(item=><article key={item.id}>
-          <div><strong>{item.title}</strong><small>{item.marketplace==='MELI'?'Mercado Livre':item.marketplace==='SHOPEE'?'Shopee':'Amazon'} · {new Date(item.savedAt).toLocaleDateString(locale)}</small></div>
+          <div><strong>{item.title}</strong><small>{item.marketplace==='MELI'?'Mercado Livre':item.marketplace==='SHOPEE'?'Shopee':'Amazon'} · {new Date(item.savedAt).toLocaleDateString(locale)}</small>
+            <small className={offerFreshness(item.observedAt).status==='CURRENT'?'radar9-fresh-ok':'radar9-fresh-alert'} role="status">{offerFreshness(item.observedAt).status==='CURRENT'
+              ? (en?'Recently observed · still verify before sharing':es?'Observación reciente · verificar':'Observação recente · confirmar antes de divulgar')
+              : (en?'Listing data may be out of date — check the original':es?'Datos antiguos o desconocidos — revisar anuncio':'Dados antigos ou desconhecidos — confira o anúncio original')}</small>
+          </div>
           <div className="radar7-saved-actions">
             {item.keyword&&<button className="button secondary" type="button" onClick={()=>onRestoreSearch(item.keyword)}>{en?'Research again':es?'Buscar de nuevo':'Pesquisar novamente'}</button>}
             {item.url&&<a className="button secondary" href={item.url} target="_blank" rel="noopener noreferrer">{en?'View listing':es?'Ver anuncio':'Ver anúncio'}</a>}
@@ -69,6 +77,21 @@ export function RadarResearchLibrary({recent,saved,preferred,syncEnabled,syncAva
           </div>
         </article>)}</div>
       </section>}
+      <div className="radar9-backup">
+        <strong>{en?'Keep a backup of my research':es?'Copia de seguridad':'Backup das minhas pesquisas'}</strong>
+        <p className="muted">{en?'Export or restore saved research on this device. Cloud credentials are never included. Import replaces this research list only.':es?'Exporta o restaura búsquedas locales. Nunca incluye credenciales. Importar reemplaza esta lista.':'Exporte ou restaure suas pesquisas neste dispositivo. Nunca inclui credenciais. A importação substitui apenas esta lista.'}</p>
+        <div className="radar9-backup-actions">
+          <button className="button secondary" type="button" onClick={onExport}>{en?'Export JSON backup':es?'Exportar backup JSON':'Exportar backup JSON'}</button>
+          <label className="radar9-import-label">{en?'Restore JSON backup':es?'Restaurar backup JSON':'Restaurar backup JSON'}
+            <input type="file" accept=".json,application/json" aria-label={en?'Restore research JSON':es?'Restaurar investigaciones JSON':'Restaurar pesquisas JSON'}
+              onChange={event=>{
+                const file=event.currentTarget.files?.[0];event.currentTarget.value='';
+                if(file)void onImport(file).then(()=>setImportError('')).catch(()=>setImportError(en?'Invalid backup file':es?'Archivo inválido':'Arquivo de backup inválido'));
+              }}/>
+          </label>
+        </div>
+        {importError&&<p role="alert" className="field-error">{importError}</p>}
+      </div>
       <button type="button" className="text-button radar7-clear" onClick={onClear}>{en?'Clear research on this device':es?'Borrar búsquedas de este dispositivo':'Limpar minhas pesquisas deste dispositivo'}</button>
     </div>
   </details>;
@@ -106,11 +129,33 @@ export function RadarComparisonBar({items,selectedIds,onToggle,onClear,onPrepare
       <div className="radar7-comparison-heading"><h3>{en?'Your comparison':es?'Tu comparación':'Sua comparação'} ({selected.length}/3)</h3>
         <p>{en?'Compare different products or listings side by side. We do not claim they are identical.':es?'Compara productos u ofertas distintos; no asumimos que son idénticos.':'Compare anúncios ou produtos diferentes lado a lado. Não presumimos que sejam idênticos.'}</p>
       </div>
+      {selected.length>1&&<div className="radar9-equivalence" aria-live="polite">{selected.flatMap((a,i)=>selected.slice(i+1).map(b=>{
+        const assessment=assessOfferIdentity(a.product,b.product);
+        return <div key={radarOfferId(a.product)+'/'+radarOfferId(b.product)}>
+          <strong>{a.product.marketplace} ↔ {b.product.marketplace}: {
+            assessment.comparableAsSameProduct
+              ? (en?'Exact identity confirmed':es?'Identidad exacta confirmada':'Identidade exata confirmada')
+              : assessment.status==='DIFFERENT'
+                ? (en?'Different product or variant':es?'Producto o variante diferente':'Produto ou variante diferente')
+                : (en?'Identity not verified':es?'Equivalencia no verificada':'Equivalência não verificada')
+          }</strong>
+          <span>{assessment.comparableAsSameProduct
+            ? (en?'Official listing or GTIN evidence.':es?'Identificador oficial o GTIN verificado.':'Comprovação por anúncio ou GTIN oficial.')
+            : (en?'Do not assume these offers are interchangeable.':es?'No suponga que son productos idénticos.':'Não presuma que sejam o mesmo item.')}</span>
+        </div>;
+      }))}</div>}
       <div className="radar7-table-scroll"><table>
         <thead><tr><th scope="col">{en?'Details':es?'Detalles':'Informação'}</th>{selected.map(item=><th scope="col" key={radarOfferId(item.product)}>{item.product.title.value}</th>)}</tr></thead>
         <tbody>
           <tr><th scope="row">Marketplace</th>{selected.map(item=><td key={radarOfferId(item.product)}>{item.product.marketplace==='MELI'?'Mercado Livre':'Shopee'}</td>)}</tr>
           <tr><th scope="row">{en?'Price':es?'Precio':'Preço'}</th>{selected.map(item=><td key={radarOfferId(item.product)}>{item.product.price?money(item.product.price.value,item.product.currency.value):'—'}</td>)}</tr>
+          <tr><th scope="row">{en?'Observed at':es?'Observado en':'Observado em'}</th>{selected.map(item=><td key={radarOfferId(item.product)}>
+            <strong className={offerFreshness(observationTime(item.product)).status==='CURRENT'?'radar9-fresh-ok':'radar9-fresh-alert'}>
+              {offerFreshness(observationTime(item.product)).status==='CURRENT'?(en?'Recent observation':es?'Observación reciente':'Observação recente'):
+                (en?'Recheck price and availability':es?'Revisar precio y disponibilidad':'Rever preço e disponibilidade')}
+            </strong>
+            <small>{observationTime(item.product)?.slice(0,10)??'—'}</small>
+          </td>)}</tr>
           <tr><th scope="row">{en?'Availability':es?'Disponibilidad':'Disponibilidade'}</th>{selected.map(item=><td key={radarOfferId(item.product)}>{item.product.availability.value==='available'?(en?'Reported available':es?'Disponible':'Disponível'):en?'Not confirmed':es?'No confirmada':'Não confirmada'}</td>)}</tr>
           <tr><th scope="row">{en?'Reported sales':es?'Ventas informadas':'Vendas informadas'}</th>{selected.map(item=><td key={radarOfferId(item.product)}>{typeof item.product.soldQuantity?.value==='number'?item.product.soldQuantity.value.toLocaleString(locale):'—'}</td>)}</tr>
           <tr><th scope="row">{en?'Rating':es?'Calificación':'Avaliação'}</th>{selected.map(item=><td key={radarOfferId(item.product)}>{typeof item.product.rating?.value==='number'?item.product.rating.value.toFixed(1):'—'}</td>)}</tr>
