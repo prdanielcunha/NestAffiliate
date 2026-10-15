@@ -18,6 +18,12 @@ export interface ProductTruth {
   /** Official Shopee Affiliate Open API shop identifier when actually returned. */
   shopId?: TruthValue<string>;
   catalogProductId?: string;
+  /** Use only when confirmed in the official listing/catalog response; never inferred from a title. */
+  gtin?: TruthValue<string>;
+  /** Original seller/manufacturer model identifier if supplied by an authorized source. */
+  modelNumber?: TruthValue<string>;
+  /** Exact variant identity from a provider (size/color/etc.), not a keyword guess. */
+  variantKey?: TruthValue<string>;
   listingVerified?: boolean;
   soldQuantity?: TruthValue<number>;
   availableQuantity?: TruthValue<number>;

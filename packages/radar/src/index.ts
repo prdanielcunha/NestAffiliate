@@ -658,3 +658,5 @@ export type { ComparableOffer } from './offerCompare';
 export * from './opportunityV4';
 
 export * from './problemIntents';
+
+export * from './offerTrust';
