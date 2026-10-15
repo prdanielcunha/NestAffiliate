@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { db } from './firebase';
 import {deletePrivateRadarWorkspace,syncPrivateRadarWorkspace,workspaceModifiedAt} from './radarWorkspaceCloud';
 import type { Opportunity } from '@nestaffiliate/radar';
-import { isSafeOfferUrl } from '@nestaffiliate/radar';
+import { isSafeOfferUrl,observationTime } from '@nestaffiliate/radar';
 
 export type RadarSort = 'recommended'|'priceAsc'|'priceDesc'|'sales'|'commission';
 export interface SavedRadarOffer {
@@ -74,7 +74,7 @@ export function snapshotRadarOffer(opportunity:Opportunity,now=new Date()):Saved
     url,
     price:typeof p.price?.value==='number'&&Number.isFinite(p.price.value)?p.price.value:null,
     currency:cleanText(p.currency?.value,5)||'BRL',
-    observedAt:cleanText(p.title?.observedAt,40),
+    observedAt:cleanText(observationTime(p),40),
     savedAt:now.toISOString(),
   };
 }
@@ -197,5 +197,11 @@ export function useRadarWorkspace(organizationId:string,userId:string|null){
     removeSaved:(id:string)=>update(prev=>({...prev,saved:prev.saved.filter(item=>item.id!==id)})),
     setPreferredCategory:(category:string|null)=>update(prev=>({...prev,preferredCategory:category?cleanText(category,50):null})),
     clear:()=>update(()=>empty()),
+    importResearch:(value:unknown)=>{
+      // Import only user data, never another account's identifiers or cloud-sync settings.
+      const cleaned=sanitizeRadarWorkspace(value);
+      update(old=>({...old, recentSearches:cleaned.recentSearches,
+        saved:cleaned.saved,preferredCategory:cleaned.preferredCategory}));
+    },
   };
 }

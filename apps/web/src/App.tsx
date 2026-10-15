@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, detectUnsupportedPinClaims, inspectAffiliateAttestation, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
-import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
+import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, offerFreshness, observationTime, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin,versionPinterestCreativePack,buildPinterestCreativePack,compactPinText } from '@nestaffiliate/creative-engine';
@@ -925,7 +925,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [visibleResultCount,setVisibleResultCount]=useState(6);
   const [radarSort,setRadarSort]=useState<RadarSort>('recommended');
   const [comparisonIds,setComparisonIds]=useState<string[]>([]);
-  const {workspace,addSearch,toggleSaved,removeSaved,setPreferredCategory,clear:clearResearch,syncStatus,syncAvailable,setSyncEnabled,syncNow,deleteSyncedCopy}=useRadarWorkspace(organizationId,identity.user?.uid??null);
+  const {workspace,addSearch,toggleSaved,removeSaved,setPreferredCategory,clear:clearResearch,importResearch,syncStatus,syncAvailable,setSyncEnabled,syncNow,deleteSyncedCopy}=useRadarWorkspace(organizationId,identity.user?.uid??null);
   const toggleComparison=(id:string)=>setComparisonIds(current=>current.includes(id)?current.filter(value=>value!==id):current.length>=3?current:[...current,id]);
   const [marketplaceScope,setMarketplaceScope]=useState<'ALL'|'MELI'|'SHOPEE'>('ALL');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -1499,7 +1499,25 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       <RadarResearchLibrary recent={workspace.recentSearches} saved={workspace.saved} preferred={workspace.preferredCategory}
         syncEnabled={workspace.syncEnabled===true} syncAvailable={syncAvailable} syncStatus={syncStatus}
         onSyncEnabled={setSyncEnabled} onSyncNow={syncNow} onDeleteSyncedCopy={deleteSyncedCopy}
-        onRestoreSearch={term=>void search(term)} onRemoveSaved={removeSaved} onClear={clearResearch}/>
+        onRestoreSearch={term=>void search(term)} onRemoveSaved={removeSaved} onClear={clearResearch}
+        onExport={()=>{
+          const safe={version:1,exportedAt:new Date().toISOString(),recentSearches:workspace.recentSearches,
+            saved:workspace.saved,preferredCategory:workspace.preferredCategory};
+          const blob=new Blob([JSON.stringify(safe,null,2)],{type:'application/json'});
+          const url=URL.createObjectURL(blob);
+          const anchor=document.createElement('a');anchor.href=url;anchor.download='nestaffiliate-radar-backup.json';
+          document.body.appendChild(anchor);anchor.click();anchor.remove();
+          window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+        }}
+        onImport={async file=>{
+          if(file.size>64_000 || file.size===0)throw new Error('BACKUP_SIZE_INVALID');
+          const parsed=JSON.parse(await file.text()) as Record<string,unknown>;
+          if(!parsed || parsed.version!==1 || !Array.isArray(parsed.recentSearches) ||
+            !Array.isArray(parsed.saved))throw new Error('BACKUP_SCHEMA_INVALID');
+          if(!window.confirm(locale==='pt-BR'?'Substituir suas pesquisas locais por este backup?':
+             locale==='es'?'¿Reemplazar tus búsquedas con este backup?':'Replace your local research with this backup?'))return;
+          importResearch(parsed);
+        }}/>
       {showImport && editable && <div className="radar6-import-panel" id="radar6-import-panel">
         <SmartProductImport organizationId={organizationId}
           onImported={(product,keyword,strategy,attempted,failure)=>create(product,keyword,undefined,undefined,true,strategy,attempted,failure)}/>
@@ -1714,6 +1732,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       <div className="opportunity-grid">
         {shownOpportunities.slice(0,visibleResultCount).map((opportunity,index) => {
           const product=opportunity.product;
+          const freshness=offerFreshness(observationTime(product));
           // A partial rollout must never allow unverified research items into a campaign.
           const assessment=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? assessRevenueOpportunity(opportunity) : null;
           const comparisons=FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED
@@ -1747,7 +1766,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
               <div className="product-proof-row">
                 <span className={product.availability.value==='available'?'proof-chip success':'proof-chip subtle'}>{product.availability.value==='available'
-                  ? t('availableNow')
+                  ? locale==='pt-BR'?'Disponível na última observação':locale==='es'?'Disponible en la última observación':'Available at last observation'
                   : product.availability.value==='unavailable'
                     ? locale==='pt-BR'?'Oferta indisponível':locale==='es'?'Oferta no disponible':'Unavailable offer'
                     : locale==='pt-BR'?'Disponibilidade não confirmada':locale==='es'?'Disponibilidad no confirmada':'Availability not confirmed'}</span>
@@ -1767,6 +1786,17 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   ? <span className="proof-chip success">{t('shopeeAffiliateReady')}</span>
                   : null}
               </div>
+              {freshness.status!=='CURRENT'&&<div className="radar9-card-warning" role="status">
+                <strong>{locale==='pt-BR'?'Confirme a oferta antes de divulgar':locale==='es'?'Verifica la oferta antes de publicar':'Verify the listing before sharing'}</strong>
+                <span>{locale==='pt-BR'
+                  ? 'Preço e estoque podem ter mudado. A última observação não confirma a situação atual.'
+                  : locale==='es'?'El precio y el stock pueden haber cambiado. El último registro no confirma el estado actual.'
+                  : 'Price and stock may have changed. The last observation does not confirm current availability.'}</span>
+                {isSafeOfferUrl(product.url?.value,product.marketplace)&&
+                  <a href={product.url.value} target="_blank" rel="noopener noreferrer">
+                    {locale==='pt-BR'?'Conferir anúncio original ↗':locale==='es'?'Ver anuncio original ↗':'Check original listing ↗'}
+                  </a>}
+              </div>}
               {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4ById[opportunity.id] && <div className="radar7-next-step">
                 <strong>{locale==='pt-BR'?'Próximo cuidado':locale==='es'?'Siguiente paso':'Next check'}</strong>
                 <span>{(()=>{
