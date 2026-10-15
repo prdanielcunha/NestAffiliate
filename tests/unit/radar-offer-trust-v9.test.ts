@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import type {ProductTruth} from '@nestaffiliate/core';
-import {validGtin,assessOfferIdentity,offerFreshness,observationTime} from '@nestaffiliate/radar';
+import {validGtin,assessOfferIdentity,offerFreshness,observationTime} from '../../packages/radar/src/offerTrust';
 
 const stamp='2026-10-14T19:00:00.000Z';
 const field=(value:string,source='official')=>({value,source,observedAt:stamp});
