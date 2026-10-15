@@ -54,3 +54,20 @@
 .radar8-sync-actions .button{width:auto;margin:0}
 .radar8-sync-actions .text-button{padding:8px}
 .radar8-sync small{color:var(--muted);font-size:12px;line-height:1.5}
+
+/* Radar 9 — evidence-backed offer comparison and private research portability */
+.radar9-equivalence{display:grid;gap:8px}
+.radar9-equivalence>div{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;background:var(--surface2);border:1px solid var(--border);padding:11px 13px;border-radius:10px;font-size:12px}
+.radar9-equivalence strong{font-size:12px}
+.radar9-equivalence span{color:var(--muted);line-height:1.5}
+.radar9-fresh-ok{font-weight:500;color:var(--muted)}
+.radar9-fresh-alert{color:var(--text);font-weight:700}
+.radar7-saved-list small.radar9-fresh-alert{display:block;margin-top:6px;border-left:3px solid var(--accent);padding:5px 9px;background:var(--surface2);border-radius:4px}
+.radar9-backup{display:grid;gap:8px;border:1px solid var(--border);background:var(--surface2);border-radius:12px;padding:13px}
+.radar9-backup>strong{font-size:13px}
+.radar9-backup p{margin:0}
+.radar9-backup-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.radar9-backup-actions .button{width:auto}
+.radar9-import-label{border-radius:10px;border:1px solid var(--border);cursor:pointer;padding:10px 13px;font-size:12px;position:relative;min-height:42px;display:inline-flex;align-items:center}
+.radar9-import-label:focus-within{outline:2px solid var(--accent);outline-offset:3px}
+.radar9-import-label input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
