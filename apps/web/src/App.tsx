@@ -925,7 +925,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
   const [visibleResultCount,setVisibleResultCount]=useState(6);
   const [radarSort,setRadarSort]=useState<RadarSort>('recommended');
   const [comparisonIds,setComparisonIds]=useState<string[]>([]);
-  const {workspace,addSearch,toggleSaved,removeSaved,setPreferredCategory,clear:clearResearch,syncStatus,syncAvailable,setSyncEnabled,syncNow,deleteSyncedCopy}=useRadarWorkspace(organizationId,identity.user?.uid??null);
+  const {workspace,addSearch,toggleSaved,removeSaved,setPreferredCategory,clear:clearResearch,importResearch,syncStatus,syncAvailable,setSyncEnabled,syncNow,deleteSyncedCopy}=useRadarWorkspace(organizationId,identity.user?.uid??null);
   const toggleComparison=(id:string)=>setComparisonIds(current=>current.includes(id)?current.filter(value=>value!==id):current.length>=3?current:[...current,id]);
   const [marketplaceScope,setMarketplaceScope]=useState<'ALL'|'MELI'|'SHOPEE'>('ALL');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -1499,7 +1499,25 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       <RadarResearchLibrary recent={workspace.recentSearches} saved={workspace.saved} preferred={workspace.preferredCategory}
         syncEnabled={workspace.syncEnabled===true} syncAvailable={syncAvailable} syncStatus={syncStatus}
         onSyncEnabled={setSyncEnabled} onSyncNow={syncNow} onDeleteSyncedCopy={deleteSyncedCopy}
-        onRestoreSearch={term=>void search(term)} onRemoveSaved={removeSaved} onClear={clearResearch}/>
+        onRestoreSearch={term=>void search(term)} onRemoveSaved={removeSaved} onClear={clearResearch}
+        onExport={()=>{
+          const safe={version:1,exportedAt:new Date().toISOString(),recentSearches:workspace.recentSearches,
+            saved:workspace.saved,preferredCategory:workspace.preferredCategory};
+          const blob=new Blob([JSON.stringify(safe,null,2)],{type:'application/json'});
+          const url=URL.createObjectURL(blob);
+          const anchor=document.createElement('a');anchor.href=url;anchor.download='nestaffiliate-radar-backup.json';
+          document.body.appendChild(anchor);anchor.click();anchor.remove();
+          window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+        }}
+        onImport={async file=>{
+          if(file.size>64_000 || file.size===0)throw new Error('BACKUP_SIZE_INVALID');
+          const parsed=JSON.parse(await file.text()) as Record<string,unknown>;
+          if(!parsed || parsed.version!==1 || !Array.isArray(parsed.recentSearches) ||
+            !Array.isArray(parsed.saved))throw new Error('BACKUP_SCHEMA_INVALID');
+          if(!window.confirm(locale==='pt-BR'?'Substituir suas pesquisas locais por este backup?':
+             locale==='es'?'¿Reemplazar tus búsquedas con este backup?':'Replace your local research with this backup?'))return;
+          importResearch(parsed);
+        }}/>
       {showImport && editable && <div className="radar6-import-panel" id="radar6-import-panel">
         <SmartProductImport organizationId={organizationId}
           onImported={(product,keyword,strategy,attempted,failure)=>create(product,keyword,undefined,undefined,true,strategy,attempted,failure)}/>
