@@ -51,3 +51,23 @@ test('Private cloud sync remains opt-in and exposes a way to remove remote resea
  // No remote requests should be needed for the default locally stored research flow.
  await expect(library.getByRole('button',{name:'Sincronizar agora'})).toHaveCount(0);
 });
+
+test('Radar safely restores a local backup without enabling cloud sync',async({page})=>{
+ await page.goto('/radar');
+ await page.locator('.radar7-library > summary').click();
+ page.on('dialog',dialog=>void dialog.accept());
+ const now=new Date().toISOString();
+ const backup={
+  version:1,recentSearches:['cadeira ergonomica'],
+  saved:[{id:'MELI:MLB-99',marketplace:'MELI',title:'Cadeira home office',
+   keyword:'cadeira ergonomica',url:'https://www.mercadolivre.com.br/p/MLB-99',
+   price:199,currency:'BRL',observedAt:now,savedAt:now}],
+  preferredCategory:'home',
+ };
+ await page.getByLabel('Restaurar pesquisas JSON').setInputFiles({
+  name:'research.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup)),
+ });
+ await expect(page.getByRole('heading',{name:'Produtos salvos para depois'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'cadeira ergonomica ↗'})).toBeVisible();
+ await expect(page.getByRole('checkbox',{name:'Ativar sincronização privada'})).not.toBeChecked();
+});
