@@ -71,3 +71,8 @@
 .radar9-import-label{border-radius:10px;border:1px solid var(--border);cursor:pointer;padding:10px 13px;font-size:12px;position:relative;min-height:42px;display:inline-flex;align-items:center}
 .radar9-import-label:focus-within{outline:2px solid var(--accent);outline-offset:3px}
 .radar9-import-label input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+
+.radar9-card-warning{display:grid;gap:5px;padding:12px;margin:10px 0;border-radius:12px;border:1px solid var(--border);background:var(--surface2);font-size:12px;line-height:1.5}
+.radar9-card-warning strong{font-size:13px}
+.radar9-card-warning span{color:var(--muted)}
+.radar9-card-warning a{font-weight:700;color:var(--text);text-decoration:underline;text-underline-offset:3px}
