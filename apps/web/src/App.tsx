@@ -1766,8 +1766,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
               <div className="product-proof-row">
                 <span className={product.availability.value==='available'?'proof-chip success':'proof-chip subtle'}>{product.availability.value==='available'
-                  ? freshness.status==='CURRENT' ? t('availableNow') :
-                    locale==='pt-BR'?'Disponível na última observação':locale==='es'?'Disponible en la última observación':'Available at last observation'
+                  ? locale==='pt-BR'?'Disponível na última observação':locale==='es'?'Disponible en la última observación':'Available at last observation'
                   : product.availability.value==='unavailable'
                     ? locale==='pt-BR'?'Oferta indisponível':locale==='es'?'Oferta no disponible':'Unavailable offer'
                     : locale==='pt-BR'?'Disponibilidade não confirmada':locale==='es'?'Disponibilidad no confirmada':'Availability not confirmed'}</span>
