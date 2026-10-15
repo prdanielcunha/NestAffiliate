@@ -16,7 +16,9 @@ test('Radar research remembers explicit interests, search history and saved offe
  await expect(page.locator('#radar7-preferred-category')).toHaveValue('pet');
  await page.locator('.radar7-library > summary').click();
  await expect(page.getByRole('button',{name:'Pesquisar novamente'})).toBeVisible();
- await expect(page.getByText('Salvos apenas neste dispositivo.',{exact:false})).toBeVisible();
+ await expect(page.getByText('Pesquisas salvas são registros históricos.',{exact:false})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Exportar backup JSON'})).toBeVisible();
+ await expect(page.getByText('Dados antigos ou desconhecidos — confira o anúncio original')).toBeVisible();
 });
 
 test('Radar allows controlled side-by-side comparison and sorting',async({page})=>{
@@ -33,6 +35,8 @@ test('Radar allows controlled side-by-side comparison and sorting',async({page})
  await expect(bar.getByRole('heading',{name:'Sua comparação (2/3)'})).toBeVisible();
  await expect(bar.locator('table')).toContainText('Preço');
  await expect(bar.getByText('Não estimamos preço, vendas ou comissão')).toBeVisible();
+ await expect(bar.getByText('Equivalência não verificada')).toBeVisible();
+ await expect(bar.getByText('Rever preço e disponibilidade').first()).toBeVisible();
  await bar.getByRole('button',{name:'Limpar seleção'}).click();
  await expect(bar.locator('table')).toHaveCount(0);
 });
