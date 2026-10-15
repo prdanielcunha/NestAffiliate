@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
 import { maxDuplicateSimilarity, runPublishingGuard, detectUnsupportedPinClaims, inspectAffiliateAttestation, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
-import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
+import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, offerFreshness, observationTime, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
 import { campaignFilename, CREATIVE_TEMPLATES, renderPin,versionPinterestCreativePack,buildPinterestCreativePack,compactPinText } from '@nestaffiliate/creative-engine';
@@ -1732,6 +1732,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
       <div className="opportunity-grid">
         {shownOpportunities.slice(0,visibleResultCount).map((opportunity,index) => {
           const product=opportunity.product;
+          const freshness=offerFreshness(observationTime(product));
           // A partial rollout must never allow unverified research items into a campaign.
           const assessment=FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED ? assessRevenueOpportunity(opportunity) : null;
           const comparisons=FEATURE_FLAGS.CROSS_MARKET_OFFER_COMPARE_ENABLED
@@ -1765,7 +1766,8 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
               <p className="price">{product.price ? new Intl.NumberFormat(locale,{style:'currency',currency:product.currency.value}).format(product.price.value) : t('priceUnknown')}</p>
               <div className="product-proof-row">
                 <span className={product.availability.value==='available'?'proof-chip success':'proof-chip subtle'}>{product.availability.value==='available'
-                  ? t('availableNow')
+                  ? freshness.status==='CURRENT' ? t('availableNow') :
+                    locale==='pt-BR'?'Disponível na última observação':locale==='es'?'Disponible en la última observación':'Available at last observation'
                   : product.availability.value==='unavailable'
                     ? locale==='pt-BR'?'Oferta indisponível':locale==='es'?'Oferta no disponible':'Unavailable offer'
                     : locale==='pt-BR'?'Disponibilidade não confirmada':locale==='es'?'Disponibilidad no confirmada':'Availability not confirmed'}</span>
@@ -1785,6 +1787,17 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
                   ? <span className="proof-chip success">{t('shopeeAffiliateReady')}</span>
                   : null}
               </div>
+              {freshness.status!=='CURRENT'&&<div className="radar9-card-warning" role="status">
+                <strong>{locale==='pt-BR'?'Confirme a oferta antes de divulgar':locale==='es'?'Verifica la oferta antes de publicar':'Verify the listing before sharing'}</strong>
+                <span>{locale==='pt-BR'
+                  ? 'Preço e estoque podem ter mudado. A última observação não confirma a situação atual.'
+                  : locale==='es'?'El precio y el stock pueden haber cambiado. El último registro no confirma el estado actual.'
+                  : 'Price and stock may have changed. The last observation does not confirm current availability.'}</span>
+                {isSafeOfferUrl(product.url?.value,product.marketplace)&&
+                  <a href={product.url.value} target="_blank" rel="noopener noreferrer">
+                    {locale==='pt-BR'?'Conferir anúncio original ↗':locale==='es'?'Ver anuncio original ↗':'Check original listing ↗'}
+                  </a>}
+              </div>}
               {FEATURE_FLAGS.RADAR_V4_SHADOW_ENABLED && v4ById[opportunity.id] && <div className="radar7-next-step">
                 <strong>{locale==='pt-BR'?'Próximo cuidado':locale==='es'?'Siguiente paso':'Next check'}</strong>
                 <span>{(()=>{
