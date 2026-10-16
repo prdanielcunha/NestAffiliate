@@ -1213,3 +1213,17 @@ html {scroll-behavior:smooth}
   padding:12px 0; min-height:44px;
 }
 .prompt-raw-details .image-prompt-box { max-width:100%; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+
+/* Brand 2026: same vector monogram in login, sidebar, legal and mobile. */
+.brand-symbol{width:38px;height:38px;display:block;flex:none;border-radius:10px;object-fit:contain}
+.brand-symbol.large{width:76px;height:76px;border-radius:18px}
+.brand-wordmark{font-weight:750;letter-spacing:-.045em;white-space:nowrap;color:var(--text)}
+.brand-wordmark>span{color:var(--accent)}
+.brand-lockup{display:flex;align-items:center;gap:15px;margin-bottom:12px}
+.brand-lockup-large .brand-wordmark{font-size:clamp(24px,2.6vw,33px)}
+.login-card-mobile-brand{display:flex;align-items:center;gap:10px}
+.login-card-mobile-brand .brand-wordmark{font-size:17px}
+.sidebar .brand{min-width:0;gap:9px}
+.sidebar .brand-wordmark{font-size:17px;overflow:hidden;text-overflow:ellipsis}
+.legal-brand .brand-wordmark{font-size:16px}
+@media(max-width:520px){.brand-symbol.large{width:58px;height:58px}.brand-lockup-large .brand-wordmark{font-size:25px}}
