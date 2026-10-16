@@ -59,10 +59,8 @@ button, a { touch-action:manipulation; }
   background:linear-gradient(180deg,rgba(183,238,120,.035),transparent 28%),var(--surface);
 }
 .sidebar .brand { margin-bottom:6px; padding:0 12px 22px; font-size:18px;letter-spacing:-.04em; }
-.brand-mark {
-  background:linear-gradient(140deg,#d4fa9e,#96d75f); color:#182714;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 7px 22px rgba(140,205,98,.14);
-}
+/* The old letter badge is deprecated. Brand icon comes from /icon.svg. */
+.brand-symbol{box-shadow:0 6px 18px rgba(0,0,0,.13)}
 .sidebar nav a { display:flex;align-items:center;gap:12px;min-height:44px;padding:11px 12px; }
 .sidebar nav a svg { width:18px;height:18px;flex:none;opacity:.8; }
 .sidebar nav a.active {

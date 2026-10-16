@@ -209,7 +209,7 @@ export function PublicLegalPage({kind}:{kind:LegalKind}){
 
   return <main className="legal-shell">
     <header className="legal-topbar">
-      <a className="brand legal-brand" href="/"><span className="brand-mark">N</span><span>NestAffiliate</span></a>
+      <a className="brand legal-brand" href="/"><img className="brand-symbol" src="/icon.svg?v=2" alt=""/><span className="brand-wordmark"><span>Nest</span>Affiliate</span></a>
       <div className="legal-languages" aria-label="Language">
         {(['pt-BR','en','es'] as Locale[]).map((item)=><button key={item} className={locale===item?'active':''} onClick={()=>setLocale(item)}>{item==='pt-BR'?'PT':item.toUpperCase()}</button>)}
       </div>
