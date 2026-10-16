@@ -1,4 +1,4 @@
-import { FEATURE_FLAGS, KILL_SWITCHES, PUBLIC_LINKS } from '@nestaffiliate/config';
+import { FEATURE_FLAGS, KILL_SWITCHES, PUBLIC_LINKS, PINTEREST_DEVELOPER_APP } from '@nestaffiliate/config';
 import { SHOPEE_AFFILIATE_CAPABILITIES, SHOPEE_PINTEREST_HELP_URL } from '@nestaffiliate/integrations';
 import { useI18n } from '../lib/i18n-context';
 import { PolicyWatchPanel } from './PolicyWatchPanel';
@@ -46,9 +46,9 @@ function launchCopy(locale: string): LaunchCopy {
       startNowBody: 'O Guided Publisher já pode preparar imagem, título, descrição, link, pasta e checklist. Publique manualmente no perfil oficial enquanto a API não está liberada.',
       apiTitle: 'Ativação da API',
       apiReady: 'API habilitada neste ambiente. Continue respeitando approval gate e access tier.',
-      apiPending: 'Próximo gate externo: solicitar Trial Access no Pinterest Developers. Trial serve para Sandbox; Standard é necessário para operação pública via API.',
+      apiPending: 'App substituído: novo Trial solicitado para a MillionsNest e em análise no Pinterest. Modo guiado disponível; publicação pública via API depende de Standard Access.',
       stepBusiness: '1. Confirmar conta Pinterest Business e e-mail verificado.',
-      stepTrial: '2. Cadastrar NestAffiliate no Pinterest Developers e solicitar Trial Access.',
+      stepTrial: '2. Aplicativo MillionsNest — NestAffiliate cadastrado. Acompanhar o Trial pendente; não criar novo cadastro.',
       stepStandard: '3. Testar OAuth/Sandbox e então solicitar Standard Access para produção.',
     },
     en: {
@@ -58,9 +58,9 @@ function launchCopy(locale: string): LaunchCopy {
       startNowBody: 'Guided Publisher can already prepare the image, title, description, link, board and checklist. Publish manually to the official profile while API access is pending.',
       apiTitle: 'API activation',
       apiReady: 'API is enabled in this environment. Keep the approval gate and access tier checks in place.',
-      apiPending: 'Next external gate: request Trial Access in Pinterest Developers. Trial is for Sandbox; Standard is required for public production use through the API.',
+      apiPending: 'Replacement MillionsNest app submitted for Trial review. Guided Publishing remains available; public API publishing requires Standard Access.',
       stepBusiness: '1. Confirm Pinterest Business account and verified email.',
-      stepTrial: '2. Register NestAffiliate in Pinterest Developers and request Trial Access.',
+      stepTrial: '2. MillionsNest — NestAffiliate app submitted. Monitor Trial approval; do not register another app.',
       stepStandard: '3. Test OAuth/Sandbox, then request Standard Access for production.',
     },
     es: {
@@ -70,9 +70,9 @@ function launchCopy(locale: string): LaunchCopy {
       startNowBody: 'Guided Publisher ya puede preparar imagen, título, descripción, enlace, tablero y checklist. Publica manualmente en el perfil oficial mientras la API sigue pendiente.',
       apiTitle: 'Activación de API',
       apiReady: 'La API está habilitada en este entorno. Mantén el approval gate y la validación del nivel de acceso.',
-      apiPending: 'Próximo gate externo: solicitar Trial Access en Pinterest Developers. Trial sirve para Sandbox; Standard es necesario para producción pública vía API.',
+      apiPending: 'La nueva app de MillionsNest está pendiente de revisión Trial. El modo guiado sigue disponible; la publicación pública requiere Standard.',
       stepBusiness: '1. Confirmar cuenta Pinterest Business y correo verificado.',
-      stepTrial: '2. Registrar NestAffiliate en Pinterest Developers y solicitar Trial Access.',
+      stepTrial: '2. App MillionsNest — NestAffiliate registrada. Comprobar estado Trial; no crear otra solicitud.',
       stepStandard: '3. Probar OAuth/Sandbox y luego solicitar Standard Access para producción.',
     },
   };
@@ -184,6 +184,9 @@ export function ConnectionCenter() {
             <div>
               <h3>{FEATURE_FLAGS.PINTEREST_API_ENABLED ? launch.apiReady : launch.apiPending}</h3>
               <p>{launch.stepBusiness}</p>
+              <p><strong>{PINTEREST_DEVELOPER_APP.name}</strong> · App ID <code>{PINTEREST_DEVELOPER_APP.id}</code></p>
+              {!FEATURE_FLAGS.PINTEREST_API_ENABLED&&<p>{locale==='pt-BR'?'Último status informado: Trial pendente (16/10/2026). Não é uma consulta ao vivo ao Pinterest.':locale==='es'?'Último estado informado: Trial pendiente (16/10/2026); no es una consulta en vivo.':'Last reported state: Trial pending (2026-10-16); this is not a live provider check.'}</p>}
+              <a href="https://developers.pinterest.com/apps/" className="button secondary" target="_blank" rel="noopener noreferrer">{locale==='pt-BR'?'Ver status no Pinterest Developers ↗':locale==='es'?'Ver estado en Pinterest Developers ↗':'Check status in Pinterest Developers ↗'}</a>
             </div>
             <span>01</span>
           </div>

@@ -1,7 +1,11 @@
 # NestAffiliate — Pinterest Developer Submission Pack
 
-**Prepared:** 2026-10-02  
-**App name:** NestAffiliate  
+**Original:** 2026-10-02 · **updated:** 2026-10-16  
+**Current Developer App:** MillionsNest — NestAffiliate  
+**Current App ID:** 1625057  
+**Reported Pinterest access:** Trial pending (screenshot 16/10/2026; not API verified)  
+**Company/operating brand:** MillionsNest  
+**Previous App ID:** 1618597 (Trial denied: company name did not match domain URL)  
 **Brand:** Achados do Nest  
 **Official Pinterest profile:** https://br.pinterest.com/achadosdonest/  
 **Product family:** MillionsNest  
@@ -93,9 +97,9 @@ NestAffiliate connects a user's own Pinterest Business account to an affiliate p
 
 1. **Done:** official Pinterest profile created as @achadosdonest.
 2. Confirm the account is a **Pinterest Business** account and its email is verified.
-3. Open Pinterest Developers → My apps and accept the Developer Terms.
-4. Submit Trial Access using the app description and Privacy Policy URL above.
-5. After Trial approval, provision App ID/App Secret securely to the backend broker.
+3. **Done:** Registered the replacement app under company MillionsNest.
+4. **Done, replacement application:** MillionsNest — NestAffiliate, App ID **1625057**, submitted for Trial. Do not resubmit/clone unless Pinterest support requests it.
+5. **Now:** Reply to the existing Pinterest Support conversation with **new App ID 1625057**, the company name **MillionsNest**, and the corrected URLs. Wait for explicit Trial approval before using any secret in backend.
 6. Register the exact redirect URI provided by the deployed broker.
 7. Run the OAuth flow and Trial/Sandbox demo.
 8. Record the Standard Access video.
@@ -110,3 +114,16 @@ Do not wait for steps 2–9 to begin publishing manually through Guided Publishe
 - Use OAuth state/CSRF protection.
 - Use HTTPS/TLS only.
 - Keep Standard/public publishing disabled until Pinterest grants the required access tier.
+
+## Support response and next steps (16 October 2026)
+
+- Old app `1618597` is denied by Pinterest support agent Periwinkle. Do not use this app ID or keys for current OAuth.
+- New app `1625057` (**MillionsNest — NestAffiliate**) shows **Trial pending**. This is a submitted application, **not** an OAuth connection or approval.
+- The user must upload the latest **new monogram logo**, independently of this GitHub deployment, under Pinterest Developers > My apps > 1625057 > Settings (the observed Pinterest screen still displays a gray image placeholder).
+- **Immediate user action:** reply to Periwinkle in the original support thread, quoting the new App ID and explicitly requesting rereview. Don't generate or paste access tokens in support tickets, GitHub, chats, or client apps.
+- After Pinterest Trial approval, retrieve App Secret through the Pinterest developer portal and store only in the secure MillionsNest Hub backend secret manager, not Vite/frontend/Firestore. Implement consent-based OAuth broker, strict HTTPS redirect URI, secure state and refresh token handling before enabling read/write capabilities.
+- **Standard Access is a separate approval** for public production API publishing. Guided Publisher and permissioned Pinterest CSV/manual analytics remain the safe path in the meantime.
+
+Suggested support reply:
+
+> Hi Periwinkle, following your instructions, we have submitted a replacement application with the company name MillionsNest, matching our official domain. New app name: MillionsNest — NestAffiliate. New App ID: **1625057**. Main URL: https://nestaffiliate.millionsnest.com. Privacy Policy: https://nestaffiliate.millionsnest.com/privacy. The new application currently displays Trial Access pending. Could you please review the new application and let us know if any additional information is needed? Thank you.

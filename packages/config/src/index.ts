@@ -10,6 +10,16 @@ function envString(value: unknown, fallback: string) {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
+/** Public Pinterest Developer identity. This is NOT an OAuth credential, access grant or API key.
+ * The old application 1618597 was denied and must never be used for OAuth.
+ * Last checked: 2026-10-16, Trial pending for the replacement application.
+ */
+export const PINTEREST_DEVELOPER_APP = {
+  id: '1625057',
+  name: 'MillionsNest — NestAffiliate',
+  accessAtRegistration: 'TRIAL_PENDING',
+} as const;
+
 export const PUBLIC_LINKS = {
   PINTEREST_PROFILE_URL: envString(import.meta.env.VITE_PINTEREST_PROFILE_URL, 'https://br.pinterest.com/achadosdonest/'),
 } as const;
