@@ -1,14 +1,14 @@
 {
-  "name": "NestAffiliate",
+  "name": "NestAffiliate — MillionsNest",
   "short_name": "NestAffiliate",
   "description": "Affiliate Intelligence by MillionsNest",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f1311",
-  "theme_color": "#0f1311",
+  "background_color": "#0e1510",
+  "theme_color": "#0e1510",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/icon.svg?v=2",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
