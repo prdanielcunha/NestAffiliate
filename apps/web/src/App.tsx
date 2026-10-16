@@ -633,7 +633,7 @@ function Shell({ children, locale, setLocale }: { children: React.ReactNode; loc
           <div className="automation-pill"><span className="status-orb" /> {locale==='pt-BR'?'Seu espaço de criação':locale==='es'?'Tu espacio creativo':'Your creative workspace'}</div>
           <div className="top-actions">
             <NavLink className="topbar-quick" to="/radar">{locale==='pt-BR'?'Explorar produtos':locale==='es'?'Explorar productos':'Explore products'} <span aria-hidden="true">↗</span></NavLink>
-            <button className="icon-button" onClick={() => setCommandOpen(true)} aria-label="Command bar">⌘K</button>
+            <button className="icon-button" onClick={() => setCommandOpen(true)} aria-label="Command bar ⌘K">⌘K</button>
             <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Theme">{theme === 'dark' ? '☼' : '◐'}</button>
             <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)} aria-label="Language">
               <option value="pt-BR">PT</option><option value="en">EN</option><option value="es">ES</option>
