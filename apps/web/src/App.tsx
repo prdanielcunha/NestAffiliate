@@ -520,7 +520,7 @@ function Login() {
   return (
     <main className="login-shell">
       <section className="login-brand">
-        <div className="brand-mark large">N</div>
+        <div className="brand-lockup brand-lockup-large"><img className="brand-symbol large" src="/icon.svg?v=2" alt=""/><span className="brand-wordmark"><span>Nest</span>Affiliate</span></div>
         <p className="eyebrow">AFFILIATE INTELLIGENCE BY MILLIONSNEST</p>
         <h1>{t('loginTitle')}</h1>
         <p>{t('loginDescription')}</p>
@@ -532,7 +532,7 @@ function Login() {
         </div>
       </section>
       <section className="login-card">
-        <div className="login-card-mobile-brand"><span className="brand-mark">N</span><strong>NestAffiliate</strong></div>
+        <div className="login-card-mobile-brand"><img className="brand-symbol" src="/icon.svg?v=2" alt=""/><strong className="brand-wordmark"><span>Nest</span>Affiliate</strong></div>
         <div className="status-orb" />
         <h2>{state === 'loading' ? t('loadingAccount') : t('enterContinue')}</h2>
         <p className="login-reassurance">{locale==='pt-BR'?'Entre para encontrar produtos, criar conteúdo e acompanhar seus Pins.':locale==='es'?'Entra para descubrir productos y preparar tus Pins.':'Sign in to discover products and prepare your Pins.'}</p>
@@ -618,7 +618,7 @@ function Shell({ children, locale, setLocale }: { children: React.ReactNode; loc
     <div className="app-shell">
       <aside className="sidebar">
         <NavLink to="/" className="brand">
-          <span className="brand-mark">N</span><span>NestAffiliate</span>
+          <img className="brand-symbol" src="/icon.svg?v=2" alt=""/><span className="brand-wordmark"><span>Nest</span>Affiliate</span>
         </NavLink>
         <nav aria-label={locale==='pt-BR'?'Navegação principal':'Main navigation'}>{primary.map(([to,label]) => <NavLink key={to} to={to} end={to === '/'}><NavGlyph route={to}/><span>{label}</span></NavLink>)}</nav>
         <div className="nav-separator" />
