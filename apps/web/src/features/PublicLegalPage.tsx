@@ -8,7 +8,7 @@ type LegalLocaleCopy=Record<LegalKind,LegalContent>;
 
 const CONTACT='nestaffiliate@millionsnest.com';
 const SITE='https://nestaffiliate.millionsnest.com';
-const UPDATED='1 de outubro de 2026';
+const UPDATED='2026-10-21';
 
 function legalCopy(locale:Locale,kind:LegalKind){
   const pt:LegalLocaleCopy={
@@ -39,7 +39,7 @@ function legalCopy(locale:Locale,kind:LegalKind){
           'Não vendemos dados pessoais a anunciantes.'
         ]],
         ['5. Pinterest e outras integrações',[
-          'A conexão com Pinterest, quando ativada, utiliza OAuth e os escopos explicitamente autorizados pelo usuário.',
+          'A API do Pinterest ainda não está conectada: o acesso Trial do aplicativo 1625057 foi negado em 20/10/2026 e está sujeito à reavaliação. Quando houver aprovação, qualquer conexão utilizará OAuth com escopos explicitamente autorizados pelo titular.',
           'O NestAffiliate não solicita sua senha do Pinterest nem deve armazenar cookies de sessão da plataforma.',
           'Você pode revogar o acesso da integração a qualquer momento nas configurações da plataforma conectada ou solicitar a desvinculação pelo contato informado nesta política.'
         ]],
@@ -61,6 +61,12 @@ function legalCopy(locale:Locale,kind:LegalKind){
         ]],
         ['10. Atualizações desta política',[
           'Podemos atualizar esta Política quando o produto, as integrações ou requisitos legais mudarem. A data da versão vigente permanece indicada nesta página.'
+        ]],
+        ['11. Limites específicos de dados do Pinterest',[
+          'MillionsNest é a marca responsável pelo NestAffiliate. Contato: '+CONTACT+'. Não somos um aplicativo oficial do Pinterest nem afirmamos possuir aprovação de API enquanto ela não existir.',
+          'Quando autorizada, a integração usa dados da própria conta conectada somente para os serviços solicitados. Informações obtidas pela API do Pinterest não serão armazenadas além das exceções permitidas pela plataforma, como análises de campanhas acessadas com autorização expressa.',
+          'Não vendemos ou compartilhamos dados do Pinterest com redes de anúncios de terceiros; não usamos materiais do Pinterest para treinar ou aprimorar modelos de IA e não fornecemos comparativos de concorrentes ou da plataforma sem autorização escrita.',
+          'O usuário deve ter direitos sobre imagens e conteúdo enviados, escolher individualmente as ações e cumprir as regras de conteúdo comercial, transparência de links afiliados e prevenção de spam.'
         ]]
       ]
     },
@@ -100,7 +106,8 @@ function legalCopy(locale:Locale,kind:LegalKind){
           'Resultados de marketing, vendas, alcance, comissão ou receita não são garantidos.',
           'O NestAffiliate oferece ferramentas de decisão e operação; resultados dependem de mercado, plataforma, produto, audiência, execução e fatores externos.'
         ]],
-        ['9. Contato',['Dúvidas sobre estes Termos podem ser enviadas para '+CONTACT+'.']]
+        ['9. Contato',['Dúvidas sobre estes Termos podem ser enviadas para '+CONTACT+'.']],
+        ['10. Conduta específica para Pinterest',['O usuário deve selecionar cada Pin individualmente antes de qualquer envio. Não são permitidos publicação afiliada em massa, spam, engajamento artificial, scraping, uso indevido de contas ou contorno de consentimento e limites de API.','É proibido usar materiais do Pinterest para treinar modelos de IA ou oferecer benchmarks de concorrentes da plataforma sem autorização escrita. Imagens e textos de terceiros exigem os direitos necessários; links afiliados devem informar claramente sua finalidade comercial.']]
       ]
     },
     'data-deletion':{
@@ -132,12 +139,13 @@ function legalCopy(locale:Locale,kind:LegalKind){
       ['2. How we use data',['Authenticate users and enforce organization/role permissions.','Create, review, version, approve and measure affiliate campaigns.','Validate Product Truth, compliance, availability, links and duplicate/spam prevention.','Generate analytics and learning from use and recorded results without allowing AI to overwrite commercial facts.','Maintain security, auditability, stability and support.']],
       ['3. Processing principles',['We process data to provide the service, fulfill applicable obligations, support compatible legitimate operational/security interests, and obtain consent when required.','We apply purpose limitation, minimization, transparency, security and access controls, including tenant isolation.']],
       ['4. Sharing',['We may use infrastructure and authentication providers required to operate the service, including Firebase/Google Cloud.','When you authorize an integration, strictly necessary data may be exchanged with platforms such as Pinterest, Mercado Livre or Shopee according to granted permissions and their terms.','We do not sell personal data to advertisers.']],
-      ['5. Pinterest and integrations',['When enabled, Pinterest connection uses OAuth and only scopes explicitly authorized by the user.','NestAffiliate does not ask for your Pinterest password and must not store Pinterest session cookies.','You may revoke access in the connected platform settings or request unlinking using the contact below.']],
+      ['5. Pinterest and integrations',['Pinterest API access is currently unavailable: Trial access for app 1625057 was denied on October 20, 2026 and awaits re-review. When approved, any connection will use OAuth and only scopes explicitly authorized by the account owner.','NestAffiliate does not ask for your Pinterest password and must not store Pinterest session cookies.','You may revoke access in the connected platform settings or request unlinking using the contact below.']],
       ['6. Retention and deletion',['We retain data while needed to provide the service, preserve security/audit history and meet applicable obligations.','Eligible data will be deleted or anonymized when deletion is validly requested and no legitimate retention requirement applies.','Specific instructions are available at /data-deletion.']],
       ['7. Security',['We use authentication, RBAC, organization isolation, database access rules, audit records and HTTPS/TLS controls.','No system is risk-free, so we maintain prevention, detection and remediation controls.']],
       ['8. Your rights',['You may request access, correction, applicable portability, consent withdrawal and deletion where provided by applicable law. Contact '+CONTACT+'.']],
       ['9. Children',['NestAffiliate is a commercial operations tool and is not directed to children.']],
-      ['10. Updates',['We may update this Policy as the product, integrations or legal requirements change. The current version date remains shown on this page.']]
+      ['10. Updates',['We may update this Policy as the product, integrations or legal requirements change. The current version date remains shown on this page.']],
+      ['11. Pinterest API-specific data restrictions',['MillionsNest operates NestAffiliate. Contact: '+CONTACT+'. This is not an official Pinterest product; we do not claim active Pinterest API approval.','If approved, account data is accessed only with account-owner authorization and used to provide that users requested service. Pinterest API materials will not be retained except for explicit permitted exceptions, such as expressly authorized campaign analytics.','We do not sell or disclose Pinterest data to other advertising networks, use Pinterest materials to train/improve AI models, or offer Pinterest platform/competitor benchmarks without written authorization.','Users must have rights to uploaded content, select each publishing action and respect affiliate disclosure, originality and anti-spam rules.']]
     ]},
     terms:{title:'Terms of Use',intro:'These Terms govern use of NestAffiliate, a MillionsNest ecosystem tool for affiliate operations with mandatory human review.',sections:[
       ['1. Service use',['Use NestAffiliate lawfully and in compliance with platform rules, affiliate program terms and applicable law.','You are responsible for external accounts you connect, permissions you grant and information you provide manually.']],
@@ -148,7 +156,8 @@ function legalCopy(locale:Locale,kind:LegalKind){
       ['6. Prohibited use',['Do not use the service for spam, metric manipulation, fraud, copyright infringement, improper data collection, credential misuse or illegal content.','Do not bypass access controls, platform limits, Publishing Guard, tenant rules or security mechanisms.']],
       ['7. Availability and changes',['The product may evolve or adjust integrations in response to technical, security or policy requirements.','Features that depend on external approval may remain disabled until access is granted by the relevant platform.']],
       ['8. Results',['Marketing, sales, reach, commission and revenue are not guaranteed. Results depend on market, platform, product, audience, execution and external factors.']],
-      ['9. Contact',['Questions about these Terms can be sent to '+CONTACT+'.']]
+      ['9. Contact',['Questions about these Terms can be sent to '+CONTACT+'.']],
+      ['10. Pinterest-specific rules',['Users must select each Pin before submission. Bulk affiliate spam, automated engagement, scraping, circumvention of API limits or consent, and account misuse are prohibited.','Do not train AI on Pinterest materials or provide Pinterest competitor/platform benchmarks without written permission. You need rights to all uploaded media, and affiliate links must be clearly disclosed.']]
     ]},
     'data-deletion':{title:'Data Deletion and Unlinking',intro:'Use these instructions to request deletion of NestAffiliate data or revoke an external integration.',sections:[
       ['1. Disconnect a platform',['Revoke authorization in the connected platform settings when available.','Then request removal of remaining NestAffiliate connection tokens/data.']],
@@ -164,12 +173,13 @@ function legalCopy(locale:Locale,kind:LegalKind){
       ['2. Uso de los datos',['Autenticar usuarios y aplicar permisos.','Crear, revisar, versionar, aprobar y medir campañas.','Validar Product Truth, compliance, disponibilidad, links y prevención de duplicación/spam.','Generar análisis y aprendizaje sin permitir que IA reemplace hechos comerciales.','Mantener seguridad, auditoría, estabilidad y soporte.']],
       ['3. Principios',['Tratamos datos para prestar el servicio, cumplir obligaciones aplicables, intereses operativos/seguridad compatibles y consentimiento cuando sea necesario.','Aplicamos finalidad, minimización, transparencia, seguridad y aislamiento por organización.']],
       ['4. Compartición',['Podemos usar proveedores necesarios de infraestructura/autenticación, incluidos Firebase/Google Cloud.','Con tu autorización, datos estrictamente necesarios pueden intercambiarse con Pinterest, Mercado Livre o Shopee según permisos y términos.','No vendemos datos personales a anunciantes.']],
-      ['5. Pinterest e integraciones',['La conexión con Pinterest utiliza OAuth y solo permisos autorizados.','NestAffiliate no solicita tu contraseña de Pinterest ni debe almacenar cookies de sesión.','Puedes revocar acceso en la plataforma conectada o solicitar desvinculación.']],
+      ['5. Pinterest e integraciones',['La API de Pinterest aún no está conectada: el Trial de la app 1625057 fue denegado el 20/10/2026 y requiere nueva evaluación. Después de su aprobación, la conexión utilizará OAuth con permisos autorizados por el titular.','NestAffiliate no solicita tu contraseña de Pinterest ni debe almacenar cookies de sesión.','Puedes revocar acceso en la plataforma conectada o solicitar desvinculación.']],
       ['6. Retención y eliminación',['Conservamos datos mientras sean necesarios para prestar el servicio, seguridad/auditoría y obligaciones aplicables.','Los datos elegibles serán eliminados o anonimizados ante una solicitud válida cuando no exista obligación legítima de retención.','Instrucciones en /data-deletion.']],
       ['7. Seguridad',['Usamos autenticación, RBAC, aislamiento por organización, reglas de acceso, auditoría y HTTPS/TLS.','Ningún sistema está libre de riesgo; mantenemos controles preventivos, de detección y corrección.']],
       ['8. Tus derechos',['Puedes solicitar acceso, corrección, portabilidad cuando corresponda, revocación del consentimiento y eliminación según la ley aplicable. Contacto: '+CONTACT+'.']],
       ['9. Menores',['NestAffiliate es una herramienta comercial y no está dirigida a niños.']],
-      ['10. Actualizaciones',['Podemos actualizar esta Política cuando cambie el producto, las integraciones o los requisitos legales.']]
+      ['10. Actualizaciones',['Podemos actualizar esta Política cuando cambie el producto, las integraciones o los requisitos legales.']],
+      ['11. Limitaciones específicas de la API de Pinterest',['MillionsNest es la marca operadora de NestAffiliate. Contacto: '+CONTACT+'. No somos una app oficial de Pinterest ni afirmamos tener acceso activo a su API.','Tras la autorización del titular, los datos solo se usan para los servicios solicitados. No conservamos información obtenida por la API salvo excepciones permitidas, como analíticas de campañas expresamente autorizadas.','No vendemos datos de Pinterest a redes publicitarias ni usamos su contenido para entrenar IA; no ofrecemos comparativas de competidores sin permiso escrito.','Cada publicación requiere selección del usuario y cumplimiento de reglas de derechos, enlaces de afiliados y prevención de spam.']]
     ]},
     terms:{title:'Términos de Uso',intro:'Estos Términos regulan el uso de NestAffiliate, herramienta del ecosistema MillionsNest para operación de afiliados con revisión humana obligatoria.',sections:[
       ['1. Uso',['Usa NestAffiliate legalmente y según reglas de plataformas, programas de afiliados y legislación aplicable.','Eres responsable de cuentas externas, permisos y datos que ingresas manualmente.']],
@@ -180,7 +190,8 @@ function legalCopy(locale:Locale,kind:LegalKind){
       ['6. Prohibiciones',['No uses el servicio para spam, fraude, manipulación de métricas, violación de derechos, recolección indebida, robo de credenciales o contenido ilegal.','No eludas controles de acceso, límites, Publishing Guard o seguridad.']],
       ['7. Cambios',['El producto puede evolucionar y adaptar integraciones por requisitos técnicos, de seguridad o políticas externas.']],
       ['8. Resultados',['No se garantizan ventas, alcance, comisión o ingresos. Los resultados dependen del mercado y factores externos.']],
-      ['9. Contacto',['Consultas: '+CONTACT+'.']]
+      ['9. Contacto',['Consultas: '+CONTACT+'.']],
+      ['10. Reglas para Pinterest',['Cada Pin debe ser seleccionado por el usuario antes de su envío. Están prohibidos el spam masivo de afiliación, scraping, manipulación del engagement y eludir consentimiento o límites de API.','No se permite usar materiales de Pinterest para entrenar IA ni publicar análisis de competidores sin permiso escrito. Se necesitan derechos sobre contenido y divulgación clara de enlaces comerciales.']]
     ]},
     'data-deletion':{title:'Eliminación de Datos y Desvinculación',intro:'Usa estas instrucciones para solicitar eliminación de datos de NestAffiliate o revocar una integración.',sections:[
       ['1. Desconectar',['Revoca autorización directamente en la plataforma conectada cuando esté disponible.','Después solicita eliminación de tokens/datos remanentes en NestAffiliate.']],
