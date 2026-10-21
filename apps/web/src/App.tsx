@@ -3073,7 +3073,7 @@ export function App() {
 
   // Pinterest Developers and prospective users must be able to inspect the official
   // Main URL without authentication. Keep every workspace route and dataset private.
-  if (auth.state === 'signed-out' && window.location.pathname === '/') {
+  if (auth.state !== 'ready' && window.location.pathname === '/') {
     return <I18nProvider locale={locale}><PublicHomePage locale={locale} onLocaleChange={setLocale}/></I18nProvider>;
   }
   if (auth.state !== 'ready') {
