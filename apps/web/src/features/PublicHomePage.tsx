@@ -88,7 +88,7 @@ export function PublicHomePage({locale,onLocaleChange}:{
   },[locale]);
   return <div className="public-home">
     <header className="public-home-header">
-      <a href="/" className="public-home-brand" aria-label="NestAffiliate — MillionsNest">
+      <a href="/" className="public-home-brand">
         <img src="/icon.svg?v=2" alt="" width="44" height="44"/>
         <span><b>Nest</b>Affiliate <small>by MillionsNest</small></span>
       </a>
