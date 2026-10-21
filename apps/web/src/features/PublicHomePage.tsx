@@ -116,7 +116,7 @@ export function PublicHomePage({locale,onLocaleChange}:{
           </div>
           <p className="public-home-note">{c.honest}</p>
         </div>
-        <div className="public-home-visual" aria-label="NestAffiliate product identity">
+        <div className="public-home-visual" role="img" aria-label="NestAffiliate product identity">
           <img src="/icon.svg?v=2" alt="NestAffiliate" width="192" height="192"/>
           <div className="public-home-visual-word"><span>Nest</span>Affiliate</div>
           <p>Affiliate Intelligence by MillionsNest</p>
