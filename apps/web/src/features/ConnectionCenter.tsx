@@ -1,4 +1,4 @@
-import { FEATURE_FLAGS, KILL_SWITCHES, PUBLIC_LINKS, PINTEREST_DEVELOPER_APP } from '@nestaffiliate/config';
+import { FEATURE_FLAGS, KILL_SWITCHES, PUBLIC_LINKS, PINTEREST_DEVELOPER_APP, pinterestApiApproved, pinterestStandardApproved } from '@nestaffiliate/config';
 import { SHOPEE_AFFILIATE_CAPABILITIES, SHOPEE_PINTEREST_HELP_URL } from '@nestaffiliate/integrations';
 import { useI18n } from '../lib/i18n-context';
 import { PolicyWatchPanel } from './PolicyWatchPanel';
@@ -85,13 +85,13 @@ export function ConnectionCenter() {
   const cards: ConnectionCard[] = [
     {
       name: 'Pinterest API',
-      status: FEATURE_FLAGS.PINTEREST_STANDARD_ACCESS
+      status: (FEATURE_FLAGS.PINTEREST_STANDARD_ACCESS && pinterestStandardApproved())
         ? FEATURE_FLAGS.PINTEREST_AUTO_PUBLISH ? 'active' : 'guided'
         : 'external',
-      capability: FEATURE_FLAGS.PINTEREST_STANDARD_ACCESS
+      capability: (FEATURE_FLAGS.PINTEREST_STANDARD_ACCESS && pinterestStandardApproved())
         ? 'Boards · Pins · Analytics'
         : 'Guided Publisher · Trial/Sandbox readiness',
-      detail: FEATURE_FLAGS.PINTEREST_STANDARD_ACCESS
+      detail: (FEATURE_FLAGS.PINTEREST_STANDARD_ACCESS && pinterestStandardApproved())
         ? 'Standard Access detectado. Auto-publish continua subordinado ao approval gate e às flags.'
         : 'Trial é usado para Sandbox; Pins e Boards criados nesse nível não são tratados como publicação pública. O modo guiado continua sendo o caminho de produção.',
       safety: 'OAuth/client_secret nunca é armazenado no frontend.',
@@ -177,15 +177,15 @@ export function ConnectionCenter() {
       <section className="section">
         <div className="section-heading">
           <h2>{launch.apiTitle}</h2>
-          <span>{FEATURE_FLAGS.PINTEREST_API_ENABLED ? statusLabel('active', locale) : statusLabel('external', locale)}</span>
+          <span>{(FEATURE_FLAGS.PINTEREST_API_ENABLED && pinterestApiApproved()) ? statusLabel('active', locale) : statusLabel('external', locale)}</span>
         </div>
         <div className="list-surface">
           <div className="list-row">
             <div>
-              <h3>{FEATURE_FLAGS.PINTEREST_API_ENABLED ? launch.apiReady : launch.apiPending}</h3>
+              <h3>{(FEATURE_FLAGS.PINTEREST_API_ENABLED && pinterestApiApproved()) ? launch.apiReady : launch.apiPending}</h3>
               <p>{launch.stepBusiness}</p>
               <p><strong>{PINTEREST_DEVELOPER_APP.name}</strong> · App ID <code>{PINTEREST_DEVELOPER_APP.id}</code></p>
-              {!FEATURE_FLAGS.PINTEREST_API_ENABLED&&<p>{locale==='pt-BR'?'Último status informado: Trial negado (20/10/2026) por exigir login. Site corrigido; falta reavaliação do Pinterest. Não é uma consulta ao vivo.':locale==='es'?'Último estado informado: Trial denegado (20/10/2026). Revisión pendiente; no es consulta en vivo.':'Last reported state: Trial denied (2026-10-20). Rereview required; not a live provider check.'}</p>}
+              {!(FEATURE_FLAGS.PINTEREST_API_ENABLED && pinterestApiApproved())&&<p>{locale==='pt-BR'?'Último status informado: Trial negado (20/10/2026) por exigir login. Site corrigido; falta reavaliação do Pinterest. Não é uma consulta ao vivo.':locale==='es'?'Último estado informado: Trial denegado (20/10/2026). Revisión pendiente; no es consulta en vivo.':'Last reported state: Trial denied (2026-10-20). Rereview required; not a live provider check.'}</p>}
               <a href="https://developers.pinterest.com/apps/" className="button secondary" target="_blank" rel="noopener noreferrer">{locale==='pt-BR'?'Ver status no Pinterest Developers ↗':locale==='es'?'Ver estado en Pinterest Developers ↗':'Check status in Pinterest Developers ↗'}</a>
             </div>
             <span>01</span>
@@ -205,6 +205,20 @@ export function ConnectionCenter() {
             <span>03</span>
           </div>
         </div>
+      </section>
+
+      <section className="surface" aria-label="Pinterest compliance and permissions">
+        <p className="eyebrow">{locale==='pt-BR'?'COMPROMISSOS DA INTEGRAÇÃO':locale==='es'?'COMPROMISOS DE INTEGRACIÓN':'INTEGRATION SAFEGUARDS'}</p>
+        <h2>{locale==='pt-BR'?'Acesso autorizado, dados protegidos e controle humano':locale==='es'?'Acceso autorizado, datos protegidos y revisión humana':'Authorized access, protected data and human review'}</h2>
+        <p className="muted">{locale==='pt-BR'
+          ? 'A API do Pinterest está indisponível até aprovação expressa. Não solicitamos senhas ou cookies de sessão, não coletamos dados do Pinterest por scraping e não publicamos Pins em massa sem seleção individual e consentimento.'
+          : locale==='es'?'La API de Pinterest no está disponible hasta su aprobación. No solicitamos contraseñas o cookies, no hacemos scraping ni publicamos Pins masivamente sin aprobación individual.'
+          : 'Pinterest API access is unavailable until explicitly approved. We do not request Pinterest passwords or session cookies, scrape Pinterest data, or mass-publish Pins without individual selection and consent.'}</p>
+        <p className="muted">{locale==='pt-BR'
+          ? 'Não utilizamos materiais do Pinterest para treinar IA nem oferecemos benchmarks de concorrentes do Pinterest sem autorização escrita. Métricas próprias importadas exigem consentimento e seguem os limites das políticas da plataforma.'
+          : locale==='es'?'No usamos materiales de Pinterest para entrenar IA ni ofrecemos estudios de competidores sin permiso escrito. Las métricas propias requieren autorización.'
+          : 'We do not train AI on Pinterest materials or provide Pinterest competitor benchmarks without written approval. Imported account metrics require authorization and follow platform data restrictions.'}</p>
+        <a className="button secondary" href="/privacy">{locale==='pt-BR'?'Política de privacidade ↗':locale==='es'?'Política de privacidad ↗':'Privacy Policy ↗'}</a>
       </section>
 
       <MercadoLivreSetupPanel />

@@ -18,7 +18,7 @@ function envString(value: unknown, fallback: string) {
 export const PINTEREST_DEVELOPER_APP = {
   id: '1625057',
   name: 'MillionsNest — NestAffiliate',
-  accessStatus: 'TRIAL_DENIED_REVIEW_REQUESTED',
+  accessStatus: 'TRIAL_DENIED_PENDING_REREVIEW',
   statusAsOf: '2026-10-20',
 } as const;
 
@@ -72,8 +72,19 @@ export function isMarketplaceEnabled(marketplace: 'MELI' | 'SHOPEE' | 'AMAZON') 
   return FEATURE_FLAGS.AMAZON_ENABLED;
 }
 
+/** Access-tier approval has to be verified and explicitly recorded, not inferred from
+ * Vite flags. The current Pinterest app 1625057 is denied until provider re-review.
+ * This deliberate fail-closed gate requires a reviewed source update after approval.
+ */
+export function pinterestStandardApproved() {
+  return PINTEREST_DEVELOPER_APP.accessStatus as string === 'STANDARD_APPROVED';
+}
+export function pinterestApiApproved() {
+  return ['TRIAL_APPROVED','STANDARD_APPROVED'].includes(PINTEREST_DEVELOPER_APP.accessStatus as string);
+}
 export function canAttemptPinterestPublish() {
   return (
+    pinterestStandardApproved() &&
     FEATURE_FLAGS.PINTEREST_API_ENABLED &&
     FEATURE_FLAGS.PINTEREST_STANDARD_ACCESS &&
     FEATURE_FLAGS.PINTEREST_AUTO_PUBLISH &&
