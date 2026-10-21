@@ -12,12 +12,14 @@ function envString(value: unknown, fallback: string) {
 
 /** Public Pinterest Developer identity. This is NOT an OAuth credential, access grant or API key.
  * The old application 1618597 was denied and must never be used for OAuth.
- * Last checked: 2026-10-16, Trial pending for the replacement application.
+ * Pinterest Support denied Trial for the replacement on 2026-10-20:
+ * Main URL required a login. Public URL remediation requires re-review, not new registration.
  */
 export const PINTEREST_DEVELOPER_APP = {
   id: '1625057',
   name: 'MillionsNest — NestAffiliate',
-  accessAtRegistration: 'TRIAL_PENDING',
+  accessStatus: 'TRIAL_DENIED_REVIEW_REQUESTED',
+  statusAsOf: '2026-10-20',
 } as const;
 
 export const PUBLIC_LINKS = {

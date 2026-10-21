@@ -46,9 +46,9 @@ function launchCopy(locale: string): LaunchCopy {
       startNowBody: 'O Guided Publisher já pode preparar imagem, título, descrição, link, pasta e checklist. Publique manualmente no perfil oficial enquanto a API não está liberada.',
       apiTitle: 'Ativação da API',
       apiReady: 'API habilitada neste ambiente. Continue respeitando approval gate e access tier.',
-      apiPending: 'App substituído: novo Trial solicitado para a MillionsNest e em análise no Pinterest. Modo guiado disponível; publicação pública via API depende de Standard Access.',
+      apiPending: 'Trial negado em 20/10 porque o site exigia login. A página principal agora é pública; solicite reavaliação do App 1625057 no atendimento existente. Publicação via API continua indisponível.',
       stepBusiness: '1. Confirmar conta Pinterest Business e e-mail verificado.',
-      stepTrial: '2. Aplicativo MillionsNest — NestAffiliate cadastrado. Acompanhar o Trial pendente; não criar novo cadastro.',
+      stepTrial: '2. Após a página pública entrar em produção, pedir à Periwinkle reavaliação do mesmo App ID 1625057.',
       stepStandard: '3. Testar OAuth/Sandbox e então solicitar Standard Access para produção.',
     },
     en: {
@@ -58,9 +58,9 @@ function launchCopy(locale: string): LaunchCopy {
       startNowBody: 'Guided Publisher can already prepare the image, title, description, link, board and checklist. Publish manually to the official profile while API access is pending.',
       apiTitle: 'API activation',
       apiReady: 'API is enabled in this environment. Keep the approval gate and access tier checks in place.',
-      apiPending: 'Replacement MillionsNest app submitted for Trial review. Guided Publishing remains available; public API publishing requires Standard Access.',
+      apiPending: 'Trial was denied on Oct 20 because the Main URL required login. The public website was corrected; request rereview of App 1625057 in the same support ticket. Public API publishing remains unavailable.',
       stepBusiness: '1. Confirm Pinterest Business account and verified email.',
-      stepTrial: '2. MillionsNest — NestAffiliate app submitted. Monitor Trial approval; do not register another app.',
+      stepTrial: '2. Request rereview of the same App ID 1625057 after the public Main URL is live.',
       stepStandard: '3. Test OAuth/Sandbox, then request Standard Access for production.',
     },
     es: {
@@ -70,9 +70,9 @@ function launchCopy(locale: string): LaunchCopy {
       startNowBody: 'Guided Publisher ya puede preparar imagen, título, descripción, enlace, tablero y checklist. Publica manualmente en el perfil oficial mientras la API sigue pendiente.',
       apiTitle: 'Activación de API',
       apiReady: 'La API está habilitada en este entorno. Mantén el approval gate y la validación del nivel de acceso.',
-      apiPending: 'La nueva app de MillionsNest está pendiente de revisión Trial. El modo guiado sigue disponible; la publicación pública requiere Standard.',
+      apiPending: 'Trial fue denegado el 20/10 porque el sitio exigía iniciar sesión. Se corrigió el acceso público; solicita nueva revisión de la app 1625057. Publicación por API no disponible.',
       stepBusiness: '1. Confirmar cuenta Pinterest Business y correo verificado.',
-      stepTrial: '2. App MillionsNest — NestAffiliate registrada. Comprobar estado Trial; no crear otra solicitud.',
+      stepTrial: '2. Solicita la revisión de la misma app 1625057 después de publicar la página pública.',
       stepStandard: '3. Probar OAuth/Sandbox y luego solicitar Standard Access para producción.',
     },
   };
@@ -185,7 +185,7 @@ export function ConnectionCenter() {
               <h3>{FEATURE_FLAGS.PINTEREST_API_ENABLED ? launch.apiReady : launch.apiPending}</h3>
               <p>{launch.stepBusiness}</p>
               <p><strong>{PINTEREST_DEVELOPER_APP.name}</strong> · App ID <code>{PINTEREST_DEVELOPER_APP.id}</code></p>
-              {!FEATURE_FLAGS.PINTEREST_API_ENABLED&&<p>{locale==='pt-BR'?'Último status informado: Trial pendente (16/10/2026). Não é uma consulta ao vivo ao Pinterest.':locale==='es'?'Último estado informado: Trial pendiente (16/10/2026); no es una consulta en vivo.':'Last reported state: Trial pending (2026-10-16); this is not a live provider check.'}</p>}
+              {!FEATURE_FLAGS.PINTEREST_API_ENABLED&&<p>{locale==='pt-BR'?'Último status informado: Trial negado (20/10/2026) por exigir login. Site corrigido; falta reavaliação do Pinterest. Não é uma consulta ao vivo.':locale==='es'?'Último estado informado: Trial denegado (20/10/2026). Revisión pendiente; no es consulta en vivo.':'Last reported state: Trial denied (2026-10-20). Rereview required; not a live provider check.'}</p>}
               <a href="https://developers.pinterest.com/apps/" className="button secondary" target="_blank" rel="noopener noreferrer">{locale==='pt-BR'?'Ver status no Pinterest Developers ↗':locale==='es'?'Ver estado en Pinterest Developers ↗':'Check status in Pinterest Developers ↗'}</a>
             </div>
             <span>01</span>

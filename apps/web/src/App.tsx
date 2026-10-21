@@ -30,6 +30,7 @@ import { PinterestCreativePackPanel } from './features/PinterestCreativePack';
 import { NestAiDraftReview, type PinCopyDraft } from './features/NestAiDraftReview';
 import { resolveCreativeAssetUrl } from './services/creativePackRepository';
 import { ConnectionCenter } from './features/ConnectionCenter';
+import { PublicHomePage } from './features/PublicHomePage';
 import { ensureNestAffiliateWorkspace } from './services/workspaceBootstrap';
 import { defaultPreferences, loadUserPreferences, saveUserPreferences, type UserPreferences } from './services/preferencesRepository';
 import { recordRadarSignal } from './services/radarRepository';
@@ -3070,6 +3071,11 @@ export function App() {
     }).catch(() => undefined);
   }, [auth.state, auth.organizationId, auth.user?.uid, editable, locale]);
 
+  // Pinterest Developers and prospective users must be able to inspect the official
+  // Main URL without authentication. Keep every workspace route and dataset private.
+  if (auth.state === 'signed-out' && window.location.pathname === '/') {
+    return <I18nProvider locale={locale}><PublicHomePage locale={locale} onLocaleChange={setLocale}/></I18nProvider>;
+  }
   if (auth.state !== 'ready') {
     return <I18nProvider locale={locale}><Login /></I18nProvider>;
   }

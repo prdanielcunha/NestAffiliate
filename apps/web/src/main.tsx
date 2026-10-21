@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './lib/auth';
 import { App } from './App';
 import { PublicLegalPage } from './features/PublicLegalPage';
+import { PublicAboutPage } from './features/PublicHomePage';
 import { MercadoLivreOAuthCallback } from './features/MercadoLivreOAuthCallback';
 import './styles.css';
 import './premium-experience.css';
@@ -16,6 +17,7 @@ const publicLegalRoutes = {
 
 const legalKind=publicLegalRoutes[window.location.pathname as keyof typeof publicLegalRoutes];
 const isMeliCallback=window.location.pathname==='/integrations/meli/callback';
+const isPublicAbout=window.location.pathname==='/about';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -24,6 +26,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <PublicLegalPage kind={legalKind} />
       ) : isMeliCallback ? (
         <MercadoLivreOAuthCallback />
+      ) : isPublicAbout ? (
+        <PublicAboutPage />
       ) : (
         <AuthProvider>
           <App />
