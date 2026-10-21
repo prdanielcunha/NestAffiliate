@@ -3,7 +3,7 @@
 **Original:** 2026-10-02 · **updated:** 2026-10-16  
 **Current Developer App:** MillionsNest — NestAffiliate  
 **Current App ID:** 1625057  
-**Reported Pinterest access:** Trial pending (screenshot 16/10/2026; not API verified)  
+**Reported Pinterest access:** Trial DENIED by Pinterest Support on 20/10/2026 — old Main URL required login. Remediation public Main URL underway; manual re-review required.  
 **Company/operating brand:** MillionsNest  
 **Previous App ID:** 1618597 (Trial denied: company name did not match domain URL)  
 **Brand:** Achados do Nest  
@@ -99,7 +99,7 @@ NestAffiliate connects a user's own Pinterest Business account to an affiliate p
 2. Confirm the account is a **Pinterest Business** account and its email is verified.
 3. **Done:** Registered the replacement app under company MillionsNest.
 4. **Done, replacement application:** MillionsNest — NestAffiliate, App ID **1625057**, submitted for Trial. Do not resubmit/clone unless Pinterest support requests it.
-5. **Now:** Reply to the existing Pinterest Support conversation with **new App ID 1625057**, the company name **MillionsNest**, and the corrected URLs. Wait for explicit Trial approval before using any secret in backend.
+5. **Now:** After successful deployment of the public homepage, reply to Periwinkle in the existing support ticket requesting re-review of **same App ID 1625057**, with unchanged Main URL and Privacy Policy URLs. No new form/app is required unless Pinterest requests it.
 6. Register the exact redirect URI provided by the deployed broker.
 7. Run the OAuth flow and Trial/Sandbox demo.
 8. Record the Standard Access video.
@@ -118,7 +118,7 @@ Do not wait for steps 2–9 to begin publishing manually through Guided Publishe
 ## Support response and next steps (16 October 2026)
 
 - Old app `1618597` is denied by Pinterest support agent Periwinkle. Do not use this app ID or keys for current OAuth.
-- New app `1625057` (**MillionsNest — NestAffiliate**) shows **Trial pending**. This is a submitted application, **not** an OAuth connection or approval.
+- New app `1625057` (**MillionsNest — NestAffiliate**) is **TRIAL DENIED** (support email 20/10/2026: Main URL previously required sign-in). Public homepage without auth and separate /about plus crawlable fallback have been implemented and must pass release smoke before the user requests re-review.
 - The user must upload the latest **new monogram logo**, independently of this GitHub deployment, under Pinterest Developers > My apps > 1625057 > Settings (the observed Pinterest screen still displays a gray image placeholder).
 - **Immediate user action:** reply to Periwinkle in the original support thread, quoting the new App ID and explicitly requesting rereview. Don't generate or paste access tokens in support tickets, GitHub, chats, or client apps.
 - After Pinterest Trial approval, retrieve App Secret through the Pinterest developer portal and store only in the secure MillionsNest Hub backend secret manager, not Vite/frontend/Firestore. Implement consent-based OAuth broker, strict HTTPS redirect URI, secure state and refresh token handling before enabling read/write capabilities.
@@ -126,4 +126,9 @@ Do not wait for steps 2–9 to begin publishing manually through Guided Publishe
 
 Suggested support reply:
 
-> Hi Periwinkle, following your instructions, we have submitted a replacement application with the company name MillionsNest, matching our official domain. New app name: MillionsNest — NestAffiliate. New App ID: **1625057**. Main URL: https://nestaffiliate.millionsnest.com. Privacy Policy: https://nestaffiliate.millionsnest.com/privacy. The new application currently displays Trial Access pending. Could you please review the new application and let us know if any additional information is needed? Thank you.
+> Hi Periwinkle, following your instructions, we have submitted a replacement application with the company name MillionsNest, matching our official domain. New app name: MillionsNest — NestAffiliate. New App ID: **1625057**. Main URL: https://nestaffiliate.millionsnest.com. Privacy Policy: https://nestaffiliate.millionsnest.com/privacy. We have corrected our existing Main URL so the product overview is now publicly accessible without login. The registered Main URL and Privacy Policy link have NOT changed. Could you re-review the same app ID 1625057 for Trial API Access? Thank you.
+
+
+## 21 Oct 2026: critical update
+
+Pinterest support **Periwinkle denied the new app 1625057 on 20 October 2026**, citing a login wall on the Main URL. The signed-out homepage has been corrected to display public marketing/product explanation, keeping the private workspace authenticated. See `docs/specs/Pinterest_Trial_1625057_Public_MainURL_Remediation_2026-10-21.md` for precise URLs, smoke tests, and correct support response. Do not say access is pending/approved; currently DENIED awaiting a fresh Pinterest review.
