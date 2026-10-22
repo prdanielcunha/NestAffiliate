@@ -27,7 +27,7 @@ describe('NestAffiliate premium identity and Pinterest replacement app',()=>{
    const docs=read('docs/PINTEREST_DEVELOPER_SUBMISSION.md');
    expect(config).toContain("id: '1625057'");
    expect(connections).toContain('PINTEREST_DEVELOPER_APP.id');
-   expect(connections).toContain('Trial negado');
+   expect(connections).toContain('Trial aprovado');
    expect(config).not.toContain("id: '1618597'");
    expect(docs).toContain('1625057');
    expect(docs).toContain('1625057');

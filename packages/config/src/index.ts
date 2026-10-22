@@ -12,14 +12,14 @@ function envString(value: unknown, fallback: string) {
 
 /** Public Pinterest Developer identity. This is NOT an OAuth credential, access grant or API key.
  * The old application 1618597 was denied and must never be used for OAuth.
- * Pinterest Support denied Trial for the replacement on 2026-10-20:
- * Main URL required a login. Public URL remediation requires re-review, not new registration.
+ * Pinterest Support approved Trial after public Main URL remediation, received 2026-10-22.
+ * Standard remains unapproved; server-authorized Sandbox is separate from public publishing.
  */
 export const PINTEREST_DEVELOPER_APP = {
   id: '1625057',
   name: 'MillionsNest — NestAffiliate',
-  accessStatus: 'TRIAL_DENIED_PENDING_REREVIEW',
-  statusAsOf: '2026-10-20',
+  accessStatus: 'TRIAL_APPROVED',
+  statusAsOf: '2026-10-22',
 } as const;
 
 export const PUBLIC_LINKS = {
@@ -73,7 +73,7 @@ export function isMarketplaceEnabled(marketplace: 'MELI' | 'SHOPEE' | 'AMAZON') 
 }
 
 /** Access-tier approval has to be verified and explicitly recorded, not inferred from
- * Vite flags. The current Pinterest app 1625057 is denied until provider re-review.
+ * Vite flags. The current Pinterest app 1625057 has Trial approval only.
  * This deliberate fail-closed gate requires a reviewed source update after approval.
  */
 export function pinterestStandardApproved() {

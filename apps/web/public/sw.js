@@ -26,7 +26,7 @@ self.addEventListener('fetch',(event)=>{
   // Never return an HTML offline shell to an external recaptcha script/iframe.
   if(url.origin!==self.location.origin)return;
   // All APIs, authentication, token exchanges and static assets are network-owned.
-  if(url.pathname.startsWith('/api/')||request.mode!=='navigate')return;
+  if(url.pathname.startsWith('/api/')||url.pathname.startsWith('/integrations/pinterest/')||request.mode!=='navigate')return;
   event.respondWith(
     fetch(request).catch(async()=>{
       const cache=await caches.open(CACHE);
