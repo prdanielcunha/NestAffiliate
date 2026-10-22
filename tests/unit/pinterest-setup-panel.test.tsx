@@ -28,7 +28,8 @@ describe('Pinterest operator setup and human consent',()=>{
     fireEvent.change(input,{target:{value:'synthetic-app-secret'}});
     fireEvent.click(screen.getByRole('button',{name:'Salvar chave no servidor'}));
     await waitFor(()=>expect(pinterestRequest).toHaveBeenCalledWith(expect.objectContaining({organizationId:'org-a'}),'/operator-credentials',{secret:'synthetic-app-secret'}));
-    await waitFor(()=>expect(screen.queryByLabelText('Chave secreta do app 1625057')).toBeNull());
+    await waitFor(()=>expect((screen.getByLabelText('Chave secreta do app 1625057') as HTMLInputElement).value).toBe(''));
+    await screen.findByRole('button',{name:'Substituir chave e reconectar'});
     expect(sessionStorage.getItem('secret')).toBeNull();
   });
   it('requires individual board consent and preserves an attempted request id',async()=>{
