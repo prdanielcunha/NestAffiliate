@@ -5,10 +5,10 @@ import {PINTEREST_DEVELOPER_APP,pinterestApiApproved,pinterestStandardApproved,c
 function source(path:string){return readFileSync(new URL('../../'+path,import.meta.url),'utf8');}
 
 describe('Pinterest policy/review fail-closed controls',()=>{
- it('denied 1625057 cannot be treated as approved even by toggling unrelated flags',()=>{
+ it('approved Trial 1625057 still cannot publish publicly by toggling unrelated flags',()=>{
   expect(PINTEREST_DEVELOPER_APP.id).toBe('1625057');
-  expect(PINTEREST_DEVELOPER_APP.accessStatus).toBe('TRIAL_DENIED_PENDING_REREVIEW');
-  expect(pinterestApiApproved()).toBe(false);
+  expect(PINTEREST_DEVELOPER_APP.accessStatus).toBe('TRIAL_APPROVED');
+  expect(pinterestApiApproved()).toBe(true);
   expect(pinterestStandardApproved()).toBe(false);
   expect(canAttemptPinterestPublish()).toBe(false);
  });
@@ -26,9 +26,9 @@ describe('Pinterest policy/review fail-closed controls',()=>{
  });
  it('public legal policy clarifies API denial, source-data handling, consent, no scraped Pinterest data and anti-spam',()=>{
   const legal=source('apps/web/src/features/PublicLegalPage.tsx');
-  expect(legal).toContain('Trial do aplicativo 1625057 foi negado');
-  expect(legal).toContain('Trial access for app 1625057 was denied');
-  expect(legal).toContain('Trial de la app 1625057 fue denegado');
+  expect(legal).toContain('Trial do aplicativo 1625057 foi aprovado');
+  expect(legal).toContain('Trial access for app 1625057 was approved');
+  expect(legal).toContain('Trial de la app 1625057 fue aprobado');
   expect(legal).toContain('não serão armazenadas além das exceções permitidas');
   expect(legal).toContain('não usamos materiais do Pinterest para treinar');
   expect(legal).toContain('select each Pin before submission');
