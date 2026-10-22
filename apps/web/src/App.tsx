@@ -523,7 +523,7 @@ function Login() {
     <main className="login-shell">
       <section className="login-brand">
         <div className="brand-lockup brand-lockup-large"><BrandLogo/></div>
-        <p className="eyebrow">AFFILIATE INTELLIGENCE BY MILLIONSNEST</p>
+        <p className="eyebrow"><img src="/brand/millionsnest/v1/mark-192.png" alt="" aria-hidden="true" width={20} height={20} style={{display:"inline-block",width:20,height:20,objectFit:"contain",verticalAlign:"middle",marginRight:8,flexShrink:0}} />AFFILIATE INTELLIGENCE BY MILLIONSNEST</p>
         <h1>{t('loginTitle')}</h1>
         <p>{t('loginDescription')}</p>
         <div className="login-three-steps" aria-label={locale==='pt-BR'?'Como funciona':'How it works'}><span>1. {t('radar')}</span><span>2. {t('review')}</span><span>3. Pinterest</span></div>
@@ -625,6 +625,7 @@ function Shell({ children, locale, setLocale }: { children: React.ReactNode; loc
         <nav aria-label={locale==='pt-BR'?'Navegação principal':'Main navigation'}>{primary.map(([to,label]) => <NavLink key={to} to={to} end={to === '/'}><NavGlyph route={to}/><span>{label}</span></NavLink>)}</nav>
         <div className="nav-separator" />
         <nav className="secondary-nav" aria-label={locale==='pt-BR'?'Ferramentas':'Tools'}>{secondary.map(([to,label]) => <NavLink key={to} to={to}><NavGlyph route={to}/><span>{label}</span></NavLink>)}</nav>
+        <a href="https://www.millionsnest.com" style={{display:"inline-flex",alignItems:"center",margin:"16px 0",fontSize:12,color:"inherit",textDecoration:"none"}}><img src="/brand/millionsnest/v1/mark-192.png" alt="" aria-hidden="true" width={20} height={20} style={{display:"inline-block",width:20,height:20,objectFit:"contain",verticalAlign:"middle",marginRight:8,flexShrink:0}} />MillionsNest</a>
         <div className="sidebar-bottom">
           <span className="role-chip">{role ?? 'viewer'}</span>
           <button className="text-button" onClick={logout}>{t('signOut')}</button>
