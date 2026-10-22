@@ -12,12 +12,12 @@ describe('NestAffiliate premium identity and Pinterest replacement app',()=>{
    expect(read('apps/web/index.html')).toContain('/brand/icon-32.png');
    expect(read('apps/web/index.html')).toContain('/brand/social-1200x630.png');
    expect(read('apps/web/public/manifest.webmanifest')).toContain('/brand/icon-maskable-512.png');
-   expect(read('apps/web/public/sw.js')).toContain('nestaffiliate-shell-v4-approved-brand');
+   expect(read('apps/web/public/sw.js')).toContain('nestaffiliate-shell-v5-transparent-brand');
  });
  it('uses the same official monogram on login, sidebar, mobile header and public legal pages',()=>{
    const app=read('apps/web/src/App.tsx');
    expect(app.match(/<BrandLogo\s*\/>/g)?.length).toBe(3);
-   expect(read('apps/web/src/features/BrandLogo.tsx')).toContain('/brand/nestaffiliate-approved.webp');
+   expect(read('apps/web/src/features/BrandLogo.tsx')).toContain('/brand/nestaffiliate-transparent-v2.webp');
    expect(read('apps/web/src/features/PublicLegalPage.tsx')).toContain('<BrandLogo/>');
    expect(app).not.toContain('className="brand-mark">N</');
  });

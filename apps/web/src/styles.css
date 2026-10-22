@@ -1223,6 +1223,5 @@ html {scroll-behavior:smooth}
 .sidebar .brand-approved{width:204px}
 .legal-brand .brand-approved{width:230px}
 .legal-footer .brand-approved{width:220px;margin-bottom:12px}
-:root[data-theme="light"] .brand-approved{border-radius:5px}
 @media(max-width:720px){.login-card-mobile-brand{display:flex}.login-card-mobile-brand .brand-approved{width:220px}}
 @media(max-width:520px){.brand-lockup-large .brand-approved{width:320px}.legal-brand .brand-approved{width:180px}}

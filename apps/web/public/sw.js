@@ -1,8 +1,8 @@
 /* Offline shell ONLY. Never intercept Google OAuth, reCAPTCHA Enterprise,
  * Firebase App Check/Firestore or NestAI traffic from controlled pages.
  */
-const CACHE='nestaffiliate-shell-v4-approved-brand';
-const SHELL=['/','/manifest.webmanifest','/brand/nestaffiliate-approved.webp','/brand/nestaffiliate-256.webp','/brand/nestaffiliate-512.webp','/brand/icon-192.png','/brand/icon-512.png'];
+const CACHE='nestaffiliate-shell-v5-transparent-brand';
+const SHELL=['/','/manifest.webmanifest','/brand/nestaffiliate-transparent-v2.webp','/brand/nestaffiliate-transparent-v2-256.webp','/brand/nestaffiliate-transparent-v2-512.webp','/brand/icon-192.png?v=3','/brand/icon-512.png?v=3'];
 
 self.addEventListener('install',(event)=>{
   event.waitUntil(
