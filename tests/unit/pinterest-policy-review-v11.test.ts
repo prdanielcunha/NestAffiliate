@@ -5,6 +5,15 @@ import {PINTEREST_DEVELOPER_APP,pinterestApiApproved,pinterestStandardApproved,c
 function source(path:string){return readFileSync(new URL('../../'+path,import.meta.url),'utf8');}
 
 describe('Pinterest policy/review fail-closed controls',()=>{
+ it('OAuth callback privacy headers win over broad Hosting headers',()=>{
+  const config=JSON.parse(source('firebase.json'));
+  const effective:Record<string,string>={};
+  for(const rule of config.hosting.headers)if(['**','/integrations/pinterest/callback'].includes(rule.source))
+    for(const header of rule.headers)effective[header.key]=header.value;
+  expect(effective['Referrer-Policy']).toBe('no-referrer');
+  expect(effective['Cache-Control']).toBe('no-store');
+  expect(effective['X-Robots-Tag']).toBe('noindex, nofollow');
+ });
  it('approved Trial 1625057 still cannot publish publicly by toggling unrelated flags',()=>{
   expect(PINTEREST_DEVELOPER_APP.id).toBe('1625057');
   expect(PINTEREST_DEVELOPER_APP.accessStatus).toBe('TRIAL_APPROVED');
