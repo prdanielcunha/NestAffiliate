@@ -49,7 +49,7 @@ describe('P0 Service Worker never corrupts external security requests',()=>{
   expect(sw).toBeGreaterThan(immutable);
   expect(headers[sw].headers.find((x:{key:string})=>x.key==='Cache-Control').value)
     .toBe('no-cache,no-store,must-revalidate');
-  expect(readFileSync('apps/web/public/sw.js','utf8')).toContain('nestaffiliate-shell-v3');
+  expect(readFileSync('apps/web/public/sw.js','utf8')).toContain('nestaffiliate-shell-v4-approved-brand');
   expect(readFileSync('apps/web/public/sw.js','utf8')).toContain('self.skipWaiting()');
  });
 });

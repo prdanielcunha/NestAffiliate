@@ -5,7 +5,7 @@
 .public-home a:focus-visible,.public-home select:focus-visible{outline:3px solid #b9f078;outline-offset:4px}
 .public-home-header{padding:18px clamp(18px,4vw,70px);max-width:1440px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:30px}
 .public-home-brand{display:flex;align-items:center;gap:10px;min-width:0;line-height:1.15}
-.public-home-brand img{border-radius:12px;flex:none}
+.public-home-brand .brand-approved{width:240px;max-width:100%;height:auto;border-radius:0;flex-shrink:1}
 .public-home-brand span{font-size:20px;letter-spacing:-.05em;font-weight:750}
 .public-home-brand b{color:#bbf373}
 .public-home-brand small{font-size:10px;display:block;color:var(--public-muted);letter-spacing:.02em;margin-top:4px}
@@ -23,10 +23,9 @@
 .public-home-intro{font-size:clamp(15px,1.45vw,19px);max-width:710px;color:#c4d0c5;line-height:1.75;margin:0}
 .public-home-cta{display:flex;gap:13px;flex-wrap:wrap;margin:29px 0 23px}
 .public-home-note{font-size:12px;color:var(--public-muted);max-width:670px;line-height:1.7;margin:0}
-.public-home-visual{min-height:420px;border:1px solid var(--public-line);border-radius:31px;background:radial-gradient(ellipse at 50% 40%,#365528 0,#1b2b20 42%,#111b15 90%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;box-shadow:0 35px 75px #0004}
-.public-home-visual img{filter:drop-shadow(0 20px 35px #0006);max-width:50%;border-radius:35px}
-.public-home-visual-word{font-size:clamp(26px,3vw,38px);letter-spacing:-.055em;font-weight:700;margin-top:15px}
-.public-home-visual-word span{color:#b9f578}
+.public-home-visual{min-height:420px;border:1px solid var(--public-line);border-radius:31px;background:#111413;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;box-shadow:0 35px 75px #0004}
+.public-home-visual .brand-approved{width:100%;max-width:500px;height:auto;border-radius:0;filter:none;margin-bottom:24px}
+.public-home-footer .brand-approved{width:230px;max-width:100%;height:auto;margin-bottom:16px}
 .public-home-visual p{font-size:12px;margin:0;color:#bacbb8}
 .public-home-visual-line{width:40px;height:1px;background:#90bd75;margin:25px}
 .public-home-visual-steps{font-size:10px;letter-spacing:.18em;color:#cfdecf;text-align:center}

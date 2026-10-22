@@ -1,5 +1,6 @@
 import {useEffect,useState} from 'react';
 import type {Locale} from '../lib/i18n';
+import {BrandLogo} from './BrandLogo';
 import './public-home.css';
 
 type HomeCopy={
@@ -89,8 +90,7 @@ export function PublicHomePage({locale,onLocaleChange}:{
   return <div className="public-home">
     <header className="public-home-header">
       <a href="/" className="public-home-brand">
-        <img src="/icon.svg?v=2" alt="" width="44" height="44"/>
-        <span><b>Nest</b>Affiliate <small>by MillionsNest</small></span>
+        <BrandLogo/>
       </a>
       <nav aria-label={locale==='pt-BR'?'Navegação do site':locale==='es'?'Navegación del sitio':'Site navigation'}>
         <a href="#recursos">{c.navFeatures}</a>
@@ -117,8 +117,7 @@ export function PublicHomePage({locale,onLocaleChange}:{
           <p className="public-home-note">{c.honest}</p>
         </div>
         <div className="public-home-visual" role="img" aria-label="NestAffiliate product identity">
-          <img src="/icon.svg?v=2" alt="NestAffiliate" width="192" height="192"/>
-          <div className="public-home-visual-word"><span>Nest</span>Affiliate</div>
+          <BrandLogo/>
           <p>Affiliate Intelligence by MillionsNest</p>
           <div className="public-home-visual-line"/>
           <span className="public-home-visual-steps">DISCOVER / CREATE / REVIEW / LEARN</span>
@@ -152,7 +151,7 @@ export function PublicHomePage({locale,onLocaleChange}:{
       </section>
     </main>
     <footer className="public-home-footer">
-      <div><strong>NestAffiliate</strong><p>{c.footer}</p><small>© {new Date().getFullYear()} MillionsNest</small></div>
+      <div><BrandLogo/><p>{c.footer}</p><small>© {new Date().getFullYear()} MillionsNest</small></div>
       <nav aria-label="Legal and contact">
         <a href="/privacy">{c.legal}</a><a href="/terms">{c.terms}</a>
         <a href="/data-deletion">{c.deletion}</a>

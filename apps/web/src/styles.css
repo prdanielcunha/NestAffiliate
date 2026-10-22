@@ -1214,16 +1214,15 @@ html {scroll-behavior:smooth}
 }
 .prompt-raw-details .image-prompt-box { max-width:100%; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
 
-/* Brand 2026: same vector monogram in login, sidebar, legal and mobile. */
-.brand-symbol{width:38px;height:38px;display:block;flex:none;border-radius:10px;object-fit:contain}
-.brand-symbol.large{width:76px;height:76px;border-radius:18px}
-.brand-wordmark{font-weight:750;letter-spacing:-.045em;white-space:nowrap;color:var(--text)}
-.brand-wordmark>span{color:var(--accent)}
+/* Approved artwork is displayed intact, including its original lettering. */
 .brand-lockup{display:flex;align-items:center;gap:15px;margin-bottom:12px}
-.brand-lockup-large .brand-wordmark{font-size:clamp(24px,2.6vw,33px)}
-.login-card-mobile-brand{display:flex;align-items:center;gap:10px}
-.login-card-mobile-brand .brand-wordmark{font-size:17px}
+.brand-approved{display:block;width:220px;max-width:100%;height:auto;object-fit:contain;flex-shrink:1}
+.brand-lockup-large .brand-approved{width:420px}
+.login-card-mobile-brand{display:none;align-items:center;gap:10px}
 .sidebar .brand{min-width:0;gap:9px}
-.sidebar .brand-wordmark{font-size:17px;overflow:hidden;text-overflow:ellipsis}
-.legal-brand .brand-wordmark{font-size:16px}
-@media(max-width:520px){.brand-symbol.large{width:58px;height:58px}.brand-lockup-large .brand-wordmark{font-size:25px}}
+.sidebar .brand-approved{width:204px}
+.legal-brand .brand-approved{width:230px}
+.legal-footer .brand-approved{width:220px;margin-bottom:12px}
+:root[data-theme="light"] .brand-approved{border-radius:5px}
+@media(max-width:720px){.login-card-mobile-brand{display:flex}.login-card-mobile-brand .brand-approved{width:220px}}
+@media(max-width:520px){.brand-lockup-large .brand-approved{width:320px}.legal-brand .brand-approved{width:180px}}
