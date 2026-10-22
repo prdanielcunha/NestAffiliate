@@ -23,3 +23,11 @@ Public assets: `/brand/nestaffiliate-approved.png`, responsive WebP variants,
 `/brand/icon-{size}.png`, `/brand/icon-maskable-{192,512}.png`,
 `/brand/social-1200x630.png`, `/apple-touch-icon.png`, `/favicon.ico`.
 The compatibility `/icon.svg` embeds the approved raster icon.
+
+Release note: `scripts/configure-ci-apt.sh` switches the disposable CI runner
+from the failing Azure Ubuntu mirror to the official Ubuntu archive before
+installing browser dependencies. Package signature verification and every
+Chromium/WebKit release gate remain enabled. Network requests have bounded
+timeouts so dependency downloads cannot stall the entire release indefinitely.
+Production concurrency keeps the latest requested release and cancels
+superseded runs, rather than queuing behind stuck dependency downloads.

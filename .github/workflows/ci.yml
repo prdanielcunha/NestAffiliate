@@ -63,6 +63,8 @@ jobs:
           node-version: 22
       - name: Install
         run: pnpm install --no-frozen-lockfile
+      - name: Configure reliable Ubuntu package downloads
+        run: bash scripts/configure-ci-apt.sh
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: E2E smoke

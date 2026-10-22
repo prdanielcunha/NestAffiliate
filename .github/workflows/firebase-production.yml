@@ -11,7 +11,9 @@ permissions:
 
 concurrency:
   group: nestaffiliate-production
-  cancel-in-progress: false
+  # A newer complete release replaces superseded dependency-download jobs.
+  # Firebase Hosting releases are atomic; every new run retains every gate.
+  cancel-in-progress: true
 
 env:
   FIREBASE_PROJECT: millionsnest
@@ -46,6 +48,9 @@ jobs:
 
       - name: Lint typecheck unit and build gate
         run: pnpm run ci
+
+      - name: Configure reliable Ubuntu package downloads
+        run: bash scripts/configure-ci-apt.sh
 
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
