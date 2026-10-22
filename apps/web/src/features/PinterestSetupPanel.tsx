@@ -51,13 +51,13 @@ export function PinterestSetupPanel() {
       <li>{pick('O administrador da MillionsNest configura a chave abaixo. Depois, conecte sua conta nesta mesma aba.','The MillionsNest operator configures the secret below. Then connect your account in this same tab.','El administrador de MillionsNest configura la clave abajo. Después conecta tu cuenta en esta misma pestaña.')}</li>
       <li>{pick('Crie uma pasta Sandbox, carregue as pastas, escolha uma e revise cada campo do Pin antes do teste.','Create a Sandbox board, load boards, select one and review each Pin field before testing.','Crea un tablero Sandbox, carga los tableros, elige uno y revisa cada campo del Pin antes de probar.')}</li>
     </ol>
-    {status?.canConfigure&&!status.configured&&<div className="meli-setup-grid">
+    {status?.canConfigure&&<div className="meli-setup-grid">
       <label>{pick('Chave secreta do app 1625057','App 1625057 secret','Clave secreta de la app 1625057')}<input type="password" autoComplete="new-password" value={secret} onChange={e=>setSecret(e.target.value)} /></label>
       <button className="button secondary" disabled={busy||!secret} onClick={()=>void run(async()=>{
         if(!identity)return;const value=secret;setSecret('');
         await pinterestRequest(identity,'/operator-credentials',{secret:value});
         setStatus(await pinterestRequest<PinterestStatus>(identity,'/status'));
-      })}>{pick('Salvar chave no servidor','Save secret on server','Guardar clave en el servidor')}</button>
+      })}>{status.configured?pick('Substituir chave e reconectar','Replace secret and reconnect','Sustituir clave y reconectar'):pick('Salvar chave no servidor','Save secret on server','Guardar clave en el servidor')}</button>
     </div>}
     <p className="muted">{pick('A chave não é validada apenas por ser salva. A conexão OAuth confirma se ela funciona. Nunca envie chaves, tokens ou códigos por chat.','Saving does not validate the secret; the OAuth connection verifies it. Never send secrets, tokens or codes in chat.','Guardar no valida la clave; la conexión OAuth confirma si funciona. No envíes claves, tokens ni códigos por chat.')}</p>
     <div className="actions"><button className="button primary" disabled={busy||!status?.configured} onClick={()=>void run(async()=>{if(identity)await startPinterestConnection(identity);})}>
