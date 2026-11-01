@@ -28,9 +28,10 @@ export function FinalPinPublicationGuide({pack,blocked,onDownloadPng,onDownloadZ
  return <section className="package-card guided-publish-v5" aria-label={pt?'Dados para criar seu Pin':es?'Datos para crear tu Pin':'Everything to create your Pin'}>
   <header className="guided-publish-header">
    <p className="eyebrow">PIN READY PACK · 1000 × 1500 · 2:3</p>
-   <h2>{pt?'Tudo pronto para montar seu Pin':es?'Todo para crear tu Pin':'Everything you need to create your Pin'}</h2>
+   <h2>{blocked?(pt?'Conclua a conferência para baixar seu Pin':es?'Completa la revisión de tu Pin':'Finish checking your Pin'):pt?'Tudo pronto para montar seu Pin':es?'Todo para crear tu Pin':'Everything you need to create your Pin'}</h2>
    <p>{pt?'Cada campo abaixo diz exatamente onde colar no Pinterest. Nada será publicado sem você confirmar.':es?'Cada campo indica dónde pegarlo. Nada se publica sin tu confirmación.':'Each field shows where to paste it. Nothing is posted without your approval.'}</p>
   </header>
+  {blocked&&<p className="notice" role="status">{pt?'Resolva os avisos acima antes de baixar. A imagem e os textos abaixo continuam disponíveis para conferência.':es?'Resuelve los avisos antes de descargar.':'Resolve the checks above before downloading.'}</p>}
   <div className="guided-publish-actions">
    <button type="button" className="button primary" disabled={blocked} onClick={onDownloadZip}>{pt?'Baixar tudo (.zip)':es?'Descargar todo (.zip)':'Download everything (.zip)'}</button>
    <button type="button" className="button secondary" disabled={blocked} onClick={onDownloadPng}>{pt?'Baixar imagem PNG':es?'Descargar imagen PNG':'Download PNG image'}</button>
@@ -57,9 +58,15 @@ export function FinalPinPublicationGuide({pack,blocked,onDownloadPng,onDownloadZ
    <strong>{pt?'Conferência antes de publicar':es?'Comprobación antes de publicar':'Check before publishing'}</strong>
    <p>{pt?'Confira a prévia, o anúncio exato, o link de afiliado da sua conta e a divulgação comercial. Publique manualmente; depois volte ao NestAffiliate e registre a URL pública do Pin.':es?'Comprueba la imagen, el enlace de tu cuenta y el aviso de afiliado. Publica manualmente y vuelve para registrar la URL del Pin.':'Verify the image, exact listing, affiliate-account link and disclosure. Publish manually, then return to record the public Pin URL.'}</p>
    <div className="guided-finish-row"><span>{checked.filter(id=>steps.some(field=>field.id===id)).length}/{steps.length} {pt?'campos obrigatórios marcados':es?'campos obligatorios marcados':'required fields checked'}</span>
-   <a className="button secondary" href="https://www.pinterest.com/" target="_blank" rel="noreferrer">{pt?'Abrir Pinterest':es?'Abrir Pinterest':'Open Pinterest'} ↗</a></div>
+   <a className="button secondary" href="https://www.pinterest.com/pin-creation-tool/" target="_blank" rel="noreferrer">{pt?'Abrir Pinterest':es?'Abrir Pinterest':'Open Pinterest'} ↗</a></div>
    <small>{pt?'Os marcadores são apenas um checklist local, não confirmam postagem.':es?'El checklist es local: no confirma publicación.':'Checklist marks are local only; they do not confirm publication.'}</small>
   </div>
+  <details className="publish-mobile-help"><summary>{pt?'Estou no celular. Como publico?':es?'¿Cómo publicar desde el móvil?':'How do I post on my phone?'}</summary><ol>
+    <li>{pt?'Toque em Baixar imagem PNG. No iPhone, abra Downloads no Safari e salve a imagem em Fotos. Se preferir, use o arquivo em Arquivos.':es?'Descarga el PNG y guárdalo en Fotos o Archivos.':'Download the PNG and save it in Photos or Files.'}</li>
+    <li>{pt?'Abra o aplicativo Pinterest e escolha Criar → Pin. Os nomes podem variar conforme a versão. Selecione a imagem salva.':es?'Abre Pinterest → Crear → Pin y selecciona la imagen.':'Open Pinterest → Create → Pin and choose your saved image. Labels may vary.'}</li>
+    <li>{pt?'Volte a esta aba para copiar cada texto. Cole nos campos indicados, confira a pasta e publique.':es?'Copia cada texto aquí y pégalo en Pinterest. Comprueba el tablero y publica.':'Return here to copy each field, paste in Pinterest, select the board and post.'}</li>
+    <li>{pt?'No Pin publicado, use Compartilhar → Copiar link. Volte aqui e registre esse link para acompanhar o resultado.':es?'Copia el enlace del Pin publicado y regístralo aquí.':'Copy the published Pin link from Share, then return here to record it.'}</li>
+  </ol></details>
   {copyError&&<p role="alert" className="field-error">{pt?'Não foi possível copiar. Selecione o texto para copiar manualmente.':es?'No se pudo copiar; selecciona el texto.':'Clipboard unavailable; select the text manually.'}</p>}
  </section>;
 }

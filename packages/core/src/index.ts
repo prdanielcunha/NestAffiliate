@@ -31,6 +31,7 @@ export interface ProductTruth {
   url: TruthValue<string>;
   affiliateUrl?: TruthValue<string>;
   /** User declaration, not a provider guarantee of attribution or commission. */
+  pinterestAffiliateMethod?: 'AFFILIATE_LINK' | 'SHOPEE_TAG';
   affiliateAttestation?: {
     method: 'USER_CONFIRMED_IN_AFFILIATE_PORTAL';
     url: string;
@@ -210,6 +211,7 @@ export interface CreativeAsset {
   organizationId: string;
   campaignId: string;
   origin: CreativeAssetOrigin;
+  composition?: 'BASE_IMAGE' | 'FINAL_PIN';
   rightsStatus: AssetRightsStatus;
   mimeType: 'image/png' | 'image/jpeg' | 'image/webp';
   width: number;
@@ -423,7 +425,7 @@ export function nextCampaignVersion(
   };
   const hasPrevious = campaign.history.some((item) => item.id === previous.id);
   const history = hasPrevious ? campaign.history : [...campaign.history, previous];
-  return { ...campaign, currentVersion: next, history };
+  return { ...campaign, status:['PUBLICATION_READY','PUBLISHED','APPROVED'].includes(campaign.status)?'READY':campaign.status, currentVersion: next, history };
 }
 
 export function restoreCampaignVersion(campaign: Campaign, version: number): Campaign {

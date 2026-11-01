@@ -17,6 +17,10 @@ export function buildSceneProfile(input: SceneEngineInput): SceneProfile {
     /\b(infantil|crianca|bebe|brinquedo)\b/.test(title) ? 'kids-room' :
     /\b(pet|gato|cachorro|comedouro|bebedouro)\b/.test(title) ? 'pet' :
     /\b(lavanderia|cesto de roupa|varal)\b/.test(title) ? 'laundry' :
+    /\b(banheiro|box|chuveiro|ralo)\b/.test(title) ? 'bathroom-accessories' :
+    /\b(escritorio|notebook|monitor|teclado|mouse|cadeira gamer|home office)\b/.test(title) ? 'home-office' :
+    /\b(luminaria|abajur|lampada|pendente)\b/.test(title) ? 'lighting' :
+    /\b(tapete|almofada|cortina|quadro|vaso decorativo)\b/.test(title) ? 'home-decor' :
     /\b(panela\w*|frigideira\w*|cacarola\w*|assadeira\w*|caneca\w*|talher\w*|copo\w*|tigela\w*)\b/.test(title)
       && !/\borganizador\b/.test(title) ? 'kitchen-utensils' :
     undefined;

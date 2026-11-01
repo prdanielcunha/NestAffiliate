@@ -35,7 +35,7 @@ export function ImagePromptPanel({
  if(!concept||!base)return null;
  const enabled=FEATURE_FLAGS.REFERENCE_LOCK_V4_ENABLED && referenceLockRequired;
  const ready=!enabled||Boolean(reference&&isReferenceAiReady(reference.asset,product)&&reference.previewUrl);
- const realPrompt=enabled?(language==='en'?[
+ const realPrompt=(language==='en'?[
   'MANDATORY IMAGE REFERENCE — ATTACHMENT REQUIRED:',
   'The user must attach the actual authorized photograph BEFORE requesting generation. This prompt never automatically uploads the photo.',
   'If the exact photo is missing from the conversation, do not generate a similar or invented product: ask for the correct attachment.',
@@ -60,7 +60,7 @@ export function ImagePromptPanel({
   'Se a imagem real não permitir um resultado fiel, recuse a invenção de produto semelhante e peça nova referência.',
   '',
   base.prompt,
- ]).join('\n'):base.prompt;
+ ]).join('\n');
  const fullPrompt=extraInstructions.trim()?realPrompt+'\n\nUSER ART DIRECTION (do not override product identity, rights or image reference):\n'+extraInstructions.trim():realPrompt;
  const unsafePrompt=detectUnsupportedPinClaims(fullPrompt).length>0;
  // Never present a dead button when an editorial guard rejects the old prompt.
@@ -104,12 +104,12 @@ export function ImagePromptPanel({
    <div className="prompt-panel-head">
      <div><p className="eyebrow">{t('imagePrompt')}</p><h3>{concept.title}</h3></div>
      <div className="prompt-language" role="group" aria-label={t('promptLanguage')}>
-       <button type="button" className={language==='en'?'active':''} onClick={()=>setLanguage('en')}>EN · AI</button>
-       <button type="button" className={language==='pt-BR'?'active':''} onClick={()=>setLanguage('pt-BR')}>{t('viewPortuguese')}</button>
+       <button type="button" className={language==='en'?'active':''} onClick={()=>{setLanguage('en');setCopied(false);}}>EN · AI</button>
+       <button type="button" className={language==='pt-BR'?'active':''} onClick={()=>{setLanguage('pt-BR');setCopied(false);}}>{t('viewPortuguese')}</button>
      </div>
    </div>
    {enabled&&onReferenceChange&&<details className="prompt-optional-reference">
-     <summary>{locale==='pt-BR'?'Opcional: guardar foto original para comparar no NestAffiliate':locale==='es'?'Opcional: guardar foto para comparar':'Optional: store the source photo for later comparison'}</summary>
+     <summary>{locale==='pt-BR'?'Guardar foto original para comparar e aprovar':locale==='es'?'Opcional: guardar foto para comparar':'Optional: store the source photo for later comparison'}</summary>
      <p>{locale==='pt-BR'?'A foto original NÃO é enviada automaticamente ao ChatGPT. Se já a tem no celular, anexe-a somente na conversa do ChatGPT. Para campanhas com Reference Lock, a conferência de referência será exigida antes da aprovação final.':'The source photo is not sent to ChatGPT. Attach it directly there. Reference Lock verification remains mandatory before final approval.'}</p>
      <ProductReferenceManager key={product.marketplace+product.externalId} product={product} onChanged={onReferenceChange}/>
    </details>}
@@ -143,14 +143,17 @@ export function ImagePromptPanel({
    <div className="chatgpt-bridge-steps">
       <strong>{locale==='pt-BR'?'Como gerar com seu ChatGPT (sem API)':locale==='es'?'Cómo generar con tu ChatGPT (sin API)':'Use your ChatGPT without an API'}</strong>
       <ol><li>{locale==='pt-BR'?'Copie o prompt com o botão 1; toque em “Abrir ChatGPT” (botão 2) e cole o texto na conversa.':locale==='es'?'Copia y abre ChatGPT, luego pega el prompt.':'Copy the prompt and open ChatGPT; paste the prompt.'}</li>
-      <li>{locale==='pt-BR'?'Anexe também a foto real autorizada, quando solicitada pelo Reference Lock.':locale==='es'?'Adjunta la foto real autorizada cuando se requiera.':'Attach the authorized source photo when Reference Lock requires it.'}</li>
+      <li>{locale==='pt-BR'?'Anexe sempre a foto real autorizada do produto. O texto do prompt sozinho não transfere a imagem.':locale==='es'?'Adjunta la foto real autorizada cuando se requiera.':'Attach the authorized source photo when Reference Lock requires it.'}</li>
       <li>{locale==='pt-BR'?'Baixe a imagem gerada. Volte ao NestAffiliate, arraste ou cole a imagem e aprove após comparar.':locale==='es'?'Descarga la imagen, vuelve a NestAffiliate e impórtala para comparar.':'Download the image, return to NestAffiliate, paste/drop it and review fidelity.'}</li></ol>
-      <p>{locale==='pt-BR'?'Assinatura ChatGPT Pro e API são produtos separados: você não precisa inserir senha nem chave do ChatGPT aqui. Uma API para geração dentro do app exigiria backend seguro e cobrança separada.':locale==='es'?'La suscripción ChatGPT Pro no incluye API. Nunca ingreses tu contraseña ni clave aquí.':'ChatGPT Pro is separate from the API. Never enter your password or API key here.'}</p>
+      <p>{locale==='pt-BR'?'Use a opção gratuita disponível na sua conta. Se atingir a cota, aguarde a renovação ou monte com a foto real sem IA. Não é necessário contratar uma assinatura para continuar no NestAffiliate.':locale==='es'?'La suscripción ChatGPT Pro no incluye API. Nunca ingreses tu contraseña ni clave aquí.':'ChatGPT Pro is separate from the API. Never enter your password or API key here.'}</p>
    </div>
+   <p className="field-hint">{locale==='pt-BR'?'A foto que já aparece no produto é sua referência. Abra-a e salve no celular para anexar à IA; ter a foto no anúncio não substitui autorização de uso.':'Save the product photo and attach it to the AI conversation; photo rights must be confirmed.'}</p>
+   {product.imageUrl?.value&&<a className="button secondary" href={product.imageUrl.value} target="_blank" rel="noopener noreferrer">{locale==='pt-BR'?'Abrir foto original para salvar':locale==='es'?'Abrir foto original':'Open original product photo'}</a>}
    <div className="prompt-actions">
-     <button type="button" className="button primary" onClick={()=>void copyPrompt()}>{copied?t('copied'):locale==='pt-BR'?'1. Copiar prompt em inglês':locale==='es'?'1. Copiar prompt':'1. Copy English prompt'}</button>
+     <button type="button" className="button primary" onClick={()=>void copyPrompt()}>{copied?t('copied'):locale==='pt-BR'?language==='en'?'1. Copiar prompt em inglês':'1. Copiar prompt em português':locale==='es'?'1. Copiar prompt':'1. Copy English prompt'}</button>
      <a className="button secondary" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">{locale==='pt-BR'?'2. Abrir ChatGPT ↗':locale==='es'?'2. Abrir ChatGPT ↗':'2. Open ChatGPT ↗'}</a>
    </div>
+   <p className="field-hint">{locale==='pt-BR'?'Prefere outra IA? Você pode usar o mesmo prompt e a mesma foto no Gemini. Confira a cota gratuita exibida na sua conta.':'You can also use the prompt and photo in Gemini. Check the free allowance in your account.'} <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">Gemini ↗</a></p>
    {unsafePrompt&&<p className="field-hint" role="status">{locale==='pt-BR'?'Uma promessa não comprovada foi removida automaticamente do prompt; use a versão segura acima.':'Unverified product claims were removed from the copyable prompt.'}</p>}
    {enabled&&!ready&&<p className="field-hint" role="status">{locale==='pt-BR'?'Referência ainda não arquivada neste site. Você pode copiar o prompt e anexar a foto diretamente no ChatGPT; a aprovação final exigirá a conferência da imagem real.':'You may copy now and attach the photo in ChatGPT; final approval still requires reference verification.'}</p>}
    {manualCopy&&<div className="prompt-manual-copy"><label htmlFor="manual-image-prompt">{locale==='pt-BR'?'Selecione e copie este prompt:':'Select and copy this prompt:'}</label><textarea id="manual-image-prompt" readOnly rows={9} value={safePrompt} onFocus={e=>e.target.select()}/></div>}

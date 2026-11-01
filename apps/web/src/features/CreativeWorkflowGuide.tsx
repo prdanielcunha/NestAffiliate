@@ -1,6 +1,6 @@
 import {useMemo} from 'react';
 import type {Campaign} from '@nestaffiliate/core';
-import {isMarketplaceAffiliateDestination,inspectAffiliateAttestation} from '@nestaffiliate/compliance';
+import {isMarketplaceAffiliateDestination,inspectAffiliateAttestation,pinterestAffiliateMethod} from '@nestaffiliate/compliance';
 import {useI18n} from '../lib/i18n-context';
 
 /** Recovery state comes exclusively from persisted campaign data. No fake session-progress writes. */
@@ -9,7 +9,7 @@ export function CreativeWorkflowGuide({campaign}:{campaign:Campaign}){
  const version=campaign.currentVersion,product=version.product;
  const steps=useMemo(()=>{
   const offer=Boolean(product.listingVerified&&product.externalId);
-  const commission=product.marketplace==='MELI' ?
+  const commission=pinterestAffiliateMethod(product)==='AFFILIATE_LINK' ?
     isMarketplaceAffiliateDestination(product.affiliateUrl?.value,product.marketplace)&&inspectAffiliateAttestation(product)==='SELF_CONFIRMED'
     :false; // Shopee tagging is confirmed in the guided Pinterest flow, not by having a URL.
   const planned=Boolean(version.creativePack);

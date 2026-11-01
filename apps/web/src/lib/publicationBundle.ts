@@ -41,13 +41,19 @@ function zipFiles(files:Array<{name:string;bytes:Uint8Array}>):Uint8Array{
 export function publicationBundleText(pack:PublishingBundle){
  return [
   'PIN — PACOTE DE PUBLICAÇÃO GUIADA',
-  'Título: '+pack.title,'Descrição: '+pack.description,
+  'Título: '+pack.title,'Descrição: '+(pack.description.includes(pack.disclosure)?pack.description:[pack.description,pack.disclosure].filter(Boolean).join('\n\n')),
   'Divulgação comercial: '+pack.disclosure,
   'Destino: '+pack.destinationUrl,'Pasta sugerida: '+pack.boardName,
   'Texto alternativo: '+pack.altText,
   'Tags: '+(pack.keywords??[]).join(', '),
   'ATENÇÃO: Este pacote não significa postagem realizada.',
   'Confirme o link de afiliado na sua conta e o anúncio antes de publicar.',
+  '', 'COMO PUBLICAR',
+  '1. Abra Pinterest → Criar → Pin e selecione pin.png.',
+  '2. Copie título, descrição com aviso comercial e link de destino nos campos correspondentes.',
+  '3. Selecione a pasta sugerida ou crie a pasta; adicione o texto alternativo quando disponível.',
+  '4. Confira a prévia e o destino; publique somente depois da sua revisão.',
+  '5. Copie a URL do Pin publicado e registre na campanha no NestAffiliate.',
  ].join('\n');
 }
 export function generatePublishingZip(pack:PublishingBundle,png:Uint8Array){

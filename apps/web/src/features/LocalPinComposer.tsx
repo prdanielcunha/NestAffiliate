@@ -8,18 +8,6 @@ import {useAuth} from '../lib/auth';
 import {uploadCreativeAsset} from '../services/creativePackRepository';
 import type {ReferencePreview} from '../services/productReferenceRepository';
 
-const textWrap=(context:CanvasRenderingContext2D,raw:string,width:number,maxLines=4):string[]=>{
-  const words=raw.trim().split(/\s+/).filter(Boolean);
-  const lines:string[]=[];let buffer='';
-  for(const word of words){
-    const proposal=buffer?buffer+' '+word:word;
-    if(context.measureText(proposal).width>width&&buffer){lines.push(buffer);buffer=word;}
-    else buffer=proposal;
-    if(lines.length===maxLines-1&&words.indexOf(word)<words.length-1){continue;}
-  }
-  if(buffer)lines.push(buffer);
-  return lines.slice(0,maxLines);
-};
 const makeImage=async(url:string)=>{
   const image=new Image();
   image.crossOrigin='anonymous';
@@ -62,8 +50,7 @@ export function LocalPinComposer({
       background.addColorStop(0,'#13251a');background.addColorStop(1,'#07130d');
       ctx.fillStyle=background;ctx.fillRect(0,0,1000,1500);
       ctx.fillStyle='#b9ec84';ctx.fillRect(78,80,72,8);
-      ctx.font='bold 27px system-ui, sans-serif';ctx.fillStyle='#dfe7dc';
-      ctx.fillText('ACHADOS DO NEST',78,139);
+
       const card={x:76,y:210,w:848,h:850};
       ctx.fillStyle='#f7f7f1';ctx.beginPath();ctx.roundRect(card.x,card.y,card.w,card.h,42);ctx.fill();
       const inset=70;
@@ -71,15 +58,6 @@ export function LocalPinComposer({
       const ratio=Math.min(iw/image.naturalWidth,ih/image.naturalHeight);
       const w=image.naturalWidth*ratio,h=image.naturalHeight*ratio;
       ctx.drawImage(image,card.x+(card.w-w)/2,card.y+(card.h-h)/2,w,h);
-      const headline=(pack.copy.headline || pack.copy.titles[0] || product.title.value).trim();
-      ctx.font='bold 57px system-ui, sans-serif';ctx.fillStyle='#f6f9f2';
-      const rows=textWrap(ctx,headline,840,3);
-      for(let i=0;i<rows.length;i++)ctx.fillText(rows[i]!,80,1145+i*70);
-      ctx.fillStyle='#b9ec84';ctx.beginPath();ctx.roundRect(80,1390,260,66,24);ctx.fill();
-      ctx.font='bold 26px system-ui, sans-serif';ctx.fillStyle='#0b2110';
-      ctx.fillText('VER A IDEIA',113,1432);
-      ctx.font='19px system-ui, sans-serif';ctx.fillStyle='#b5c5b9';
-      ctx.fillText(label('Conteúdo com link de afiliado','Affiliate content','Contenido afiliado'),610,1432);
       const blob=await new Promise<Blob>((resolve,reject)=>
         canvas.toBlob(out=>out?resolve(out):reject(new Error('ENCODE_FAILED')),'image/webp',0.82));
       const hash=await sha256Hex(await blob.arrayBuffer());
@@ -88,6 +66,7 @@ export function LocalPinComposer({
         organizationId:campaign.organizationId,
         campaignId:campaign.id,
         origin:'GENERATED_LOCAL',
+        composition:'BASE_IMAGE',
         rightsStatus:'AUTHORIZED',
         mimeType:'image/webp',
         width:1000,height:1500,
@@ -124,9 +103,9 @@ export function LocalPinComposer({
       <div><p className="eyebrow">PIN LOCAL · ZERO-COST</p>
         <h3>{label('Gerar Pin visual com a foto real','Compose visual Pin from the real photo','Crear Pin con la foto real')}</h3>
         <p>{label(
-          'Layout final 1000 × 1500: foto sem alterações de produto + textos editoriais. Requer direito de uso da foto e sua conferência de fidelidade.',
-          '1000 × 1500 composition with the actual photo and editorial copy. Rights and fidelity must be confirmed.',
-          'Composición 1000 × 1500 con foto real y textos. Requiere autorización y revisión.')}</p>
+          'Foto real em composição 1000 × 1500. O app acrescenta título e textos na prévia e no arquivo final. Requer direito de uso da foto e sua conferência de fidelidade.',
+          '1000 × 1500 photo base. The app adds the title once in the preview and final export. Rights and fidelity must be confirmed.',
+          'Foto real 1000 × 1500. La app añade el título una sola vez. Requiere autorización y revisión.')}</p>
       </div>
     </div>
     {imageSource?<div className="local-pin-source">
