@@ -173,6 +173,7 @@ export async function renderPin(
   canvas: HTMLCanvasElement,
   version: CampaignVersion,
   suppliedTheme?: CreativeTheme,
+  options: {strict?:boolean} = {},
 ) {
   canvas.width = PIN_WIDTH;
   canvas.height = PIN_HEIGHT;
@@ -181,15 +182,27 @@ export async function renderPin(
 
   const template=templateFor(version.template);
   const theme=suppliedTheme ?? (version.template.toLowerCase().includes('light') ? ACHADOS_LIGHT : ACHADOS_DARK);
-  const contextualSrc=version.creativeAsset?.downloadUrl;
+  const asset=version.creativeAsset;
+  const contextualSrc=asset?.downloadUrl;
+  if(options.strict && (!asset || !contextualSrc))throw new Error('FINAL_PIN_IMAGE_MISSING');
+  if(options.strict && (!asset?.productFidelityConfirmed || !asset.embeddedTextConfirmedAbsent ||
+    !['AUTHORIZED','PLATFORM_PROVIDED','USER_PROVIDED','GENERATED'].includes(asset.rightsStatus)))
+    throw new Error('FINAL_PIN_IMAGE_NOT_REVIEWED');
+  // Older local assets already contain the complete layout. Preserve them without
+  // adding a second headline. New local compositions explicitly store BASE_IMAGE.
+  if(asset && (asset.composition==='FINAL_PIN' || (asset.origin==='GENERATED_LOCAL' && !asset.composition)) && contextualSrc){
+    try{drawCoverImage(ctx,await loadCreativeImage(contextualSrc));return canvas.toDataURL('image/png');}
+    catch{if(options.strict)throw new Error('FINAL_PIN_IMAGE_UNAVAILABLE');}
+  }
   let contextualRendered=false;
-  if(template.contextual && contextualSrc && ['AUTHORIZED','USER_PROVIDED','GENERATED'].includes(version.creativeAsset?.rightsStatus ?? 'UNKNOWN')){
+  if(contextualSrc && ['AUTHORIZED', 'USER_PROVIDED', 'GENERATED','PLATFORM_PROVIDED'].includes(asset?.rightsStatus ?? 'UNKNOWN')){
     try{
       const contextual=await loadCreativeImage(contextualSrc);
       drawCoverImage(ctx,contextual);
       drawContextOverlay(ctx);
       contextualRendered=true;
     }catch{
+      if(options.strict)throw new Error('FINAL_PIN_IMAGE_UNAVAILABLE');
       drawBackground(ctx,template,theme);
     }
   }else{

@@ -190,6 +190,13 @@ export function inspectAffiliateAttestation(product:ProductTruth,now=new Date())
   return 'SELF_CONFIRMED';
 }
 
+/** Separate direct referral links from the account-dependent official Shopee tag flow. */
+export function pinterestAffiliateMethod(product:ProductTruth):'AFFILIATE_LINK'|'SHOPEE_TAG' {
+  return product.marketplace==='SHOPEE'
+    ? product.pinterestAffiliateMethod ?? (product.affiliateUrl ? 'AFFILIATE_LINK' : 'SHOPEE_TAG')
+    : 'AFFILIATE_LINK';
+}
+
 export function runPublishingGuard(input: GuardInput): GuardResult {
   const checks: GuardResult['checks'] = [];
   const push = (key: string, outcome: ComplianceOutcome, message: string) =>
@@ -213,7 +220,7 @@ export function runPublishingGuard(input: GuardInput): GuardResult {
   );
 
   const affiliateUrl = input.product.affiliateUrl?.value;
-  if (input.product.marketplace === 'MELI') {
+  if (input.product.marketplace === 'MELI' || (input.product.marketplace === 'SHOPEE' && pinterestAffiliateMethod(input.product)==='AFFILIATE_LINK')) {
     let affiliateValid = false;
     if (affiliateUrl) {
       try {
@@ -241,7 +248,7 @@ export function runPublishingGuard(input: GuardInput): GuardResult {
         attestation==='MISSING'?'Confira na Central de Afiliados o anúncio, sua conta e o canal Pinterest.':
         'Usuário confirmou o link no portal. Comissão continua sujeita às regras do programa.');
     }
-  } else if (input.product.marketplace === 'SHOPEE' && !affiliateUrl) {
+  } else if (input.product.marketplace === 'SHOPEE') {
     push(
       'affiliate-link',
       'WARN',

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import type { ApprovalEvent, Campaign, ProductTruth, PublicationPackage, PublicationSchedule } from '@nestaffiliate/core';
 import { campaignVersions, canWrite, nextCampaignVersion, publicationScheduleStatus, restoreCampaignVersion, validateScheduledFor, type Role } from '@nestaffiliate/core';
-import { maxDuplicateSimilarity, runPublishingGuard, detectUnsupportedPinClaims, inspectAffiliateAttestation, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
+import { maxDuplicateSimilarity, runPublishingGuard, detectUnsupportedPinClaims, inspectAffiliateAttestation, pinterestAffiliateMethod, isPublicPinterestPinUrl, type FreshValidationResult, type PublicationFingerprint } from '@nestaffiliate/compliance';
 import { assessOpportunityV4, buildRadarFunnelV4, buildOpportunity, buildSearchSignal, buildShopeeOfferSignals, isDiscoverableProduct, isSafeOfferUrl, isSafeAffiliateUrl, offerFreshness, observationTime, isCommerceReadyProduct, rankCandidatePoolV4, productPotentialBand, signalResolverFromSnapshots, shortlist, type CommerceSignal, type Opportunity, type OpportunitySignals } from '@nestaffiliate/radar';
 import type { PerformanceDaily } from '@nestaffiliate/analytics';
 import { deriveLearning } from '@nestaffiliate/learning';
@@ -45,7 +45,7 @@ import { searchMercadoLivreBroker, searchMercadoLivreBrokerDetailed } from './se
 import { getShopeeApiStatus, searchShopeeBroker, searchShopeeBrokerDetailed } from './services/shopeeBroker';
 import { NextBestAction } from './features/NextBestAction';
 import { PremiumHomeHero, PremiumHomeJourney } from './features/PremiumHomeHero';
-import { ReelKitPanel } from './features/ReelKitPanel';
+import { VideoStudio } from './features/VideoStudio';
 import { FacebookShopeeGuide } from './features/FacebookShopeeGuide';
 import { RevenueTruthPanel } from './features/RevenueTruthPanel';
 import { analyzeAffiliateProduct, type AffiliateProductAnalysis } from './services/nestAiClient';
@@ -69,6 +69,7 @@ import { GuidedReviewActions } from './features/GuidedReviewActions';
 import { reviewBlockers } from './lib/reviewReadiness';
 import { publicationCalendarIcs } from './lib/publicationCalendar';
 import { FinalPinPublicationGuide } from './features/FinalPinPublicationGuide';
+import { publishingCheckLabel } from './lib/publishingLabels';
 import { generatePublishingZip } from './lib/publicationBundle';
 import { planCreativeEdit, type CreativeEditPlan } from './lib/creativeEdit';
 
@@ -613,7 +614,7 @@ function Shell({ children, locale, setLocale }: { children: React.ReactNode; loc
   ];
   const secondary: Array<[string, string]> = [
     ['/library', t('library')], ['/boards', t('boards')], ['/connections', t('connections')],
-    ['/prompt-studio', t('promptStudio')], ['/ai-cost', t('cost')], ['/settings', t('settings')], ['/workspace', t('workspace')], ['/help', t('help')],
+    ['/video-studio', locale==='pt-BR'?'Vídeos · preparação':locale==='es'?'Vídeos · preparación':'Videos · preparation'], ['/prompt-studio', t('promptStudio')], ['/ai-cost', t('cost')], ['/settings', t('settings')], ['/workspace', t('workspace')], ['/help', t('help')],
   ];
 
   return (
@@ -738,6 +739,10 @@ function Today({ campaigns, schedules, agentReport, organizationId }: { campaign
         ) : <Empty title={t('nothingNeeds')} body={t('nothingNeedsBody')} />}
       </section>
       <PremiumHomeJourney />
+      <details className="surface" style={{padding:20}}><summary>{locale==='pt-BR'?'Outros canais: preparar vídeos':locale==='es'?'Otros canales: preparar vídeos':'Other channels: video preparation'}</summary>
+        <p>{locale==='pt-BR'?'O Pinterest é o caminho principal. Para vídeos, há uma área separada com roteiros e prompts para Instagram, TikTok e Shopee Vídeo.':'Pinterest is the main workflow. Prepare video scripts and prompts in a separate area.'}</p>
+        <NavLink to="/video-studio" className="button secondary">{locale==='pt-BR'?'Abrir preparação de vídeos':locale==='es'?'Preparar vídeos':'Prepare videos'}</NavLink>
+      </details>
       {(due.length > 0 || upcoming.length > 0) && (
         <section className="section">
           {due.length > 0 && <>
@@ -1494,7 +1499,7 @@ function Radar({ addCampaign, organizationId, editable }: { addCampaign: (c: Cam
           setSearchMeta(null);
           setHasSearched(false);
           setAnalysisNotice('');
-          
+
           setShopeeProviderFallback(false);
         }}
         onOpenImport={()=>setShowImport(current=>!current)}
@@ -1952,6 +1957,17 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   const [reviewLocation,setReviewLocation]=useState<string|null>(null);
   const approvingRef = useRef(false);
 
+  const studioStorageKey=campaign?`nestaffiliate:pin-stage:${campaign.organizationId}:${campaign.id}:${campaign.currentVersion.product.externalId}`:null;
+  useEffect(()=>{
+    let stage:'text'|'image'|'review'='text';
+    try{const stored=studioStorageKey?localStorage.getItem(studioStorageKey):null;if(stored==='image'||stored==='review')stage=stored;}catch{/* Browser storage is optional. */}
+    setStudioStage(stage);
+  },[studioStorageKey]);
+  function chooseStudioStage(stage:'text'|'image'|'review'){
+    setStudioStage(stage);
+    try{if(studioStorageKey)localStorage.setItem(studioStorageKey,stage);}catch{/* Continue without local progress. */}
+  }
+
   useEffect(() => {
     setAffiliateDraft(campaign?.currentVersion.product.affiliateUrl?.value ?? '');
     setAffiliateChecked(Boolean(campaign?.currentVersion.product && inspectAffiliateAttestation(campaign.currentVersion.product)==='SELF_CONFIRMED'));
@@ -1966,7 +1982,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   const approvalGuard=runPublishingGuard({
     product:v.product,
     disclosure:v.narrative.disclosure,
-    destinationUrl:v.product.affiliateUrl?.value ?? v.product.url.value,
+    destinationUrl:pinterestAffiliateMethod(v.product)==='SHOPEE_TAG'?v.product.url.value:v.product.affiliateUrl?.value ?? v.product.url.value,
     headline:v.narrative.headline,pinterestTitle:v.narrative.pinterestTitle,description:v.narrative.description,
     creativeAsset:v.creativeAsset,
     requireAffiliateAttestation:Boolean(campaign.rankingContext?.v4ResearchDraft) || campaign.organizationId!=='demo-org',
@@ -2010,8 +2026,9 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
   function saveAffiliateLink() {
     try {
       const url = new URL(affiliateDraft.trim());
+      if (!editable)return;
       if (!isSafeAffiliateUrl(url.toString(),v.product.marketplace)) throw new Error('domain');
-      if(v.product.marketplace==='MELI' && !affiliateChecked){
+      if(!affiliateChecked){
         setAffiliateError(locale==='pt-BR'?'Confirme o anúncio, a sua conta e o canal Pinterest na Central de Afiliados antes de salvar.':locale==='es'?'Confirma primero en el portal de afiliados.':'Confirm the listing, account and Pinterest channel in the affiliate portal first.');
         return;
       }
@@ -2022,11 +2039,12 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           source: 'user-provided',
           observedAt: new Date().toISOString(),
         },
-        ...(v.product.marketplace==='MELI' ? {affiliateAttestation:{
+        pinterestAffiliateMethod:'AFFILIATE_LINK',
+        affiliateAttestation:{
           method:'USER_CONFIRMED_IN_AFFILIATE_PORTAL' as const,
           url:url.toString(),marketplace:v.product.marketplace,externalId:v.product.externalId,
           channel:'PINTEREST' as const,confirmedAt:new Date().toISOString(),
-        }} : {}),
+        },
       };
       const next=nextCampaignVersion(campaign, { product }, 'affiliate link updated');
       update(next);
@@ -2159,7 +2177,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       const hash=anchor?.getAttribute('href')??'';
       if(['#review-product','#review-ai','#review-images','#review-copy-editor',
           '#review-blockers','#review-final','#review-creative','#pin-preview'].includes(hash)){
+        event.preventDefault();
+        chooseStudioStage(['#review-images','#review-creative'].includes(hash)?'image':hash==='#review-ai'||hash==='#review-copy-editor'?'text':'review');
+        if(hash==='#review-ai')setShowNestAI(true);
         setReviewLocation(hash);
+        window.requestAnimationFrame(()=>document.querySelector(hash)?.scrollIntoView({behavior:'auto',block:'start'}));
       }
     }}>
       <section className="pin-studio-steps" aria-label={locale==='pt-BR'?'Criar Pin passo a passo':'Create Pin step by step'}>
@@ -2173,14 +2195,14 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
           ['review',locale==='pt-BR'?'3 · Conferir e publicar':locale==='es'?'3 · Revisar y publicar':'3 · Review & publish'],
          ] as const).map(([stage,label])=><button key={stage} type="button"
           className={studioStage===stage?'active':''} aria-current={studioStage===stage?'step':undefined}
-          onClick={()=>{setStudioStage(stage);setReviewLocation(null);}}>
+          onClick={()=>{chooseStudioStage(stage);setReviewLocation(null);}}>
             {label}
           </button>)}
         </nav>
       </section>
       <div className="pin-studio-stage" hidden={studioStage!=='text'}>
         <GuidedReviewActions campaign={activeCampaign} editable={editable} onUpdate={update}
-          onStage={setStudioStage} onAI={()=>setShowNestAI(true)}>
+          onStage={chooseStudioStage} onAI={()=>setShowNestAI(true)}>
           <div id="review-ai" hidden={!showNestAI}>
             <NestAiDraftReview campaign={activeCampaign} editable={editable}
               autoStart={false} onApply={applyNestAiCopy}/>
@@ -2227,22 +2249,22 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
       <div className="pin-studio-stage" hidden={studioStage!=='image'}>
         <section className="pin-image-steps" aria-label={locale==='pt-BR'?'Como criar imagem':'How to prepare the image'}>
           <p className="eyebrow">{locale==='pt-BR'?'ETAPA 2 · IMAGEM DO PIN':locale==='es'?'PASO 2 · IMAGEN':'STEP 2 · PIN IMAGE'}</p>
-          <h2>{locale==='pt-BR'?'Crie a imagem com o ChatGPT':locale==='es'?'Crea la imagen con ChatGPT':'Create the image in ChatGPT'}</h2>
-          <p>{locale==='pt-BR'?'O NestAffiliate prepara o prompt em inglês. Copie, abra o ChatGPT e anexe lá a foto original do produto. Depois volte e importe aqui só a imagem FINAL gerada. Não precisa enviar a mesma foto duas vezes.':locale==='es'?'NestAffiliate prepara el prompt. Adjunta la foto original en ChatGPT e importa aquí solo la imagen FINAL.':'NestAffiliate prepares the English prompt. Attach the real product photo in ChatGPT, then import only the FINAL generated result here.'}</p>
+          <h2>{locale==='pt-BR'?'Coloque o produto no ambiente certo':locale==='es'?'Crea la imagen con ChatGPT':'Create the image in ChatGPT'}</h2>
+          <p>{locale==='pt-BR'?'O NestAffiliate prepara o prompt em inglês. Copie, abra o ChatGPT e anexe lá a foto original do produto. Depois volte e importe aqui só a imagem FINAL gerada. Copiar o prompt não envia a foto. Para campanhas que exigem referência salva, guarde também a foto original aqui antes da aprovação.':locale==='es'?'NestAffiliate prepara el prompt. Adjunta la foto original en ChatGPT e importa aquí solo la imagen FINAL.':'NestAffiliate prepares the English prompt. Attach the real product photo in ChatGPT, then import only the FINAL generated result here.'}</p>
           <ol><li>{locale==='pt-BR'?'Copie o prompt em inglês.':'Copy the English prompt.'}</li>
            <li>{locale==='pt-BR'?'Abra ChatGPT e anexe a foto original autorizada lá.':'Open ChatGPT and attach your authorized product photo there.'}</li>
            <li>{locale==='pt-BR'?'Baixe a imagem gerada, volte e importe o resultado final.':'Download the resulting image and import the final result here.'}</li></ol>
         </section>
         <PinterestCreativePackPanel campaign={activeCampaign} editable={editable} onUpdate={update} />
-        <div className="pin-studio-next"><button type="button" className="button primary" onClick={()=>setStudioStage('review')}>
+        <div className="pin-studio-next"><button type="button" className="button primary" onClick={()=>chooseStudioStage('review')}>
           {locale==='pt-BR'?'Próximo: conferir link e Pin →':locale==='es'?'Siguiente: revisar Pin y enlace →':'Next: review Pin and link →'}
         </button></div>
-        {FEATURE_FLAGS.MULTICHANNEL_CREATIVE_KIT_ENABLED && <details className="pin-advanced-reel"><summary>{locale==='pt-BR'?'Opcional: criar Reel também':'Optional: create a Reel'}</summary><ReelKitPanel campaign={activeCampaign}/></details>}
+
       </div>
       <div className="pin-studio-stage" hidden={studioStage!=='review'}>
         {campaign.marketplace==='SHOPEE'&&<p className="guided-shopee-note" role="note">
           {locale==='pt-BR'
-            ?'Shopee: a marcação de afiliado é conferida na publicação. Confira o produto, a imagem final e a elegibilidade antes de publicar.'
+            ?'Shopee: escolha abaixo entre link da sua conta e marcação oficial. Cada opção tem sua própria conferência antes da publicação.'
             :locale==='es'
               ?'Shopee: verifica la etiqueta de afiliado durante la publicación y confirma el producto y la imagen.'
               :'Shopee: affiliate tagging is verified when publishing. Confirm the product and final image.'}
@@ -2291,6 +2313,17 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
             <small>{t('source')}: {v.product.title.source} · {new Date(v.product.title.observedAt).toLocaleString(locale)}</small>
             <div className="affiliate-editor">
               <label>{campaign.marketplace === 'MELI' ? t('affiliateRequired') : t('affiliateOfficial')}</label>
+              {campaign.marketplace==='SHOPEE'&&<label className="shopee-method-choice">
+                {locale==='pt-BR'?'Como você vai indicar o produto no Pinterest?':locale==='es'?'¿Cómo recomendarás el producto?':'How will you refer this product on Pinterest?'}
+                <select aria-label={locale==='pt-BR'?'Forma de afiliação Shopee':'Shopee affiliate method'} disabled={!editable}
+                  value={pinterestAffiliateMethod(v.product)} onChange={e=>{
+                    const method=e.target.value as 'AFFILIATE_LINK'|'SHOPEE_TAG';
+                    update(nextCampaignVersion(campaign,{product:{...v.product,pinterestAffiliateMethod:method}},'Pinterest affiliate method selected'));
+                  }}>
+                  <option value="AFFILIATE_LINK">{locale==='pt-BR'?'Link da minha conta de afiliado':locale==='es'?'Enlace de mi cuenta afiliada':'My affiliate account link'}</option>
+                  <option value="SHOPEE_TAG">{locale==='pt-BR'?'Marcação oficial Shopee no Pinterest':locale==='es'?'Etiqueta oficial Shopee en Pinterest':'Official Shopee tag in Pinterest'}</option>
+                </select>
+              </label>}
               <details className="affiliate-guided-help">
                 <summary>{locale==='pt-BR'?'Como conferir o link de afiliado?':locale==='es'?'Cómo confirmar tu enlace de afiliado':'How to verify your affiliate link'}</summary>
                 <strong>{locale==='pt-BR'?'Etapa 2 · Seu link de comissão não vem automaticamente do Radar':locale==='es'?'Paso 2 · Tu enlace de afiliado no llega automáticamente':'Step 2 · The Radar does not automatically provide your commission link'}</strong>
@@ -2298,11 +2331,11 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
                   <li>{locale==='pt-BR'?'Abra o anúncio original acima e confira se o produto realmente está disponível.':locale==='es'?'Abre el anuncio del producto y verifica la oferta.':'Open the exact listing above and confirm the product.'}</li>
                   <li>{locale==='pt-BR'?'Entre na Central de Afiliados do Mercado Livre com sua conta aprovada. No computador, use Gerador de Links e cole o anúncio; no celular, use a Barra de Afiliados ativada e Compartilhar.':locale==='es'?'Entra en el Portal de Afiliados para generar el enlace real, no el enlace común.':'In your Mercado Livre affiliate portal, generate the real referral link for this listing; on mobile use the authorized affiliate share bar.'}</li>
                   <li>{locale==='pt-BR'?'Confirme se o Pinterest está autorizado como canal, copie o link gerado e cole no campo abaixo. Marque a conferência e salve.':locale==='es'?'Comprueba Pinterest como canal, pega el enlace y confirma.':'Verify Pinterest as your channel, paste the generated affiliate URL below, check and save.'}</li>
-                </ol> : <p>{locale==='pt-BR'?'Na Shopee, o produto encontrado não significa que seu link de comissão está pronto. Se usar um link, gere-o na sua conta do programa Shopee Afiliados para o anúncio exato e cole aqui. Na publicação pelo Pinterest, confirme também a marcação oficial do produto e sua elegibilidade; o NestAffiliate não comprova comissão automaticamente.':locale==='es'?'Verifica las reglas de afiliados y la etiqueta oficial de Pinterest.':'Follow Shopee affiliate eligibility and official Pinterest product-tagging rules.'}</p>}
+                </ol> : <p>{locale==='pt-BR'?'Na Shopee, o produto encontrado não significa que seu link de comissão está pronto. Se usar um link, gere-o na sua conta do programa Shopee Afiliados para o anúncio exato e cole aqui. Se escolher marcação oficial, confirme que ela está disponível e que sua conta é elegível; o NestAffiliate não comprova comissão automaticamente.':locale==='es'?'Verifica las reglas de afiliados y la etiqueta oficial de Pinterest.':'Follow Shopee affiliate eligibility and official Pinterest product-tagging rules.'}</p>}
                 {campaign.marketplace==='MELI'&&<a className="button secondary" href="https://www.mercadolivre.com.br/l/afiliados-portal-do-afiliado" target="_blank" rel="noopener noreferrer">{locale==='pt-BR'?'Abrir instruções oficiais do Mercado Livre ↗':locale==='es'?'Instrucciones oficiales ↗':'Open official affiliate guide ↗'}</a>}
                 <p className="muted">{locale==='pt-BR'?'A URL comum do anúncio ou um código de tracking interno não provam comissão. Só sua conta de afiliado pode gerar e confirmar a atribuição.':locale==='es'?'El enlace común y el tracking interno no garantizan comisión.':'A normal product URL and internal tracking code do not prove affiliate commission.'}</p>
               </details>
-              <div className="inline-editor">
+              <div className="inline-editor" hidden={pinterestAffiliateMethod(v.product)==='SHOPEE_TAG'}>
                 <input
                   value={affiliateDraft}
                   onChange={(e) => { setAffiliateDraft(e.target.value);setAffiliateChecked(false); setSaved(false); }}
@@ -2312,7 +2345,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
                 />
                 <button className="button secondary" disabled={!editable} onClick={saveAffiliateLink}>{locale==='pt-BR'?'Salvar conferência':locale==='es'?'Guardar comprobación':'Save confirmation'}</button>
               </div>
-              {campaign.marketplace==='MELI' && <div className="affiliate-proof-check">
+              {pinterestAffiliateMethod(v.product)==='AFFILIATE_LINK' && <div className="affiliate-proof-check">
                 <label><input type="checkbox" checked={affiliateChecked} disabled={!editable} onChange={e=>setAffiliateChecked(e.target.checked)}/>
                   <span>{locale==='pt-BR'?'Conferi este anúncio e gerei/validei este link na minha Central de Afiliados para divulgação no Pinterest.':locale==='es'?'Comprobé este anuncio, enlace y canal en mi cuenta de afiliados.':'I checked this listing, link and Pinterest channel in my affiliate account.'}</span>
                 </label>
@@ -2389,7 +2422,7 @@ function Review({ campaigns, update, editable }: { campaigns: Campaign[]; update
               : (locale==='pt-BR'?'Tudo conferido. Pode avançar para publicar.':locale==='es'?'Listo para continuar':'Ready to proceed')}</h3>
             {missingSteps.length>0 && <ol className="review-blocker-list">{missingSteps.map(item=><li key={item.key}>
                <span>{item.message}</span><button type="button" className="review-blocker-go" onClick={()=>{
-                setStudioStage(item.key.includes('claims')||item.key.includes('disclosure')?'text':
+                chooseStudioStage(item.key.includes('claims')||item.key.includes('disclosure')?'text':
                   item.target==='#review-product'||item.target==='#review-final'?'review':'image');
                 setReviewLocation(null);
               }}>{locale==='pt-BR'?'Ir para a etapa correta →':locale==='es'?'Ir a la etapa correspondiente →':'Go to the right step →'}</button>
@@ -2519,6 +2552,7 @@ function Publish({
   const progressCampaignId=campaign?.id;
   const progressOrganizationId=campaign?.organizationId;
   const progressVersion=campaign?.currentVersion.version;
+  useEffect(()=>{setTagConfirmed(false);setPublishedUrl('');setPublishedUrlError('');setManualFreshConfirmed(false);setStep(0);},[progressCampaignId,progressVersion]);
   useEffect(()=>{
     if(!progressCampaignId || !progressOrganizationId || !progressVersion || !FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED) return;
     const key=`nestaffiliate:publish:v3:${progressOrganizationId}:${progressCampaignId}:${progressVersion}`;
@@ -2611,7 +2645,8 @@ function Publish({
   const activeCampaign: Campaign = campaign;
   const v = activeCampaign.currentVersion;
   const progressKey=`nestaffiliate:publish:v3:${activeCampaign.organizationId}:${activeCampaign.id}:${v.version}`;
-  const destination = v.product.affiliateUrl?.value ?? v.product.url.value;
+  const usesShopeeTag=activeCampaign.marketplace==='SHOPEE' && pinterestAffiliateMethod(v.product)==='SHOPEE_TAG';
+  const destination = usesShopeeTag ? v.product.url.value : v.product.affiliateUrl?.value ?? v.product.url.value;
   const shopeeSearchTerm=activeCampaign.marketplace==='SHOPEE' ? buildShopeePinterestSearchTerm(v.product) : '';
   const shopeeReference=activeCampaign.marketplace==='SHOPEE' ? parseShopeeProductReference(v.product.url.value) : {};
   const hasFrequencyPolicy=preferences.maxPublications24h!==null || preferences.minGapMinutes!==null;
@@ -2739,7 +2774,7 @@ function Publish({
   }
 
   async function downloadPackage() {
-    if(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)return;
+    if(publisherBlocked)return;
     try{
       persistPackage();
       const canvas=document.createElement('canvas');
@@ -2753,7 +2788,7 @@ function Publish({
             version={...v,creativeAsset:{...v.creativeAsset,downloadUrl:resolved.url}};
           }
         }
-        const image=await renderPin(canvas,version);
+        const image=await renderPin(canvas,version,undefined,{strict:activeCampaign.organizationId!=='demo-org'});
         const binary=atob(image.split(',')[1]??'');
         const png=Uint8Array.from(binary,(char)=>char.charCodeAt(0));
         const zip=generatePublishingZip(pkg,png);
@@ -2767,33 +2802,30 @@ function Publish({
   }
 
   async function downloadImage() {
-    if(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)return;
-    persistPackage();
-    const canvas = document.createElement('canvas');
-    let version=v;
+    if(publisherBlocked)return;
     let objectUrl:string|undefined;
-    if(v.creativeAsset && !v.creativeAsset.downloadUrl && db){
-      const resolved=await resolveCreativeAssetUrl(db,activeCampaign.organizationId,v.creativeAsset).catch(()=>null);
-      if(resolved){
-        objectUrl=resolved.revoke ? resolved.url : undefined;
-        version={...v,creativeAsset:{...v.creativeAsset,downloadUrl:resolved.url}};
+    try{
+      persistPackage();
+      const canvas=document.createElement('canvas');
+      let version=v;
+      if(v.creativeAsset && !v.creativeAsset.downloadUrl && db){
+        const resolved=await resolveCreativeAssetUrl(db,activeCampaign.organizationId,v.creativeAsset);
+        if(resolved){objectUrl=resolved.revoke?resolved.url:undefined;version={...v,creativeAsset:{...v.creativeAsset,downloadUrl:resolved.url}};}
       }
-    }
-    const dataUrl = await renderPin(canvas, version);
-    if(objectUrl) URL.revokeObjectURL(objectUrl);
-    const link = document.createElement('a');
-    link.href = dataUrl;
-    link.download = pkg.filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+      const dataUrl=await renderPin(canvas,version,undefined,{strict:activeCampaign.organizationId!=='demo-org'});
+      const link=document.createElement('a');link.href=dataUrl;link.download=pkg.filename;
+      document.body.appendChild(link);link.click();link.remove();
+      setPublishedUrlError('');
+    }catch{
+      setPublishedUrlError(locale==='pt-BR'?'A imagem final não pôde ser carregada. Volte à revisão, confira a imagem salva e tente novamente. Nenhum arquivo incompleto foi baixado.':locale==='es'?'No se pudo cargar la imagen final. Vuelve a la revisión.':'The final image could not be loaded. Return to review; no incomplete file was downloaded.');
+    }finally{if(objectUrl)URL.revokeObjectURL(objectUrl);}
   }
 
   async function markPublished() {
     if(publisherBlocked || !online || publishing || activeCampaign.status!=='PUBLICATION_READY') return;
     if(FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED){
       const proofValid=isPublicPinterestPinUrl(publishedUrl);
-      if(!proofValid || (activeCampaign.marketplace==='SHOPEE' && !tagConfirmed)){
+      if(!proofValid || (usesShopeeTag && !tagConfirmed)){
         setPublishedUrlError(t('r3InvalidPinProof'));return;
       }
       if(!db || !identity.organizationId){
@@ -2839,7 +2871,7 @@ function Publish({
       </section>}
       <ProductSourceActions product={v.product} compact />
       <div className="validation-row">
-        {guard.checks.map((check) => <span key={check.key} className={`check ${check.outcome.toLowerCase()}`}>{check.outcome === 'PASS' ? '✓' : check.outcome === 'WARN' ? '!' : '×'} {check.key}</span>)}
+        {guard.checks.map((check) => <span key={check.key} className={`check ${check.outcome.toLowerCase()}`}>{check.outcome === 'PASS' ? '✓' : check.outcome === 'WARN' ? '!' : '×'} {publishingCheckLabel(check.key,locale)}</span>)}
       </div>
       {guard.outcome === 'BLOCK' && <div className="notice danger">{t('publishBlocked')}</div>}
       {activeCampaign.rankingContext?.v4ResearchDraft && referenceValidation!=='approved' &&
@@ -2869,18 +2901,19 @@ function Publish({
         )}
         {freshMaterialBlock && <NavLink className="button secondary" to={`/review/${activeCampaign.id}`}>{t('returnReview')}</NavLink>}
       </section>
+      {publishedUrlError&&<p className="notice danger" role="alert">{publishedUrlError}</p>}
       <div className="publish-grid">
         <PinPreview campaign={campaign} />
         <FinalPinPublicationGuide
           key={activeCampaign.id+':'+v.version}
           pack={pkg}
-          blocked={Boolean(activeCampaign.rankingContext?.v4ResearchDraft && publisherBlocked)}
+          blocked={publisherBlocked}
           onDownloadZip={()=>void downloadPackage()}
           onDownloadPng={()=>void downloadImage()}
           onCopy={copy}
         />
       </div>
-      {activeCampaign.marketplace==='SHOPEE' && <section className="shopee-tagging-pack">
+      {usesShopeeTag && <section className="shopee-tagging-pack">
         <div>
           <p className="eyebrow">SHOPEE + PINTEREST</p>
           <h2>{t('shopeeTaggingPack')}</h2>
@@ -2913,12 +2946,11 @@ function Publish({
         <p className="eyebrow">{t('r3PublishedProof')}</p>
         <p className="muted">{t('r3PublishedProofHelp')}</p>
         <input inputMode="url" type="url" aria-label={t('r3PublishedProof')} placeholder="https://www.pinterest.com/pin/123456789/" value={publishedUrl} onChange={(e)=>{setPublishedUrl(e.target.value);setPublishedUrlError('');}}/>
-        {activeCampaign.marketplace==='SHOPEE' && <label className="manual-confirm">
+        {usesShopeeTag && <label className="manual-confirm">
           <input type="checkbox" checked={tagConfirmed} onChange={(e)=>setTagConfirmed(e.target.checked)}/>
           {t('r3ShopeeTagProof')}
         </label>}
         <p className="muted">{t('r3ChannelEligibility')}</p>
-        {publishedUrlError && <p className="field-error" role="alert">{publishedUrlError}</p>}
       </section>}
       <section className="guided">
         <div className="guided-copy">
@@ -2932,7 +2964,7 @@ function Publish({
           {step < steps.length - 1 ? (
             <button className="button primary" disabled={publisherBlocked} onClick={nextStep}>{t('next')}</button>
           ) : (
-            <button className="button primary" disabled={publisherBlocked || !online || publishing || (FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && (!publishedUrl.trim() || (activeCampaign.marketplace==='SHOPEE' && !tagConfirmed)))} onClick={() => void markPublished()}>{publishing?t('r3PublishingSync'):t('markPublished')}</button>
+            <button className="button primary" disabled={publisherBlocked || !online || publishing || (FEATURE_FLAGS.REVENUE_RADAR_3_ENABLED && (!publishedUrl.trim() || (usesShopeeTag && !tagConfirmed)))} onClick={() => void markPublished()}>{publishing?t('r3PublishingSync'):t('markPublished')}</button>
           )}
         </div>
       </section>
@@ -3095,6 +3127,7 @@ export function App() {
         <Route path="/publish/:id" element={<Publish campaigns={store.campaigns} update={store.update} preferences={preferenceStore.preferences} onSchedule={scheduleStore.add} completeSchedule={scheduleStore.complete} />} />
         <Route path="/results" element={<Results campaigns={store.campaigns} organizationId={org} rows={performance.rows} onSave={performance.save} onImport={performance.importMany} />} />
         <Route path="/connections" element={<Connections />} />
+        <Route path="/video-studio" element={<VideoStudio campaigns={store.campaigns}/>} />
         <Route path="/prompt-studio" element={<PromptStudio campaigns={store.campaigns} editable={editable} onUpdate={store.update} />} />
         <Route path="/ai-cost" element={<AiCost />} />
         <Route path="/settings" element={<SettingsPanel preferences={preferenceStore.preferences} editable={editable} onChange={preferenceStore.update} />} />

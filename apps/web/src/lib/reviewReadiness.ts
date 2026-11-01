@@ -17,7 +17,7 @@ export function reviewBlockers(campaign:Campaign,guard:GuardResult):ReviewBlocke
  // For real newly reviewed Pins, text-only mockups must not be mistaken for a finished photo.
  if(campaign.organizationId!=='demo-org'){
    if(!v.creativePack)add('creative-pack','Prepare o Creative Pack: ele trará títulos, descrição, conceitos e o prompt em inglês.','#review-creative');
-   if(!v.creativeAsset)add('creative-image','Gere a imagem no ChatGPT, importe-a e confirme fidelidade e direitos antes de aprovar.','#review-creative');
+   if(!v.creativeAsset)add('creative-image','Crie a imagem com o prompt em uma IA ou componha com a foto real sem IA. Depois confira a fidelidade e os direitos antes de aprovar.','#review-creative');
  }
  if(campaign.rankingContext?.v4ResearchDraft){
    const asset=v.creativeAsset;
@@ -25,7 +25,7 @@ export function reviewBlockers(campaign:Campaign,guard:GuardResult):ReviewBlocke
       || !asset.referenceSha256 || !asset.reviewedAt || !asset.productFidelityConfirmed)
      add('reference-lock','Selecione a foto de referência autorizada, anexe-a ao ChatGPT e revise a imagem importada.','#review-creative');
  }
- if(v.creativePack && !v.creativeAsset)add('image-pack','Este Pin já tem textos, mas ainda falta importar e revisar a imagem gerada.','#review-creative');
+ if(v.creativePack && !v.creativeAsset)add('image-pack','Este Pin já tem textos. Falta importar a imagem criada com IA ou compor com a foto real e revisar o resultado.','#review-creative');
  const steps:Record<string,{message:string;target:ReviewBlocker['target']}>={
    availability:{message:'A oferta aparece indisponível. Confira o anúncio real ou troque o produto.',target:'#review-product'},
    link:{message:'O link de destino precisa ser HTTPS e corresponder a uma oferta válida.',target:'#review-product'},

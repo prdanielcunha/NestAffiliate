@@ -16,14 +16,15 @@ export function NextBestAction({campaigns,schedules,agentReport}:{
     campaigns.some((campaign)=>campaign.id===schedule.campaignId && campaign.status==='PUBLICATION_READY'));
   const publishable=campaigns.find((campaign)=>campaign.status==='PUBLICATION_READY');
   const health=deriveDailyAgentHealth(agentReport);
-  const next=blocked
-    ? {key:'todayResolveBlock' as const,detail:'todayBlockReason' as const,to:`/review/${blocked.id}`,campaign:blocked}
-    : ready
-      ? {key:'todayReviewBest' as const,detail:'todayReadyReason' as const,to:`/review/${ready.id}`,campaign:ready}
-      : due
-        ? {key:'todayPublishNext' as const,detail:'todayDueReason' as const,to:`/publish/${due.campaignId}`,campaign:campaigns.find((item)=>item.id===due.campaignId)}
-        : publishable
-          ? {key:'todayPublishNext' as const,detail:'todayApprovedReason' as const,to:`/publish/${publishable.id}`,campaign:publishable}
+  // Finish approved work before surfacing older blocked drafts.
+  const next=due
+    ? {key:'todayPublishNext' as const,detail:'todayDueReason' as const,to:`/publish/${due.campaignId}`,campaign:campaigns.find(item=>item.id===due.campaignId)}
+    : publishable
+      ? {key:'todayPublishNext' as const,detail:'todayApprovedReason' as const,to:`/publish/${publishable.id}`,campaign:publishable}
+      : ready
+        ? {key:'todayReviewBest' as const,detail:'todayReadyReason' as const,to:`/review/${ready.id}`,campaign:ready}
+        : blocked
+          ? {key:'todayResolveBlock' as const,detail:'todayBlockReason' as const,to:`/review/${blocked.id}`,campaign:blocked}
           : {key:'todayDiscover' as const,detail:'todayEmptyReason' as const,to:'/radar',campaign:undefined};
   const lastRun=agentReport?.completedAt && Number.isFinite(Date.parse(agentReport.completedAt))
     ? new Date(agentReport.completedAt).toLocaleString(locale)

@@ -153,7 +153,7 @@ test('Shopee short share URL resolves through Hub while preserving affiliate att
  await page.getByRole('button',{name:'1 · Textos'}).click();
  await expect(page.getByRole('region',{name:'Próxima ação e textos do Pin'})).toBeVisible();
  await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
- await expect(page.getByText(/Shopee: a marcação de afiliado é conferida na publicação/i)).toBeVisible();
+ await expect(page.getByText(/Shopee: escolha abaixo entre link da sua conta e marcação oficial/i)).toBeVisible();
 });
 
 

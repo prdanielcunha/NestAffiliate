@@ -166,7 +166,7 @@ test('custom ChatGPT image prompt preserves mandatory source rules in visible fi
  const prompt=page.locator('.image-prompt-box');
  await expect(prompt).toContainText('Luz natural suave');
  await expect(page.getByText('Como gerar com seu ChatGPT (sem API)')).toBeVisible();
- await expect(page.getByText(/assinatura ChatGPT Pro e API são produtos separados/i)).toBeVisible();
+ await expect(page.getByText(/Não é necessário contratar uma assinatura para continuar no NestAffiliate/i)).toBeVisible();
 });
 
 test('Approval with incomplete creative shows actionable blockers and preserves campaign',async({page})=>{
