@@ -537,3 +537,5 @@ button, a { touch-action:manipulation; }
  .guided-text-primary-actions>.button {width:100%;min-height:52px;}
  .guided-step-complete {padding:14px;}
 }
+
+.inline-editor[hidden]{display:none!important}

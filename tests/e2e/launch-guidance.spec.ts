@@ -44,3 +44,15 @@ test('image preparation resumes after returning to a reloaded tab',async({page})
  await expect(page.locator('.pin-studio-tabs button.active')).toContainText('Imagem');
  await expect(page.locator('.pin-image-steps')).toBeVisible();
 });
+
+test('Shopee tagging and direct-link controls are never mixed',async({page})=>{
+ await page.goto('/campaigns');
+ await page.locator('.campaign-card').filter({hasText:'SHOPEE'}).first().click();
+ await page.getByRole('button',{name:'3 · Conferir e publicar'}).click();
+ const method=page.getByLabel('Forma de afiliação Shopee');
+ await method.selectOption('SHOPEE_TAG');
+ await expect(page.getByRole('textbox',{name:'Link afiliado'})).toBeHidden();
+ await method.selectOption('AFFILIATE_LINK');
+ await expect(page.getByRole('textbox',{name:'Link afiliado'})).toBeVisible();
+ await expect(page.getByText('Conferi este anúncio e gerei/validei este link na minha Central de Afiliados para divulgação no Pinterest.')).toBeVisible();
+});
